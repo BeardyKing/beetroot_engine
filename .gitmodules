@@ -1,0 +1,3 @@
+[submodule "beet_engine/beet_math/third/glm"]
+	path = beet_engine/beet_math/third/glm
+	url = https://github.com/icaven/glm.git
