@@ -7,7 +7,7 @@ set(BEET_CMAKE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(beet_engine)
 
 #====OFFLINE PIPELINE=====
-#add_subdirectory(beet_pipeline)
+add_subdirectory(beet_pipeline)
 
 #====EXES=================
 add_subdirectory(beet_runtime)
