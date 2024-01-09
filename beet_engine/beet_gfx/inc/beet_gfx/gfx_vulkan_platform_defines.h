@@ -1,0 +1,76 @@
+#ifndef BEETROOT_GFX_VULKAN_PLATFORM_DEFINES_H
+#define BEETROOT_GFX_VULKAN_PLATFORM_DEFINES_H
+
+#include <cstdint>
+#include <Windows.h>
+#include <vulkan/vulkan_win32.h>
+
+//===extensions==============
+static constexpr int32_t BEET_VK_EXTENSION_COUNT = 3;
+static const char *BEET_VK_EXTENSIONS[BEET_VK_EXTENSION_COUNT]{
+        VK_KHR_SURFACE_EXTENSION_NAME,
+        VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+        VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+};
+
+//==debug====================
+#if BEET_DEBUG
+constexpr int32_t BEET_DEBUG_VK_FORCE_GPU_SELECTION = -1; // ignore [-1] force select [0..UINT32_MAX]
+#endif
+
+//===validation==============
+constexpr char BEET_VK_LAYER_VALIDATION[] = "VK_LAYER_KHRONOS_validation";
+
+static const int32_t BEET_VK_VALIDATION_COUNT = 1;
+static const char *beetVulkanValidations[BEET_VK_EXTENSION_COUNT]{
+        BEET_VK_LAYER_VALIDATION,
+};
+
+//===api version=============
+// to be used for runtime version checking.
+#define BEET_VK_API_VERSION_1_3 VK_MAKE_API_VERSION(0, 1, 3, 0)
+#define BEET_VK_API_VERSION_1_2 VK_MAKE_API_VERSION(0, 1, 2, 0)
+#define BEET_VK_API_VERSION_1_1 VK_MAKE_API_VERSION(0, 1, 1, 0)
+#define BEET_VK_API_VERSION_1_0 VK_MAKE_API_VERSION(0, 1, 0, 0)
+
+#if defined(VK_VERSION_1_3)
+#define BEET_VK_COMPILE_VERSION_1_3 1
+#define BEET_VK_COMPILE_VERSION_1_2 1
+#define BEET_VK_COMPILE_VERSION_1_1 1
+#define BEET_VK_COMPILE_VERSION_1_0 1
+
+#define BEET_MAX_VK_API_VERSION BEET_VK_API_VERSION_1_3
+static_assert(BEET_VK_API_VERSION_1_3 == VK_API_VERSION_1_3);
+
+#elif defined(VK_VERSION_1_2)
+#define BEET_VK_COMPILE_VERSION_1_3 0
+#define BEET_VK_COMPILE_VERSION_1_1 1
+#define BEET_VK_COMPILE_VERSION_1_0 1
+#define BEET_VK_COMPILE_VERSION_1_2 1
+
+#define BEET_MAX_VK_API_VERSION BEET_VK_API_VERSION_1_2
+static_assert(BEET_VK_API_VERSION_1_2 == VK_API_VERSION_1_2);
+
+#elif defined(VK_VERSION_1_1)
+#define BEET_VK_COMPILE_VERSION_1_3 0
+#define BEET_VK_COMPILE_VERSION_1_2 0
+#define BEET_VK_COMPILE_VERSION_1_1 1
+#define BEET_VK_COMPILE_VERSION_1_0 1
+
+#define BEET_MAX_VK_API_VERSION VK_API_VERSION_1_1
+static_assert(BEET_VK_API_VERSION_1_1 == VK_API_VERSION_1_1);
+
+#elif defined(VK_VERSION_1_0)
+#define BEET_VK_COMPILE_VERSION_1_3 0
+#define BEET_VK_COMPILE_VERSION_1_2 0
+#define BEET_VK_COMPILE_VERSION_1_1 0
+#define BEET_VK_COMPILE_VERSION_1_0 1
+
+#define BEET_MAX_VK_API_VERSION VK_API_VERSION_1_0
+static_assert(BEET_VK_API_VERSION_1_0 == VK_API_VERSION_1_0);
+
+#else
+SANITY_CHECK()
+#endif
+
+#endif //BEETROOT_GFX_VULKAN_PLATFORM_DEFINES_H

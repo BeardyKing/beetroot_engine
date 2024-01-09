@@ -3,7 +3,6 @@
 
 #include <beet_math/vec2.h>
 #include <beet_core/input_types.h>
-#include <vulkan/vulkan_core.h>
 
 constexpr uint32_t MAX_WINDOW_TITLE_SIZE = 64;
 
@@ -13,9 +12,7 @@ void window_update();
 void window_set_cursor(CursorState state);
 void window_set_cursor_lock_position(vec2i lockPos);
 bool window_is_cursor_over_window();
-
-//===vulkan api==============
-void window_create_render_surface(const VkInstance *instance, VkSurfaceKHR *out_surface);
+void* window_get_handle();
 
 //===init & shutdown=========
 void window_create(const char windowTitle[MAX_WINDOW_TITLE_SIZE], const vec2i &windowSize, const vec2i &windowPosition = {UINT32_MAX, UINT32_MAX});

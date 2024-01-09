@@ -15,7 +15,6 @@
 #include <Windows.h>
 #include <WindowsX.h>
 
-#include <vulkan/vulkan_win32.h>
 #include "input_types.h"
 
 //===internal structs========
@@ -270,16 +269,8 @@ void window_set_cursor(CursorState state) {
     }
 }
 
-void window_create_render_surface(const VkInstance *instance, VkSurfaceKHR *out_surface) {
-    VkWin32SurfaceCreateInfoKHR surfaceInfo = {
-            VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR
-    };
-
-    surfaceInfo.hinstance = GetModuleHandle(nullptr);
-    surfaceInfo.hwnd = g_windowInfo->handle;
-
-    VkResult result = vkCreateWin32SurfaceKHR(*instance, &surfaceInfo, nullptr, out_surface);
-    ASSERT_MSG(result == VK_SUCCESS, "Err: failed to create vulkan surface");
+void *window_get_handle() {
+    return g_windowInfo->handle;
 }
 
 //===init & shutdown=========

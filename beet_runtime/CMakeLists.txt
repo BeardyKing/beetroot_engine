@@ -4,7 +4,7 @@ project(beet_runtime)
 
 #====EXE SOURCE===========
 add_executable(beet_runtime
-    main.cpp
+        main.cpp
 )
 
 #====PROPERTIES===========
@@ -13,7 +13,8 @@ set_target_properties(beet_runtime PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_
 set_target_properties(beet_runtime PROPERTIES OUTPUT_NAME beet_runtime)
 
 target_link_libraries(beet_runtime
-    beet_shared
-    beet_math
-    beet_core
+        beet_shared
+        beet_math
+        beet_gfx
+        beet_core
 )
