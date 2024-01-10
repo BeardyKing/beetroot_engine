@@ -6,6 +6,8 @@ add_library(beet_shared
         inc/beet_shared/assert.h
         inc/beet_shared/log.h
         src/log.cpp
+        inc/beet_shared/shared_utils.h
+        src/shared_utils.cpp
 )
 
 #====LIB TARGET DIR=======

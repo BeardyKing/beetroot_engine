@@ -26,6 +26,26 @@ static const char *beetVulkanValidations[BEET_VK_EXTENSION_COUNT]{
         BEET_VK_LAYER_VALIDATION,
 };
 
+//===debug msg callbacks=====
+static PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT_Func;
+static PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT_Func;
+static PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT_Func;
+
+#define BEET_VK_CREATE_DEBUG_UTIL_EXT "vkCreateDebugUtilsMessengerEXT"
+#define BEET_VK_DESTROY_DEBUG_UTIL_EXT "vkDestroyDebugUtilsMessengerEXT"
+#define BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT "vkSetDebugUtilsObjectNameEXT"
+
+static const VkDebugUtilsMessageSeverityFlagsEXT BEET_VK_DEBUG_UTILS_MESSAGE_SEVERITY =
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+
+static const VkDebugUtilsMessageTypeFlagsEXT BEET_VK_DEBUG_UTILS_MESSAGE_TYPE =
+        VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+
 //===api version=============
 // to be used for runtime version checking.
 #define BEET_VK_API_VERSION_1_3 VK_MAKE_API_VERSION(0, 1, 3, 0)

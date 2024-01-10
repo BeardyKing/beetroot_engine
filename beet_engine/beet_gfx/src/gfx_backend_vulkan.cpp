@@ -6,6 +6,7 @@
 #include <beet_gfx/gfx_vulkan_platform_defines.h>
 #include <beet_gfx/gfx_interface.h>
 #include <beet_gfx/gfx_vulkan_surface.h>
+#include <beet_shared/shared_utils.h>
 
 static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_OTHER",
@@ -24,9 +25,25 @@ struct VulkanSwapChain {
     VkSurfaceKHR surface;
 };
 
+struct QueueFamilyIndices {
+    uint32_t graphics = {UINT32_MAX};
+    uint32_t compute = {UINT32_MAX};
+    uint32_t transfer = {UINT32_MAX};
+    uint32_t present = {UINT32_MAX};
+};
+
+static struct VulkanDebug {
+    VkDebugUtilsMessengerEXT debugUtilsMessenger = {VK_NULL_HANDLE};
+} g_vulkanDebug;
+
 static struct VulkanBackend {
     VkInstance instance = {VK_NULL_HANDLE};
     VkPhysicalDevice physicalDevice = {VK_NULL_HANDLE};
+    VkDevice device = {VK_NULL_HANDLE};
+    VkQueue queue = {VK_NULL_HANDLE};
+
+    VkCommandPool commandPool = {VK_NULL_HANDLE};
+
     VkPhysicalDeviceProperties deviceProperties = {};
     VkPhysicalDeviceFeatures deviceFeatures = {};
     VkPhysicalDeviceMemoryProperties deviceMemoryProperties = {};
@@ -37,6 +54,7 @@ static struct VulkanBackend {
     uint32_t validationLayersCount = {};
 
     VulkanSwapChain swapChain = {};
+    QueueFamilyIndices queueFamilyIndices = {};
 
 } g_vulkanBackend;
 
@@ -176,17 +194,256 @@ void gfx_cleanup_surface() {
     g_vulkanBackend.swapChain.surface = VK_NULL_HANDLE;
 }
 
+static VkBool32 VKAPI_PTR validation_message_callback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT messageWarningLevel,
+        VkDebugUtilsMessageTypeFlagsEXT /*messageType*/,
+        const VkDebugUtilsMessengerCallbackDataEXT *callbackData,
+        void */*userData*/) {
+
+    switch (messageWarningLevel) {
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: {
+            log_error(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
+            break;
+        }
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: {
+            log_warning(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
+            break;
+        }
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: {
+            log_info(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
+            break;
+        }
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: {
+            log_verbose(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
+            break;
+        }
+        default: {
+            ASSERT(callbackData && callbackData->pMessageIdName && callbackData->pMessage);
+        }
+    }
+    return VK_FALSE;
+}
+
+void gfx_cleanup_debug_callbacks() {
+    ASSERT_MSG(g_vulkanDebug.debugUtilsMessenger != VK_NULL_HANDLE, "Err: debug utils messenger has already been destroyed");
+    vkDestroyDebugUtilsMessengerEXT_Func(g_vulkanBackend.instance, g_vulkanDebug.debugUtilsMessenger, nullptr);
+    g_vulkanDebug.debugUtilsMessenger = VK_NULL_HANDLE;
+}
+
+void gfx_create_debug_callbacks() {
+    VkInstance &instance = g_vulkanBackend.instance;
+    vkCreateDebugUtilsMessengerEXT_Func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, BEET_VK_CREATE_DEBUG_UTIL_EXT);
+    ASSERT_MSG(vkCreateDebugUtilsMessengerEXT_Func, "Err: failed to setup debug callback %s", BEET_VK_CREATE_DEBUG_UTIL_EXT);
+
+    vkDestroyDebugUtilsMessengerEXT_Func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, BEET_VK_DESTROY_DEBUG_UTIL_EXT);
+    ASSERT_MSG(vkDestroyDebugUtilsMessengerEXT_Func, "Err: failed to setup debug callback %s", BEET_VK_DESTROY_DEBUG_UTIL_EXT);
+
+    vkSetDebugUtilsObjectNameEXT_Func = (PFN_vkSetDebugUtilsObjectNameEXT) vkGetInstanceProcAddr(instance, BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT);
+    ASSERT_MSG(vkSetDebugUtilsObjectNameEXT_Func, "Err: failed to setup debug callback %s", BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT);
+
+    VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
+    messengerCreateInfo.messageSeverity = BEET_VK_DEBUG_UTILS_MESSAGE_SEVERITY;
+    messengerCreateInfo.messageType = BEET_VK_DEBUG_UTILS_MESSAGE_TYPE;
+    messengerCreateInfo.pfnUserCallback = validation_message_callback;
+
+    vkCreateDebugUtilsMessengerEXT_Func(instance, &messengerCreateInfo, nullptr, &g_vulkanDebug.debugUtilsMessenger);
+}
+
+void gfx_cleanup_queues() {
+    vkDestroyDevice(g_vulkanBackend.device, nullptr);
+    g_vulkanBackend.queue = nullptr;
+//    g_vulkanBackend.queuePresent = nullptr;
+//    g_vulkanBackend.queueTransfer = nullptr;
+//    TODO: COMPUTE QUEUE
+}
+
+void gfx_create_queues() {
+    uint32_t devicePropertyCount = 0;
+    vkEnumerateDeviceExtensionProperties(g_vulkanBackend.physicalDevice, nullptr, &devicePropertyCount, nullptr);
+    VkExtensionProperties *selectedPhysicalDeviceExtensions = (VkExtensionProperties *) malloc(sizeof(VkExtensionProperties) * devicePropertyCount);
+
+    if (devicePropertyCount > 0) {
+        vkEnumerateDeviceExtensionProperties(g_vulkanBackend.physicalDevice, nullptr, &devicePropertyCount, selectedPhysicalDeviceExtensions);
+    }
+
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(g_vulkanBackend.physicalDevice, &queueFamilyCount, nullptr);
+    ASSERT(queueFamilyCount != 0);
+
+    VkQueueFamilyProperties *queueFamilies = (VkQueueFamilyProperties *) malloc(sizeof(VkQueueFamilyProperties) * queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(g_vulkanBackend.physicalDevice, &queueFamilyCount, queueFamilies);
+
+    struct QueueInfo {
+        uint32_t targetFlags = {UINT32_MAX};
+        uint32_t queueIndex = {UINT32_MAX};
+        uint32_t currentFlags = {UINT32_MAX};
+        bool supportsPresent = {false};
+    };
+
+    QueueInfo graphicsQueueInfo;
+    graphicsQueueInfo.targetFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+
+    QueueInfo transferQueueInfo;
+    transferQueueInfo.targetFlags = VK_QUEUE_TRANSFER_BIT;
+
+    QueueInfo presentQueueInfo;
+    presentQueueInfo.targetFlags = 0;
+
+    for (uint32_t queueFamilyIndex = 0; queueFamilyIndex < queueFamilyCount; ++queueFamilyIndex) {
+        VkBool32 supportsPresent = 0;
+        VkResult presentResult = vkGetPhysicalDeviceSurfaceSupportKHR(
+                g_vulkanBackend.physicalDevice,
+                queueFamilyIndex,
+                g_vulkanBackend.swapChain.surface,
+                &supportsPresent
+        );
+
+        const uint32_t currentQueueFlags = queueFamilies[queueFamilyIndex].queueFlags;
+
+        if ((presentResult >= 0) && (supportsPresent == VK_TRUE)) {
+            if (count_set_bits(currentQueueFlags) < count_set_bits(presentQueueInfo.currentFlags)
+                || currentQueueFlags != graphicsQueueInfo.queueIndex) {
+                presentQueueInfo.currentFlags = currentQueueFlags;
+                presentQueueInfo.queueIndex = queueFamilyIndex;
+                presentQueueInfo.supportsPresent = supportsPresent;
+            }
+        }
+
+        if (currentQueueFlags & graphicsQueueInfo.targetFlags) {
+            if (count_set_bits(currentQueueFlags) < count_set_bits(graphicsQueueInfo.currentFlags)) {
+                graphicsQueueInfo.currentFlags = currentQueueFlags;
+                graphicsQueueInfo.queueIndex = queueFamilyIndex;
+                graphicsQueueInfo.supportsPresent = supportsPresent;
+                continue;
+            }
+        }
+
+        if (currentQueueFlags & transferQueueInfo.targetFlags) {
+            if (count_set_bits(currentQueueFlags) < count_set_bits(transferQueueInfo.currentFlags)) {
+                transferQueueInfo.currentFlags = currentQueueFlags;
+                transferQueueInfo.queueIndex = queueFamilyIndex;
+                transferQueueInfo.supportsPresent = supportsPresent;
+                continue;
+            }
+        }
+    }
+
+    log_verbose(MSG_GFX, "graphics queue index: %u \n", graphicsQueueInfo.queueIndex);
+//    log_verbose(MSG_GFX, "present queue index:  %u \n", presentQueueInfo.queueIndex);
+//    log_verbose(MSG_GFX, "transfer queue index: %u \n", transferQueueInfo.queueIndex);
+//    TODO: COMPUTE QUEUE
+
+    ASSERT_MSG(graphicsQueueInfo.queueIndex != UINT32_MAX, "Err: did not find graphics queue");
+//    ASSERT_MSG(presentQueueInfo.queueIndex != UINT32_MAX, "Err: did not find present queue");
+//    ASSERT_MSG(transferQueueInfo.queueIndex != UINT32_MAX, "Err: did not find transfer queue");
+//    TODO: COMPUTE QUEUE
+
+    const float queuePriority = 1.0f;
+    const uint32_t maxSupportedQueueCount = 3;
+    uint32_t currentQueueCount = 0;
+
+    VkDeviceQueueCreateInfo queueCreateInfo[maxSupportedQueueCount] = {};
+    if (presentQueueInfo.queueIndex != graphicsQueueInfo.queueIndex) {
+        queueCreateInfo[currentQueueCount].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo[currentQueueCount].queueFamilyIndex = presentQueueInfo.queueIndex;
+        queueCreateInfo[currentQueueCount].queueCount = 1;
+        queueCreateInfo[currentQueueCount].pQueuePriorities = &queuePriority;
+        ++currentQueueCount;
+    }
+
+    queueCreateInfo[currentQueueCount].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo[currentQueueCount].queueFamilyIndex = graphicsQueueInfo.queueIndex;
+    queueCreateInfo[currentQueueCount].queueCount = 1;
+    queueCreateInfo[currentQueueCount].pQueuePriorities = &queuePriority;
+    ++currentQueueCount;
+
+    queueCreateInfo[currentQueueCount].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo[currentQueueCount].queueFamilyIndex = transferQueueInfo.queueIndex;
+    queueCreateInfo[currentQueueCount].queueCount = 1;
+    queueCreateInfo[currentQueueCount].pQueuePriorities = &queuePriority;
+    ++currentQueueCount;
+
+    VkPhysicalDeviceFeatures2 deviceFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+    deviceFeatures.features.samplerAnisotropy = VK_TRUE;
+
+    uint32_t deviceExtensionCount = 0;
+    const uint32_t maxSupportedDeviceExtensions = 2;
+    const char *enabledDeviceExtensions[maxSupportedDeviceExtensions];
+    {
+        enabledDeviceExtensions[deviceExtensionCount] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+        deviceExtensionCount++;
+    }
+
+#if BEET_VK_COMPILE_VERSION_1_3
+    const uint32_t runtimeVulkanVersion = g_vulkanBackend.deviceProperties.apiVersion;
+    if (runtimeVulkanVersion >= BEET_VK_API_VERSION_1_3) {
+        enabledDeviceExtensions[deviceExtensionCount] = VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME;
+        deviceExtensionCount++;
+    }
+#endif
+
+    VkDeviceCreateInfo deviceCreateInfo = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+    deviceCreateInfo.pNext = &deviceFeatures;
+    deviceCreateInfo.enabledLayerCount = 0;
+    deviceCreateInfo.ppEnabledLayerNames = nullptr;
+    deviceCreateInfo.enabledExtensionCount = deviceExtensionCount;
+    deviceCreateInfo.ppEnabledExtensionNames = enabledDeviceExtensions;
+    deviceCreateInfo.queueCreateInfoCount = currentQueueCount;
+    deviceCreateInfo.pQueueCreateInfos = queueCreateInfo;
+
+    vkCreateDevice(g_vulkanBackend.physicalDevice, &deviceCreateInfo, nullptr, &g_vulkanBackend.device);
+    ASSERT_MSG(g_vulkanBackend.device, "Err: failed to create vkDevice");
+
+    vkGetDeviceQueue(g_vulkanBackend.device, graphicsQueueInfo.queueIndex, 0, &g_vulkanBackend.queue);
+//    vkGetDeviceQueue(g_vulkanBackend.device, presentQueueInfo.queueIndex, 0, &g_vulkanBackend.queuePresent);
+//    vkGetDeviceQueue(g_vulkanBackend.device, transferQueueInfo.queueIndex, 0, &g_vulkanBackend.queueTransfer);
+//    TODO: COMPUTE QUEUE
+
+    g_vulkanBackend.queueFamilyIndices.graphics = graphicsQueueInfo.queueIndex;
+//    g_gfxDevice->presentQueueIndex = presentQueueInfo.queueIndex;
+//    g_gfxDevice->transferQueueIndex = transferQueueInfo.queueIndex;
+//    TODO: COMPUTE QUEUE
+
+    ASSERT_MSG(g_vulkanBackend.queue, "Err: failed to create graphics queue");
+//    ASSERT_MSG(g_gfxDevice->vkPresentQueue, "Err: failed to create present queue");
+//    ASSERT_MSG(g_gfxDevice->vkTransferQueue, "Err: failed to create transfer queue");
+//    TODO: COMPUTE QUEUE
+
+    free(queueFamilies);
+    free(selectedPhysicalDeviceExtensions);
+}
+
+void gfx_cleanup_command_pool() {
+    vkDestroyCommandPool(g_vulkanBackend.device, g_vulkanBackend.commandPool, nullptr);
+    g_vulkanBackend.commandPool = VK_NULL_HANDLE;
+}
+
+void gfx_create_command_pool() {
+    VkCommandPoolCreateInfo commandPoolInfo = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+    commandPoolInfo.queueFamilyIndex = g_vulkanBackend.queueFamilyIndices.graphics;
+    commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+    VkResult cmdPoolResult = vkCreateCommandPool(g_vulkanBackend.device, &commandPoolInfo, nullptr, &g_vulkanBackend.commandPool);
+    ASSERT_MSG(cmdPoolResult == VK_SUCCESS, "Err: failed to create graphics command pool");
+}
+
 void gfx_update(const double &deltaTime) {}
 
 void gfx_create(void *windowHandle) {
     gfx_create_instance();
+    gfx_create_debug_callbacks();
     gfx_create_physical_device();
     gfx_create_surface(windowHandle, &g_vulkanBackend.instance, &g_vulkanBackend.swapChain.surface);
+    gfx_create_queues();
+    gfx_create_command_pool();
 }
 
 void gfx_cleanup() {
+    gfx_cleanup_command_pool();
+    gfx_cleanup_queues();
     gfx_cleanup_surface();
     gfx_cleanup_physical_device();
+    gfx_cleanup_debug_callbacks();
     gfx_cleanup_instance();
 
     free(g_vulkanBackend.supportedExtensions);
