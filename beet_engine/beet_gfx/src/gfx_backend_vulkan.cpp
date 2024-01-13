@@ -59,7 +59,8 @@ static struct VulkanBackend {
     VkDevice device = {VK_NULL_HANDLE};
     VkQueue queue = {VK_NULL_HANDLE};
 
-    VkCommandPool commandPool = {VK_NULL_HANDLE};
+    VkCommandPool graphicsCommandPool = {VK_NULL_HANDLE};
+    VkCommandBuffer graphicsCommandBuffers[BEET_VK_COMMAND_BUFFER_COUNT]{};
 
     VkPhysicalDeviceProperties deviceProperties = {};
     VkPhysicalDeviceFeatures deviceFeatures = {};
@@ -428,8 +429,8 @@ void gfx_create_queues() {
 }
 
 void gfx_cleanup_command_pool() {
-    vkDestroyCommandPool(g_vulkanBackend.device, g_vulkanBackend.commandPool, nullptr);
-    g_vulkanBackend.commandPool = VK_NULL_HANDLE;
+    vkDestroyCommandPool(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, nullptr);
+    g_vulkanBackend.graphicsCommandPool = VK_NULL_HANDLE;
 }
 
 void gfx_create_command_pool() {
@@ -437,7 +438,7 @@ void gfx_create_command_pool() {
     commandPoolInfo.queueFamilyIndex = g_vulkanBackend.queueFamilyIndices.graphics;
     commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-    VkResult cmdPoolResult = vkCreateCommandPool(g_vulkanBackend.device, &commandPoolInfo, nullptr, &g_vulkanBackend.commandPool);
+    VkResult cmdPoolResult = vkCreateCommandPool(g_vulkanBackend.device, &commandPoolInfo, nullptr, &g_vulkanBackend.graphicsCommandPool);
     ASSERT_MSG(cmdPoolResult == VK_SUCCESS, "Err: failed to create graphics command pool");
 }
 
@@ -629,6 +630,23 @@ void gfx_cleanup_swap_chain() {
     free(g_vulkanBackend.swapChain.buffers);
 }
 
+void gfx_create_command_buffers() {
+    VkCommandBufferAllocateInfo commandBufferInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    commandBufferInfo.commandPool = g_vulkanBackend.graphicsCommandPool;
+    commandBufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    commandBufferInfo.commandBufferCount = BEET_VK_COMMAND_BUFFER_COUNT;
+
+    VkResult cmdBuffResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &commandBufferInfo, g_vulkanBackend.graphicsCommandBuffers);
+    ASSERT_MSG(cmdBuffResult == VK_SUCCESS, "Err: failed to create graphics command buffer");
+}
+
+void gfx_cleanup_command_buffers() {
+    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, BEET_VK_COMMAND_BUFFER_COUNT, g_vulkanBackend.graphicsCommandBuffers);
+    for (uint32_t i = 0; i < BEET_VK_COMMAND_BUFFER_COUNT; ++i) {
+        g_vulkanBackend.graphicsCommandBuffers[i] = VK_NULL_HANDLE;
+    }
+}
+
 void gfx_update(const double &deltaTime) {}
 
 void gfx_create(void *windowHandle) {
@@ -639,9 +657,11 @@ void gfx_create(void *windowHandle) {
     gfx_create_queues();
     gfx_create_command_pool();
     gfx_create_swap_chain();
+    gfx_create_command_buffers();
 }
 
 void gfx_cleanup() {
+    gfx_cleanup_command_buffers();
     gfx_cleanup_swap_chain();
     gfx_cleanup_command_pool();
     gfx_cleanup_queues();
