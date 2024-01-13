@@ -85,6 +85,7 @@ static struct VulkanBackend {
 
     VulkanSwapChain swapChain = {};
     QueueFamilyIndices queueFamilyIndices = {};
+    VkPipelineCache pipelineCache = {VK_NULL_HANDLE};
 
     VkPhysicalDeviceProperties deviceProperties = {};
     VkPhysicalDeviceFeatures deviceFeatures = {};
@@ -283,8 +284,11 @@ void gfx_create_debug_callbacks() {
 }
 
 void gfx_cleanup_queues() {
+    ASSERT_MSG(g_vulkanBackend.device != VK_NULL_HANDLE, "Err: device has already been destroyed");
     vkDestroyDevice(g_vulkanBackend.device, nullptr);
-    g_vulkanBackend.queue = nullptr;
+    g_vulkanBackend.device = VK_NULL_HANDLE;
+
+    g_vulkanBackend.queue = VK_NULL_HANDLE;
 //    g_vulkanBackend.queuePresent = nullptr;
 //    g_vulkanBackend.queueTransfer = nullptr;
 //    TODO: COMPUTE QUEUE
@@ -633,7 +637,6 @@ void gfx_create_swap_chain() {
 }
 
 void gfx_cleanup_swap_chain() {
-    ASSERT_MSG(g_vulkanBackend.swapChain.surface != VK_NULL_HANDLE, "Err: swapchain has already been destroyed");
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
         vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.swapChain.buffers[i].view, nullptr);
     }
@@ -643,7 +646,9 @@ void gfx_cleanup_swap_chain() {
     g_vulkanBackend.swapChain.swapChain = VK_NULL_HANDLE;
 
     free(g_vulkanBackend.swapChain.images);
+    g_vulkanBackend.swapChain.images = nullptr;
     free(g_vulkanBackend.swapChain.buffers);
+    g_vulkanBackend.swapChain.buffers = nullptr;
 }
 
 void gfx_create_command_buffers() {
@@ -836,7 +841,20 @@ void gfx_create_render_pass() {
 void gfx_cleanup_render_pass() {
     ASSERT_MSG(g_vulkanBackend.renderPass != VK_NULL_HANDLE, "Err: render pass has already been destroyed");
     vkDestroyRenderPass(g_vulkanBackend.device, g_vulkanBackend.renderPass, nullptr);
+    g_vulkanBackend.renderPass = VK_NULL_HANDLE;
+}
 
+void gfx_create_pipeline_cache() {
+    VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
+    pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+    const VkResult cacheRes = vkCreatePipelineCache(g_vulkanBackend.device, &pipelineCacheCreateInfo, nullptr, &g_vulkanBackend.pipelineCache);
+    ASSERT_MSG(cacheRes == VK_SUCCESS, "Err: failed to create pipeline cache")
+}
+
+void gfx_cleanup_pipeline_cache() {
+    ASSERT_MSG(g_vulkanBackend.pipelineCache != VK_NULL_HANDLE, "Err: pipeline cache has already been destroyed");
+    vkDestroyPipelineCache(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, nullptr);
+    g_vulkanBackend.pipelineCache = VK_NULL_HANDLE;
 }
 
 void gfx_update(const double &deltaTime) {}
@@ -853,9 +871,11 @@ void gfx_create(void *windowHandle) {
     gfx_create_fences();
     gfx_create_depth_stencil_buffer();
     gfx_create_render_pass();
+    gfx_create_pipeline_cache();
 }
 
 void gfx_cleanup() {
+    gfx_cleanup_pipeline_cache();
     gfx_cleanup_render_pass();
     gfx_cleanup_depth_stencil_buffer();
     gfx_cleanup_fences();
