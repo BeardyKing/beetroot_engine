@@ -60,7 +60,9 @@ static struct VulkanBackend {
     VkQueue queue = {VK_NULL_HANDLE};
 
     VkCommandPool graphicsCommandPool = {VK_NULL_HANDLE};
-    VkCommandBuffer graphicsCommandBuffers[BEET_VK_COMMAND_BUFFER_COUNT]{};
+    VkCommandBuffer graphicsCommandBuffers[BEET_VK_COMMAND_BUFFER_COUNT] = {};
+    VkFence graphicsFenceWait[BEET_VK_COMMAND_BUFFER_COUNT] = {};
+
 
     VkPhysicalDeviceProperties deviceProperties = {};
     VkPhysicalDeviceFeatures deviceFeatures = {};
@@ -647,6 +649,26 @@ void gfx_cleanup_command_buffers() {
     }
 }
 
+void gfx_create_fences(){
+    const VkFenceCreateInfo fenceCreateInfo = {
+            VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            nullptr,
+            VK_FENCE_CREATE_SIGNALED_BIT
+    };
+
+    for (uint32_t i = 0; i < BEET_VK_COMMAND_BUFFER_COUNT; ++i) {
+        const VkResult fenceRes = vkCreateFence(g_vulkanBackend.device, &fenceCreateInfo, nullptr, &g_vulkanBackend.graphicsFenceWait[i]);
+        ASSERT_MSG(fenceRes == VK_SUCCESS, "Err: failed to create graphics fence [%u]", i);
+    }
+}
+
+void gfx_cleanup_fences(){
+    for (uint32_t i = 0; i < BEET_VK_COMMAND_BUFFER_COUNT; ++i) {
+        vkDestroyFence(g_vulkanBackend.device, g_vulkanBackend.graphicsFenceWait[i], nullptr);
+        g_vulkanBackend.graphicsFenceWait[i] = VK_NULL_HANDLE;
+    }
+}
+
 void gfx_update(const double &deltaTime) {}
 
 void gfx_create(void *windowHandle) {
@@ -658,9 +680,11 @@ void gfx_create(void *windowHandle) {
     gfx_create_command_pool();
     gfx_create_swap_chain();
     gfx_create_command_buffers();
+    gfx_create_fences();
 }
 
 void gfx_cleanup() {
+    gfx_cleanup_fences();
     gfx_cleanup_command_buffers();
     gfx_cleanup_swap_chain();
     gfx_cleanup_command_pool();
