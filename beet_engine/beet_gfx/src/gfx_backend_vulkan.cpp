@@ -59,6 +59,12 @@ static struct VulkanDebug {
     VkDebugUtilsMessengerEXT debugUtilsMessenger = {VK_NULL_HANDLE};
 } g_vulkanDebug;
 
+struct TargetVulkanFormats {
+    // TODO: this struct should only last a single "frame" would be a good candidate for the inevitable gfx backend arena allocator
+    VkSurfaceFormatKHR surfaceFormat = {};
+    VkFormat depthFormat = {};
+} g_vulkanTargetFormats;
+
 static struct VulkanBackend {
     VkInstance instance = {VK_NULL_HANDLE};
     VkPhysicalDevice physicalDevice = {VK_NULL_HANDLE};
@@ -67,13 +73,10 @@ static struct VulkanBackend {
 
     VkCommandPool graphicsCommandPool = {VK_NULL_HANDLE};
     VkCommandBuffer graphicsCommandBuffers[BEET_VK_COMMAND_BUFFER_COUNT] = {};
+    VkRenderPass renderPass = {VK_NULL_HANDLE};
     VkFence graphicsFenceWait[BEET_VK_COMMAND_BUFFER_COUNT] = {};
 
     DepthImage depthStencil = {};
-
-    VkPhysicalDeviceProperties deviceProperties = {};
-    VkPhysicalDeviceFeatures deviceFeatures = {};
-    VkPhysicalDeviceMemoryProperties deviceMemoryProperties = {};
 
     VkExtensionProperties *supportedExtensions = {};
     uint32_t extensionsCount = {};
@@ -82,6 +85,10 @@ static struct VulkanBackend {
 
     VulkanSwapChain swapChain = {};
     QueueFamilyIndices queueFamilyIndices = {};
+
+    VkPhysicalDeviceProperties deviceProperties = {};
+    VkPhysicalDeviceFeatures deviceFeatures = {};
+    VkPhysicalDeviceMemoryProperties deviceMemoryProperties = {};
 } g_vulkanBackend;
 
 bool gfx_find_supported_extension(const char *extensionName) {
@@ -173,7 +180,7 @@ void gfx_create_physical_device() {
     VkPhysicalDevice *physicalDevices = (VkPhysicalDevice *) malloc(sizeof(VkPhysicalDevice) * deviceCount);
     vkEnumeratePhysicalDevices(g_vulkanBackend.instance, &deviceCount, physicalDevices);
 
-    //TODO:GFX: Add fallback support for `best` GPU based on intended workload, if no argument is provided we fallback to device [0]
+    // TODO:GFX: Add fallback support for `best` GPU based on intended workload, if no argument is provided we fallback to device [0]
     uint32_t selectedDevice = g_userArguments.selectedPhysicalDeviceIndex;
 #if BEET_DEBUG
     if (BEET_DEBUG_VK_FORCE_GPU_SELECTION > -1) {
@@ -534,7 +541,7 @@ void gfx_create_swap_chain() {
     }
 
     const VkPresentModeKHR swapChainPresentMode = select_present_mode();
-    const VkSurfaceFormatKHR selectedSurfaceFormat = select_surface_format();
+    g_vulkanTargetFormats.surfaceFormat = select_surface_format();
     const VkCompositeAlphaFlagBitsKHR compositeAlphaFormat = select_composite_alpha_format(surfaceCapabilities);
 
     uint32_t targetSwapChainImageCount = surfaceCapabilities.minImageCount + 1;
@@ -555,8 +562,8 @@ void gfx_create_swap_chain() {
     // swapChainInfo.flags
     swapChainInfo.surface = g_vulkanBackend.swapChain.surface;
     swapChainInfo.minImageCount = targetSwapChainImageCount;
-    swapChainInfo.imageFormat = selectedSurfaceFormat.format;
-    swapChainInfo.imageColorSpace = selectedSurfaceFormat.colorSpace;
+    swapChainInfo.imageFormat = g_vulkanTargetFormats.surfaceFormat.format;
+    swapChainInfo.imageColorSpace = g_vulkanTargetFormats.surfaceFormat.colorSpace;
     swapChainInfo.imageExtent = swapChainExtent;
     swapChainInfo.imageArrayLayers = 1;
     swapChainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -604,7 +611,7 @@ void gfx_create_swap_chain() {
         VkImageViewCreateInfo swapChainImageViewInfo = {};
         swapChainImageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         swapChainImageViewInfo.pNext = nullptr;
-        swapChainImageViewInfo.format = selectedSurfaceFormat.format;
+        swapChainImageViewInfo.format = g_vulkanTargetFormats.surfaceFormat.format;
         swapChainImageViewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
         swapChainImageViewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
         swapChainImageViewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
@@ -714,14 +721,16 @@ uint32_t gfx_get_memory_type(uint32_t memoryTypeBits, VkMemoryPropertyFlags prop
         memoryTypeBits >>= 1;
     }
     ASSERT_MSG(false, "Err: fid not find memory type of target %u", properties);
-    return UINT32_MAX; //TODO:TEST: validate this is the correct value to return to crash the backend.
+    return UINT32_MAX; // TODO:TEST: validate this is the correct value to return to crash the backend.
 }
 
 void gfx_create_depth_stencil_buffer() {
+    g_vulkanTargetFormats.depthFormat = find_depth_format(VK_IMAGE_TILING_OPTIMAL);
+
     VkImageCreateInfo depthImageInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     depthImageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     depthImageInfo.imageType = VK_IMAGE_TYPE_2D;
-    depthImageInfo.format = find_depth_format(VK_IMAGE_TILING_OPTIMAL);
+    depthImageInfo.format = g_vulkanTargetFormats.depthFormat;
     depthImageInfo.extent = {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height, 1};
     depthImageInfo.mipLevels = 1;
     depthImageInfo.arrayLayers = 1;
@@ -753,6 +762,87 @@ void gfx_cleanup_depth_stencil_buffer() {
     vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencil.deviceMemory, nullptr);
 }
 
+void gfx_create_render_pass() {
+    constexpr uint32_t ATTACHMENT_SIZE = 2;
+    VkAttachmentDescription attachments[2];
+    memset(attachments, 0, sizeof(attachments));
+
+    attachments[0].format = g_vulkanTargetFormats.surfaceFormat.format;
+    attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    attachments[1].format = g_vulkanTargetFormats.depthFormat;
+    attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference colorAttachmentRef = {};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthStencilAttachmentRef = {};
+    depthStencilAttachmentRef.attachment = 1;
+    depthStencilAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpassDescription = {};
+    subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpassDescription.colorAttachmentCount = 1;
+    subpassDescription.pColorAttachments = &colorAttachmentRef;
+    subpassDescription.pDepthStencilAttachment = &depthStencilAttachmentRef;
+    subpassDescription.inputAttachmentCount = 0;
+    subpassDescription.pInputAttachments = nullptr;
+    subpassDescription.preserveAttachmentCount = 0;
+    subpassDescription.pPreserveAttachments = nullptr;
+    subpassDescription.pResolveAttachments = nullptr;
+
+    constexpr uint32_t SUBPASS_DEPENDENCY_SIZE = 2;
+    VkSubpassDependency dependencies[SUBPASS_DEPENDENCY_SIZE];
+    memset(attachments, 0, sizeof(attachments));
+
+    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass = 0;
+    dependencies[0].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependencies[0].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    dependencies[0].dependencyFlags = 0;
+
+    dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[1].dstSubpass = 0;
+    dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[1].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[1].srcAccessMask = 0;
+    dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+    dependencies[1].dependencyFlags = 0;
+
+    VkRenderPassCreateInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = ATTACHMENT_SIZE;
+    renderPassInfo.pAttachments = attachments;
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpassDescription;
+    renderPassInfo.dependencyCount = SUBPASS_DEPENDENCY_SIZE;
+    renderPassInfo.pDependencies = dependencies;
+
+    const VkResult result = vkCreateRenderPass(g_vulkanBackend.device, &renderPassInfo, nullptr, &g_vulkanBackend.renderPass);
+    ASSERT_MSG(result == VK_SUCCESS, "Err: failed to create render pass");
+}
+
+void gfx_cleanup_render_pass() {
+    ASSERT_MSG(g_vulkanBackend.renderPass != VK_NULL_HANDLE, "Err: render pass has already been destroyed");
+    vkDestroyRenderPass(g_vulkanBackend.device, g_vulkanBackend.renderPass, nullptr);
+
+}
+
 void gfx_update(const double &deltaTime) {}
 
 void gfx_create(void *windowHandle) {
@@ -766,9 +856,11 @@ void gfx_create(void *windowHandle) {
     gfx_create_command_buffers();
     gfx_create_fences();
     gfx_create_depth_stencil_buffer();
+    gfx_create_render_pass();
 }
 
 void gfx_cleanup() {
+    gfx_cleanup_render_pass();
     gfx_cleanup_depth_stencil_buffer();
     gfx_cleanup_fences();
     gfx_cleanup_command_buffers();
