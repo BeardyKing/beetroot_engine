@@ -29,6 +29,12 @@ struct SwapChainBuffers {
     VkImageView view;
 };
 
+struct DepthImage {
+    VkImage image;
+    VkDeviceMemory deviceMemory;
+    VkImageView view;
+};
+
 struct VulkanSwapChain {
     VkSurfaceKHR surface;
     VkSwapchainKHR swapChain = VK_NULL_HANDLE;
@@ -38,8 +44,8 @@ struct VulkanSwapChain {
     SwapChainBuffers *buffers = {nullptr};
 
     // TODO: consider this being a ptr to some global size instead
-    float width = 1280;
-    float height = 720;
+    uint32_t width = 1280;
+    uint32_t height = 720;
 };
 
 struct QueueFamilyIndices {
@@ -63,6 +69,7 @@ static struct VulkanBackend {
     VkCommandBuffer graphicsCommandBuffers[BEET_VK_COMMAND_BUFFER_COUNT] = {};
     VkFence graphicsFenceWait[BEET_VK_COMMAND_BUFFER_COUNT] = {};
 
+    DepthImage depthStencil = {};
 
     VkPhysicalDeviceProperties deviceProperties = {};
     VkPhysicalDeviceFeatures deviceFeatures = {};
@@ -649,7 +656,7 @@ void gfx_cleanup_command_buffers() {
     }
 }
 
-void gfx_create_fences(){
+void gfx_create_fences() {
     const VkFenceCreateInfo fenceCreateInfo = {
             VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
             nullptr,
@@ -662,11 +669,88 @@ void gfx_create_fences(){
     }
 }
 
-void gfx_cleanup_fences(){
+void gfx_cleanup_fences() {
     for (uint32_t i = 0; i < BEET_VK_COMMAND_BUFFER_COUNT; ++i) {
         vkDestroyFence(g_vulkanBackend.device, g_vulkanBackend.graphicsFenceWait[i], nullptr);
         g_vulkanBackend.graphicsFenceWait[i] = VK_NULL_HANDLE;
     }
+}
+
+VkFormat find_depth_format(const VkImageTiling &desiredTilingFormat) {
+    constexpr VkFormatFeatureFlags features = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    constexpr uint32_t FORMAT_CANDIDATE_COUNT = 5;
+    constexpr VkFormat candidates[FORMAT_CANDIDATE_COUNT]{
+            VK_FORMAT_D32_SFLOAT_S8_UINT,
+            VK_FORMAT_D32_SFLOAT,
+            VK_FORMAT_D24_UNORM_S8_UINT,
+            VK_FORMAT_D16_UNORM_S8_UINT,
+            VK_FORMAT_D16_UNORM,
+    };
+
+    for (uint32_t i = 0; i < FORMAT_CANDIDATE_COUNT; ++i) {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(g_vulkanBackend.physicalDevice, candidates[i], &props);
+
+        if ((desiredTilingFormat == VK_IMAGE_TILING_LINEAR) &&
+            ((props.linearTilingFeatures & features) == features)) {
+            return candidates[i];
+        }
+        if ((desiredTilingFormat == VK_IMAGE_TILING_OPTIMAL) &&
+            ((props.optimalTilingFeatures & features) == features)) {
+            return candidates[i];
+        }
+    }
+    ASSERT_MSG(false, "Err: could not find supported depth format");
+    return VK_FORMAT_UNDEFINED;
+}
+
+uint32_t gfx_get_memory_type(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties) {
+    for (uint32_t i = 0; i < g_vulkanBackend.deviceMemoryProperties.memoryTypeCount; i++) {
+        if ((memoryTypeBits & 1) == 1) {
+            if ((g_vulkanBackend.deviceMemoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+                return i;
+            }
+        }
+        memoryTypeBits >>= 1;
+    }
+    ASSERT_MSG(false, "Err: fid not find memory type of target %u", properties);
+    return UINT32_MAX; //TODO:TEST: validate this is the correct value to return to crash the backend.
+}
+
+void gfx_create_depth_stencil_buffer() {
+    VkImageCreateInfo depthImageInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+    depthImageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    depthImageInfo.imageType = VK_IMAGE_TYPE_2D;
+    depthImageInfo.format = find_depth_format(VK_IMAGE_TILING_OPTIMAL);
+    depthImageInfo.extent = {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height, 1};
+    depthImageInfo.mipLevels = 1;
+    depthImageInfo.arrayLayers = 1;
+    depthImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    depthImageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+    const VkResult imgRes = vkCreateImage(g_vulkanBackend.device, &depthImageInfo, nullptr, &g_vulkanBackend.depthStencil.image);
+    ASSERT_MSG(imgRes == VK_SUCCESS, "Err: failed to create depth stencil image");
+
+    VkMemoryRequirements memoryRequirements{};
+    vkGetImageMemoryRequirements(g_vulkanBackend.device, g_vulkanBackend.depthStencil.image, &memoryRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memoryRequirements.size;
+    allocInfo.memoryTypeIndex = gfx_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr, &g_vulkanBackend.depthStencil.deviceMemory);
+    ASSERT_MSG(allocRes == VK_SUCCESS, "Err: failed to allocate memory for depth stencil")
+
+    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencil.image, g_vulkanBackend.depthStencil.deviceMemory, 0);
+    ASSERT_MSG(bindRes == VK_SUCCESS, "Err: failed to bind depth stencil");
+}
+
+void gfx_cleanup_depth_stencil_buffer() {
+    vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.depthStencil.view, nullptr);
+    vkDestroyImage(g_vulkanBackend.device, g_vulkanBackend.depthStencil.image, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencil.deviceMemory, nullptr);
 }
 
 void gfx_update(const double &deltaTime) {}
@@ -681,9 +765,11 @@ void gfx_create(void *windowHandle) {
     gfx_create_swap_chain();
     gfx_create_command_buffers();
     gfx_create_fences();
+    gfx_create_depth_stencil_buffer();
 }
 
 void gfx_cleanup() {
+    gfx_cleanup_depth_stencil_buffer();
     gfx_cleanup_fences();
     gfx_cleanup_command_buffers();
     gfx_cleanup_swap_chain();
