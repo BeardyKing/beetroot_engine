@@ -764,9 +764,7 @@ void gfx_cleanup_depth_stencil_buffer() {
 
 void gfx_create_render_pass() {
     constexpr uint32_t ATTACHMENT_SIZE = 2;
-    VkAttachmentDescription attachments[2];
-    memset(attachments, 0, sizeof(attachments));
-
+    VkAttachmentDescription attachments[2] = {0};
     attachments[0].format = g_vulkanTargetFormats.surfaceFormat.format;
     attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
     attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -805,9 +803,7 @@ void gfx_create_render_pass() {
     subpassDescription.pResolveAttachments = nullptr;
 
     constexpr uint32_t SUBPASS_DEPENDENCY_SIZE = 2;
-    VkSubpassDependency dependencies[SUBPASS_DEPENDENCY_SIZE];
-    memset(attachments, 0, sizeof(attachments));
-
+    VkSubpassDependency dependencies[SUBPASS_DEPENDENCY_SIZE] = {0};
     dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[0].dstSubpass = 0;
     dependencies[0].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
