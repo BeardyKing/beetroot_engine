@@ -7,6 +7,7 @@
 #include <beet_gfx/gfx_interface.h>
 #include <beet_gfx/gfx_vulkan_surface.h>
 #include <beet_shared/shared_utils.h>
+#include <vector>
 
 static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_OTHER",
@@ -16,13 +17,29 @@ static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_CPU",
 };
 
+constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+
 static struct UserArguments {
     uint32_t selectedPhysicalDeviceIndex = {};
     bool vsync = {true};
 } g_userArguments;
 
+struct SwapChainBuffers {
+    VkImage image;
+    VkImageView view;
+};
+
 struct VulkanSwapChain {
     VkSurfaceKHR surface;
+    VkSwapchainKHR swapChain = VK_NULL_HANDLE;
+
+    uint32_t imageCount;
+    VkImage *images = {nullptr};
+    SwapChainBuffers *buffers = {nullptr};
+
+    // TODO: consider this being a ptr to some global size instead
+    float width = 1280;
+    float height = 720;
 };
 
 struct QueueFamilyIndices {
@@ -55,7 +72,6 @@ static struct VulkanBackend {
 
     VulkanSwapChain swapChain = {};
     QueueFamilyIndices queueFamilyIndices = {};
-
 } g_vulkanBackend;
 
 bool gfx_find_supported_extension(const char *extensionName) {
@@ -369,10 +385,8 @@ void gfx_create_queues() {
     uint32_t deviceExtensionCount = 0;
     const uint32_t maxSupportedDeviceExtensions = 2;
     const char *enabledDeviceExtensions[maxSupportedDeviceExtensions];
-    {
-        enabledDeviceExtensions[deviceExtensionCount] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
-        deviceExtensionCount++;
-    }
+    enabledDeviceExtensions[deviceExtensionCount] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+    deviceExtensionCount++;
 
 #if BEET_VK_COMPILE_VERSION_1_3
     const uint32_t runtimeVulkanVersion = g_vulkanBackend.deviceProperties.apiVersion;
@@ -427,6 +441,194 @@ void gfx_create_command_pool() {
     ASSERT_MSG(cmdPoolResult == VK_SUCCESS, "Err: failed to create graphics command pool");
 }
 
+VkPresentModeKHR select_present_mode() {
+    uint32_t presentModeCount = {0};
+    const VkResult presentRes = vkGetPhysicalDeviceSurfacePresentModesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &presentModeCount, nullptr);
+    ASSERT_MSG(presentRes == VK_SUCCESS, "Err: failed to get physical device surface present modes");
+    ASSERT(presentModeCount > 0);
+
+    VkPresentModeKHR *presentModes = (VkPresentModeKHR *) malloc(sizeof(VkPresentModeKHR) * presentModeCount);
+    const VkResult populateRes = vkGetPhysicalDeviceSurfacePresentModesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &presentModeCount, presentModes);
+    ASSERT_MSG(populateRes == VK_SUCCESS, "Err: failed to populate present modes array");
+
+    VkPresentModeKHR selectedPresentMode = {VK_PRESENT_MODE_FIFO_KHR};
+    VkPresentModeKHR preferredMode = g_userArguments.vsync ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+    for (uint32_t i = 0; i < presentModeCount; ++i) {
+        if (presentModes[i] == preferredMode) {
+            selectedPresentMode = presentModes[i];
+            break;
+        }
+    }
+
+    free(presentModes);
+    return selectedPresentMode;
+}
+
+VkSurfaceFormatKHR select_surface_format() {
+    uint32_t surfaceFormatsCount = 0;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceFormatsCount, nullptr);
+
+    VkSurfaceFormatKHR *surfaceFormats = (VkSurfaceFormatKHR *) malloc(sizeof(VkSurfaceFormatKHR) * surfaceFormatsCount);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceFormatsCount, surfaceFormats);
+
+    // try select best surface format
+    VkSurfaceFormatKHR selectedSurfaceFormat{};
+    if ((surfaceFormatsCount == 1) && (surfaceFormats[0].format == VK_FORMAT_UNDEFINED)) {
+        selectedSurfaceFormat = BEET_TARGET_SWAPCHAIN_FORMAT;
+    } else {
+        for (uint32_t i = 0; i < surfaceFormatsCount; ++i) {
+            if ((surfaceFormats[i].format == VK_FORMAT_B8G8R8A8_UNORM) &&
+                (surfaceFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)) {
+                selectedSurfaceFormat = surfaceFormats[i];
+                break;
+            }
+        }
+    }
+    free(surfaceFormats);
+    return selectedSurfaceFormat;
+}
+
+VkCompositeAlphaFlagBitsKHR select_composite_alpha_format(const VkSurfaceCapabilitiesKHR &surfaceCapabilities) {
+    VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    constexpr uint32_t compositeAlphaFlagsSize = 4;
+    VkCompositeAlphaFlagBitsKHR compositeAlphaFlags[compositeAlphaFlagsSize] = {
+            VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+            VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+            VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+            VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+    };
+    for (auto &compositeAlphaFlag: compositeAlphaFlags) {
+        if (surfaceCapabilities.supportedCompositeAlpha & compositeAlphaFlag) {
+            compositeAlpha = compositeAlphaFlag;
+            break;
+        };
+    }
+    return compositeAlpha;
+}
+
+void gfx_create_swap_chain() {
+    const VkSwapchainKHR oldSwapChain = g_vulkanBackend.swapChain.swapChain;
+
+    VkSurfaceCapabilitiesKHR surfaceCapabilities = {0};
+    const VkResult surfRes = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceCapabilities);
+    ASSERT_MSG(surfRes == VK_SUCCESS, "Err: failed to get physical device surface capabilities");
+
+    VkExtent2D swapChainExtent = {};
+    if (surfaceCapabilities.currentExtent.width == UINT32_MAX) {
+        swapChainExtent.width = g_vulkanBackend.swapChain.width;
+        swapChainExtent.height = g_vulkanBackend.swapChain.height;
+    } else {
+        swapChainExtent = surfaceCapabilities.currentExtent;
+        g_vulkanBackend.swapChain.width = surfaceCapabilities.currentExtent.width;
+        g_vulkanBackend.swapChain.height = surfaceCapabilities.currentExtent.height;
+    }
+
+    const VkPresentModeKHR swapChainPresentMode = select_present_mode();
+    const VkSurfaceFormatKHR selectedSurfaceFormat = select_surface_format();
+    const VkCompositeAlphaFlagBitsKHR compositeAlphaFormat = select_composite_alpha_format(surfaceCapabilities);
+
+    uint32_t targetSwapChainImageCount = surfaceCapabilities.minImageCount + 1;
+    if ((surfaceCapabilities.maxImageCount > 0) && (targetSwapChainImageCount > surfaceCapabilities.maxImageCount)) {
+        targetSwapChainImageCount = surfaceCapabilities.maxImageCount;
+    }
+
+    VkSurfaceTransformFlagsKHR surfaceTransform;
+    if (surfaceCapabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
+        surfaceTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    } else {
+        surfaceTransform = surfaceCapabilities.currentTransform;
+    }
+
+    VkSwapchainCreateInfoKHR swapChainInfo = {};
+    swapChainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    // swapChainInfo.pNext
+    // swapChainInfo.flags
+    swapChainInfo.surface = g_vulkanBackend.swapChain.surface;
+    swapChainInfo.minImageCount = targetSwapChainImageCount;
+    swapChainInfo.imageFormat = selectedSurfaceFormat.format;
+    swapChainInfo.imageColorSpace = selectedSurfaceFormat.colorSpace;
+    swapChainInfo.imageExtent = swapChainExtent;
+    swapChainInfo.imageArrayLayers = 1;
+    swapChainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    // imageSharingMode
+    swapChainInfo.queueFamilyIndexCount = 0;
+    // pQueueFamilyIndices
+    swapChainInfo.preTransform = (VkSurfaceTransformFlagBitsKHR) surfaceTransform;
+    swapChainInfo.compositeAlpha = compositeAlphaFormat;
+    swapChainInfo.presentMode = swapChainPresentMode;
+    swapChainInfo.clipped = VK_TRUE;
+    swapChainInfo.oldSwapchain = oldSwapChain;
+
+    if (surfaceCapabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) {
+        swapChainInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    }
+    if (surfaceCapabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT) {
+        swapChainInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
+
+    const VkResult swapChainRes = vkCreateSwapchainKHR(g_vulkanBackend.device, &swapChainInfo, nullptr, &g_vulkanBackend.swapChain.swapChain);
+    ASSERT_MSG(swapChainRes == VK_SUCCESS, "Err: failed to create swap chain");
+
+    //cleanup vulkan resources
+    if (oldSwapChain != VK_NULL_HANDLE) {
+        for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
+            vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.swapChain.buffers[i].view, nullptr);
+        }
+        vkDestroySwapchainKHR(g_vulkanBackend.device, oldSwapChain, nullptr);
+    }
+    vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, &g_vulkanBackend.swapChain.imageCount, nullptr);
+
+    if (g_vulkanBackend.swapChain.images != nullptr) {
+        free(g_vulkanBackend.swapChain.images);
+    }
+    g_vulkanBackend.swapChain.images = (VkImage *) malloc(sizeof(VkImage) * g_vulkanBackend.swapChain.imageCount);
+    VkResult swapChainImageResult = vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, &g_vulkanBackend.swapChain.imageCount,
+                                                            &g_vulkanBackend.swapChain.images[0]);
+    ASSERT_MSG(swapChainImageResult == VK_SUCCESS, "Err: failed to re-create swap chain images")
+
+    if (g_vulkanBackend.swapChain.buffers != nullptr) {
+        free(g_vulkanBackend.swapChain.buffers);
+    }
+    g_vulkanBackend.swapChain.buffers = (SwapChainBuffers *) malloc(sizeof(SwapChainBuffers) * g_vulkanBackend.swapChain.imageCount);
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
+        VkImageViewCreateInfo swapChainImageViewInfo = {};
+        swapChainImageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        swapChainImageViewInfo.pNext = nullptr;
+        swapChainImageViewInfo.format = selectedSurfaceFormat.format;
+        swapChainImageViewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
+        swapChainImageViewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
+        swapChainImageViewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
+        swapChainImageViewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
+        swapChainImageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        swapChainImageViewInfo.subresourceRange.baseMipLevel = 0;
+        swapChainImageViewInfo.subresourceRange.levelCount = 1;
+        swapChainImageViewInfo.subresourceRange.baseArrayLayer = 0;
+        swapChainImageViewInfo.subresourceRange.layerCount = 1;
+        swapChainImageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        swapChainImageViewInfo.flags = 0;
+
+        g_vulkanBackend.swapChain.buffers[i].image = g_vulkanBackend.swapChain.images[i];
+        swapChainImageViewInfo.image = g_vulkanBackend.swapChain.buffers[i].image;
+
+        const VkResult imageViewResult = vkCreateImageView(g_vulkanBackend.device, &swapChainImageViewInfo, nullptr, &g_vulkanBackend.swapChain.buffers[i].view);
+        ASSERT_MSG(imageViewResult == VK_SUCCESS, "Failed to create image view %u", i);
+    }
+}
+
+void gfx_cleanup_swap_chain() {
+    ASSERT_MSG(g_vulkanBackend.swapChain.surface != VK_NULL_HANDLE, "Err: swapchain has already been destroyed");
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
+        vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.swapChain.buffers[i].view, nullptr);
+    }
+
+    ASSERT_MSG(g_vulkanBackend.swapChain.surface != VK_NULL_HANDLE, "Err: swapchain surface has already been destroyed");
+    vkDestroySwapchainKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, nullptr);
+    g_vulkanBackend.swapChain.swapChain = VK_NULL_HANDLE;
+
+    free(g_vulkanBackend.swapChain.images);
+    free(g_vulkanBackend.swapChain.buffers);
+}
+
 void gfx_update(const double &deltaTime) {}
 
 void gfx_create(void *windowHandle) {
@@ -436,9 +638,11 @@ void gfx_create(void *windowHandle) {
     gfx_create_surface(windowHandle, &g_vulkanBackend.instance, &g_vulkanBackend.swapChain.surface);
     gfx_create_queues();
     gfx_create_command_pool();
+    gfx_create_swap_chain();
 }
 
 void gfx_cleanup() {
+    gfx_cleanup_swap_chain();
     gfx_cleanup_command_pool();
     gfx_cleanup_queues();
     gfx_cleanup_surface();
