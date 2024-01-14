@@ -84,6 +84,8 @@ static struct VulkanBackend {
     uint32_t validationLayersCount = {};
 
     VulkanSwapChain swapChain = {};
+    VkFramebuffer *frameBuffers = {}; // size is based off swapChain.imageCount
+
     QueueFamilyIndices queueFamilyIndices = {};
     VkPipelineCache pipelineCache = {VK_NULL_HANDLE};
 
@@ -114,10 +116,16 @@ void gfx_cleanup_instance() {
     ASSERT_MSG(g_vulkanBackend.instance != VK_NULL_HANDLE, "Err: VkInstance has already been destroyed");
     vkDestroyInstance(g_vulkanBackend.instance, nullptr);
     g_vulkanBackend.instance = VK_NULL_HANDLE;
+
+    free(g_vulkanBackend.supportedExtensions);
+    g_vulkanBackend.supportedExtensions = nullptr;
+    free(g_vulkanBackend.supportedValidationLayers);
+    g_vulkanBackend.supportedExtensions = nullptr;
 }
 
 void gfx_create_instance() {
     vkEnumerateInstanceExtensionProperties(nullptr, &g_vulkanBackend.extensionsCount, nullptr);
+    ASSERT(g_vulkanBackend.supportedExtensions == nullptr);
     g_vulkanBackend.supportedExtensions = (VkExtensionProperties *) malloc(sizeof(VkExtensionProperties) * g_vulkanBackend.extensionsCount);
     if (g_vulkanBackend.extensionsCount > 0) {
         vkEnumerateInstanceExtensionProperties(nullptr, &g_vulkanBackend.extensionsCount, g_vulkanBackend.supportedExtensions);
@@ -133,6 +141,7 @@ void gfx_create_instance() {
     }
 
     vkEnumerateInstanceLayerProperties(&g_vulkanBackend.validationLayersCount, nullptr);
+    ASSERT(g_vulkanBackend.supportedValidationLayers == nullptr);
     g_vulkanBackend.supportedValidationLayers = (VkLayerProperties *) malloc(sizeof(VkLayerProperties) * g_vulkanBackend.validationLayersCount);
     if (g_vulkanBackend.validationLayersCount > 0) {
         vkEnumerateInstanceLayerProperties(&g_vulkanBackend.validationLayersCount, g_vulkanBackend.supportedValidationLayers);
@@ -599,17 +608,13 @@ void gfx_create_swap_chain() {
     }
     vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, &g_vulkanBackend.swapChain.imageCount, nullptr);
 
-    if (g_vulkanBackend.swapChain.images != nullptr) {
-        free(g_vulkanBackend.swapChain.images);
-    }
+    ASSERT(g_vulkanBackend.swapChain.images == nullptr);
     g_vulkanBackend.swapChain.images = (VkImage *) malloc(sizeof(VkImage) * g_vulkanBackend.swapChain.imageCount);
     VkResult swapChainImageResult = vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, &g_vulkanBackend.swapChain.imageCount,
                                                             &g_vulkanBackend.swapChain.images[0]);
     ASSERT_MSG(swapChainImageResult == VK_SUCCESS, "Err: failed to re-create swap chain images")
 
-    if (g_vulkanBackend.swapChain.buffers != nullptr) {
-        free(g_vulkanBackend.swapChain.buffers);
-    }
+    ASSERT(g_vulkanBackend.swapChain.buffers == nullptr);
     g_vulkanBackend.swapChain.buffers = (SwapChainBuffers *) malloc(sizeof(SwapChainBuffers) * g_vulkanBackend.swapChain.imageCount);
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
         VkImageViewCreateInfo swapChainImageViewInfo = {};
@@ -647,6 +652,7 @@ void gfx_cleanup_swap_chain() {
 
     free(g_vulkanBackend.swapChain.images);
     g_vulkanBackend.swapChain.images = nullptr;
+
     free(g_vulkanBackend.swapChain.buffers);
     g_vulkanBackend.swapChain.buffers = nullptr;
 }
@@ -759,6 +765,24 @@ void gfx_create_depth_stencil_buffer() {
 
     const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencil.image, g_vulkanBackend.depthStencil.deviceMemory, 0);
     ASSERT_MSG(bindRes == VK_SUCCESS, "Err: failed to bind depth stencil");
+
+    VkImageViewCreateInfo depthImageViewInfo{};
+    depthImageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    depthImageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    depthImageViewInfo.image = g_vulkanBackend.depthStencil.image;
+    depthImageViewInfo.format = g_vulkanTargetFormats.depthFormat;
+    depthImageViewInfo.subresourceRange.baseMipLevel = 0;
+    depthImageViewInfo.subresourceRange.levelCount = 1;
+    depthImageViewInfo.subresourceRange.baseArrayLayer = 0;
+    depthImageViewInfo.subresourceRange.layerCount = 1;
+    depthImageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    if (g_vulkanTargetFormats.depthFormat >= VK_FORMAT_D16_UNORM_S8_UINT) {
+        depthImageViewInfo.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+    }
+
+    const VkResult createRes = vkCreateImageView(g_vulkanBackend.device, &depthImageViewInfo, nullptr, &g_vulkanBackend.depthStencil.view);
+    ASSERT_MSG(createRes == VK_SUCCESS, "Err: failed to create depth image view");
 }
 
 void gfx_cleanup_depth_stencil_buffer() {
@@ -857,6 +881,36 @@ void gfx_cleanup_pipeline_cache() {
     g_vulkanBackend.pipelineCache = VK_NULL_HANDLE;
 }
 
+void gfx_create_frame_buffer() {
+    ASSERT(g_vulkanBackend.frameBuffers == nullptr);
+    g_vulkanBackend.frameBuffers = (VkFramebuffer *) malloc(sizeof(VkFramebuffer) * g_vulkanBackend.swapChain.imageCount);
+
+    constexpr uint32_t ATTACHMENT_COUNT = 2;
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
+        const VkImageView attachments[ATTACHMENT_COUNT] = {g_vulkanBackend.swapChain.buffers[i].view, g_vulkanBackend.depthStencil.view};
+
+        VkFramebufferCreateInfo framebufferInfo = {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+        framebufferInfo.pNext = nullptr;
+        framebufferInfo.renderPass = g_vulkanBackend.renderPass;
+        framebufferInfo.attachmentCount = ATTACHMENT_COUNT;
+        framebufferInfo.pAttachments = attachments;
+        framebufferInfo.width = g_vulkanBackend.swapChain.width;
+        framebufferInfo.height = g_vulkanBackend.swapChain.height;
+        framebufferInfo.layers = 1;
+
+        const VkResult frameBuffRes = vkCreateFramebuffer(g_vulkanBackend.device, &framebufferInfo, nullptr, &g_vulkanBackend.frameBuffers[i]);
+        ASSERT_MSG(frameBuffRes == VK_SUCCESS, "Err: failed to create frame buffer [%u]", i);
+    }
+}
+
+void gfx_cleanup_frame_buffer() {
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
+        vkDestroyFramebuffer(g_vulkanBackend.device, g_vulkanBackend.frameBuffers[i], nullptr);
+    }
+    free(g_vulkanBackend.frameBuffers);
+    g_vulkanBackend.frameBuffers = nullptr;
+}
+
 void gfx_update(const double &deltaTime) {}
 
 void gfx_create(void *windowHandle) {
@@ -872,9 +926,11 @@ void gfx_create(void *windowHandle) {
     gfx_create_depth_stencil_buffer();
     gfx_create_render_pass();
     gfx_create_pipeline_cache();
+    gfx_create_frame_buffer();
 }
 
 void gfx_cleanup() {
+    gfx_cleanup_frame_buffer();
     gfx_cleanup_pipeline_cache();
     gfx_cleanup_render_pass();
     gfx_cleanup_depth_stencil_buffer();
@@ -887,7 +943,4 @@ void gfx_cleanup() {
     gfx_cleanup_physical_device();
     gfx_cleanup_debug_callbacks();
     gfx_cleanup_instance();
-
-    free(g_vulkanBackend.supportedExtensions);
-    free(g_vulkanBackend.supportedValidationLayers);
 }
