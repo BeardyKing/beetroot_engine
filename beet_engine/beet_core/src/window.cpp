@@ -1,7 +1,7 @@
 #include <cstdint>
-#include <cstdlib>
 
 #include <beet_shared/assert.h>
+#include <beet_shared/memory.h>
 #include <beet_core/window.h>
 #include <beet_core/input.h>
 #include <beet_math/vec2.h>
@@ -287,8 +287,7 @@ void window_create(const char windowTitle[MAX_WINDOW_TITLE_SIZE], const vec2i &w
 
     HINSTANCE hInstance = GetModuleHandle(nullptr);
     {
-        g_windowInfo = (WindowInfo *) malloc(sizeof(WindowInfo));
-        memset(g_windowInfo, 0, sizeof(WindowInfo));
+        g_windowInfo = (WindowInfo *) mem_zalloc(sizeof(WindowInfo));
 
         g_windowInfo->width = windowSize.x;
         g_windowInfo->height = windowSize.y;
@@ -334,8 +333,7 @@ void window_create(const char windowTitle[MAX_WINDOW_TITLE_SIZE], const vec2i &w
 }
 
 void window_cleanup() {
-    free(g_windowInfo);
-    g_windowInfo = nullptr;
+    mem_free(g_windowInfo);
 }
 
 

@@ -16,8 +16,7 @@ int main() {
         input_set_time(time_current());
         window_update();
         input_update();
-        //TODO: GFX backend.
-
+        gfx_update(time_delta());
     }
 
     gfx_cleanup();

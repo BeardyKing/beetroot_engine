@@ -8,6 +8,8 @@ add_library(beet_shared
         src/log.cpp
         inc/beet_shared/shared_utils.h
         src/shared_utils.cpp
+        inc/beet_shared/memory.h
+        src/memory.cpp
 )
 
 #====LIB TARGET DIR=======

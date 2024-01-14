@@ -1,6 +1,5 @@
-#include <cstdlib>
-
 #include <beet_core/input.h>
+#include <beet_shared/memory.h>
 
 //===internal structs========
 struct KeyInfo {
@@ -133,16 +132,14 @@ void input_set_scroll_sensitivity(const float sensitivity) {
 
 //===init & shutdown=========
 void input_create() {
-    g_input = (Input *) malloc(sizeof(Input));
-    memset(g_input, 0, sizeof(Input));
+    g_input = (Input *) mem_zalloc(sizeof(Input));
 
     input_set_mouse_sensitivity({0.3f, 0.3f});
     input_set_scroll_sensitivity(0.03f);
 }
 
 void input_cleanup() {
-    free(g_input);
-    g_input = nullptr;
+    mem_free(g_input);
 }
 
 void input_key_down_callback(const int32_t keyCode) {

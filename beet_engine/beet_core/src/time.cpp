@@ -1,4 +1,5 @@
 #include <beet_core/time.h>
+#include <beet_shared/memory.h>
 
 #include <windows.h>
 
@@ -49,9 +50,7 @@ void time_create() {
     QueryPerformanceCounter(&now);
     QueryPerformanceFrequency(&frequency);
 
-    g_time = (Time *) malloc(sizeof(Time));
-    memset(g_time, 0, sizeof(Time));
-
+    g_time = (Time *) mem_zalloc(sizeof(Time));
 
     g_time->timeOnStartUp = (double) now.QuadPart / (double) frequency.QuadPart;
     g_time->lastTime = (double) now.QuadPart / (double) frequency.QuadPart;
@@ -63,7 +62,6 @@ void time_create() {
 }
 
 void time_cleanup() {
-    free(g_time);
-    g_time = nullptr;
+    mem_free(g_time);
 }
 
