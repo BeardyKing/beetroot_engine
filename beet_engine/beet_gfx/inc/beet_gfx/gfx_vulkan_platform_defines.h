@@ -5,9 +5,6 @@
 #include <Windows.h>
 #include <vulkan/vulkan_win32.h>
 
-//===runtime=================
-static constexpr uint32_t BEET_VK_COMMAND_BUFFER_COUNT = 2;
-
 //===extensions==============
 static constexpr int32_t BEET_VK_EXTENSION_COUNT = 3;
 static constexpr const char *BEET_VK_EXTENSIONS[BEET_VK_EXTENSION_COUNT]{

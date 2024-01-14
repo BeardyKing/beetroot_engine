@@ -7,7 +7,6 @@
 #include <beet_gfx/gfx_interface.h>
 #include <beet_gfx/gfx_vulkan_surface.h>
 #include <beet_shared/shared_utils.h>
-#include <vector>
 
 static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_OTHER",
@@ -33,6 +32,11 @@ struct DepthImage {
     VkImage image;
     VkDeviceMemory deviceMemory;
     VkImageView view;
+};
+
+struct Semaphores {
+    VkSemaphore presentDone;
+    VkSemaphore renderDone;
 };
 
 struct VulkanSwapChain {
@@ -72,9 +76,9 @@ static struct VulkanBackend {
     VkQueue queue = {VK_NULL_HANDLE};
 
     VkCommandPool graphicsCommandPool = {VK_NULL_HANDLE};
-    VkCommandBuffer graphicsCommandBuffers[BEET_VK_COMMAND_BUFFER_COUNT] = {};
+    VkCommandBuffer *graphicsCommandBuffers = {}; // size is based off swapChain.imageCount
     VkRenderPass renderPass = {VK_NULL_HANDLE};
-    VkFence graphicsFenceWait[BEET_VK_COMMAND_BUFFER_COUNT] = {};
+    VkFence *graphicsFenceWait = {};// size is based off swapChain.imageCount
 
     DepthImage depthStencil = {};
 
@@ -85,6 +89,11 @@ static struct VulkanBackend {
 
     VulkanSwapChain swapChain = {};
     VkFramebuffer *frameBuffers = {}; // size is based off swapChain.imageCount
+    uint32_t currentBufferIndex = 0;
+
+    Semaphores semaphores = {};
+    VkPipelineStageFlags submitPipelineStages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkSubmitInfo submitInfo = {};
 
     QueueFamilyIndices queueFamilyIndices = {};
     VkPipelineCache pipelineCache = {VK_NULL_HANDLE};
@@ -658,20 +667,27 @@ void gfx_cleanup_swap_chain() {
 }
 
 void gfx_create_command_buffers() {
+
+    ASSERT(g_vulkanBackend.graphicsCommandBuffers == nullptr);
+    g_vulkanBackend.graphicsCommandBuffers = (VkCommandBuffer *) malloc(sizeof(VkCommandBuffer) * g_vulkanBackend.swapChain.imageCount);
+
     VkCommandBufferAllocateInfo commandBufferInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
     commandBufferInfo.commandPool = g_vulkanBackend.graphicsCommandPool;
     commandBufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    commandBufferInfo.commandBufferCount = BEET_VK_COMMAND_BUFFER_COUNT;
+    commandBufferInfo.commandBufferCount = g_vulkanBackend.swapChain.imageCount;
 
     VkResult cmdBuffResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &commandBufferInfo, g_vulkanBackend.graphicsCommandBuffers);
     ASSERT_MSG(cmdBuffResult == VK_SUCCESS, "Err: failed to create graphics command buffer");
 }
 
 void gfx_cleanup_command_buffers() {
-    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, BEET_VK_COMMAND_BUFFER_COUNT, g_vulkanBackend.graphicsCommandBuffers);
-    for (uint32_t i = 0; i < BEET_VK_COMMAND_BUFFER_COUNT; ++i) {
+    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, g_vulkanBackend.swapChain.imageCount, g_vulkanBackend.graphicsCommandBuffers);
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
         g_vulkanBackend.graphicsCommandBuffers[i] = VK_NULL_HANDLE;
     }
+
+    free(g_vulkanBackend.graphicsCommandBuffers);
+    g_vulkanBackend.graphicsCommandBuffers = nullptr;
 }
 
 void gfx_create_fences() {
@@ -681,17 +697,21 @@ void gfx_create_fences() {
             VK_FENCE_CREATE_SIGNALED_BIT
     };
 
-    for (uint32_t i = 0; i < BEET_VK_COMMAND_BUFFER_COUNT; ++i) {
+    ASSERT(g_vulkanBackend.graphicsFenceWait == nullptr);
+    g_vulkanBackend.graphicsFenceWait = (VkFence *) malloc(sizeof(VkFence) * g_vulkanBackend.swapChain.imageCount);
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
         const VkResult fenceRes = vkCreateFence(g_vulkanBackend.device, &fenceCreateInfo, nullptr, &g_vulkanBackend.graphicsFenceWait[i]);
         ASSERT_MSG(fenceRes == VK_SUCCESS, "Err: failed to create graphics fence [%u]", i);
     }
 }
 
 void gfx_cleanup_fences() {
-    for (uint32_t i = 0; i < BEET_VK_COMMAND_BUFFER_COUNT; ++i) {
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
         vkDestroyFence(g_vulkanBackend.device, g_vulkanBackend.graphicsFenceWait[i], nullptr);
         g_vulkanBackend.graphicsFenceWait[i] = VK_NULL_HANDLE;
     }
+    free(g_vulkanBackend.graphicsFenceWait);
+    g_vulkanBackend.graphicsFenceWait = nullptr;
 }
 
 VkFormat find_depth_format(const VkImageTiling &desiredTilingFormat) {
@@ -911,7 +931,133 @@ void gfx_cleanup_frame_buffer() {
     g_vulkanBackend.frameBuffers = nullptr;
 }
 
-void gfx_update(const double &deltaTime) {}
+
+void gfx_flush() {
+    if (g_vulkanBackend.device != VK_NULL_HANDLE) {
+        vkDeviceWaitIdle(g_vulkanBackend.device);
+    }
+}
+
+void gfx_render_frame() {
+    g_vulkanBackend.submitInfo.commandBufferCount = 1;
+    g_vulkanBackend.submitInfo.pCommandBuffers = &g_vulkanBackend.graphicsCommandBuffers[g_vulkanBackend.currentBufferIndex];
+    const VkResult submitRes = vkQueueSubmit(g_vulkanBackend.queue, 1, &g_vulkanBackend.submitInfo, VK_NULL_HANDLE);
+    ASSERT(submitRes == VK_SUCCESS);
+}
+
+VkResult gfx_acquire_next_swap_chain_image() {
+    return vkAcquireNextImageKHR(
+            g_vulkanBackend.device,
+            g_vulkanBackend.swapChain.swapChain,
+            UINT64_MAX,
+            g_vulkanBackend.semaphores.presentDone,
+            VK_NULL_HANDLE,
+            &g_vulkanBackend.currentBufferIndex
+    );
+}
+
+VkResult gfx_present() {
+    VkPresentInfoKHR presentInfo = {};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.pNext = NULL;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &g_vulkanBackend.swapChain.swapChain;
+    presentInfo.pImageIndices = &g_vulkanBackend.currentBufferIndex;
+
+    if (g_vulkanBackend.semaphores.renderDone != VK_NULL_HANDLE) {
+        presentInfo.pWaitSemaphores = &g_vulkanBackend.semaphores.renderDone;
+        presentInfo.waitSemaphoreCount = 1;
+    }
+
+    return vkQueuePresentKHR(g_vulkanBackend.queue, &presentInfo);
+}
+
+void begin_command_recording(const VkCommandBuffer &cmdBuffer) {
+    VkCommandBufferBeginInfo cmdBeginInfo = {};
+    cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    cmdBeginInfo.pNext = nullptr;
+    cmdBeginInfo.pInheritanceInfo = nullptr;
+    cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    auto result = vkBeginCommandBuffer(cmdBuffer, &cmdBeginInfo);
+    ASSERT_MSG(result == VK_SUCCESS, "Err: Vulkan failed to begin command buffer recording");
+}
+
+void end_command_recording(const VkCommandBuffer &cmdBuffer) {
+    vkEndCommandBuffer(cmdBuffer);
+}
+
+void gfx_render_pass(VkCommandBuffer &cmdBuffer) {
+    constexpr uint32_t clearValueCount = 2;
+    VkClearValue clearValues[2];
+    clearValues[0].color = {{0.5f, 0.092f, 0.167f, 1.0f}};
+    clearValues[1].depthStencil.depth = 1.0f;
+
+    VkRenderPassBeginInfo renderPassBeginInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+    renderPassBeginInfo.renderPass = g_vulkanBackend.renderPass;
+    renderPassBeginInfo.framebuffer = g_vulkanBackend.frameBuffers[g_vulkanBackend.currentBufferIndex];
+    renderPassBeginInfo.renderArea.extent.width = g_vulkanBackend.swapChain.width;
+    renderPassBeginInfo.renderArea.extent.height = g_vulkanBackend.swapChain.height;
+    renderPassBeginInfo.clearValueCount = clearValueCount;
+    renderPassBeginInfo.pClearValues = clearValues;
+
+    vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    {
+        VkViewport viewport = {0, 0, float(g_vulkanBackend.swapChain.width), float(g_vulkanBackend.swapChain.height), 0.0f, 1.0f};
+        vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
+
+        VkRect2D scissor = {0, 0, g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
+        vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+    }
+    vkCmdEndRenderPass(cmdBuffer);
+}
+
+void gfx_update(const double &deltaTime) {
+    const VkResult nextRes = gfx_acquire_next_swap_chain_image();
+
+    if (nextRes == VK_ERROR_OUT_OF_DATE_KHR) {
+        //gfx_recreate_swapchain(); TODO:
+        SANITY_CHECK();
+        return;
+    } else if (nextRes < 0) {
+        ASSERT(nextRes == VK_SUCCESS)
+    }
+    VkCommandBuffer cmdBuffer = g_vulkanBackend.graphicsCommandBuffers[g_vulkanBackend.currentBufferIndex];
+    vkResetCommandBuffer(cmdBuffer, 0);
+
+    begin_command_recording(cmdBuffer);
+    {
+        gfx_render_pass(cmdBuffer);
+    }
+    end_command_recording(cmdBuffer);
+
+    //TODO: build draw commands
+    gfx_render_frame();
+    gfx_present();
+    gfx_flush();
+}
+
+void gfx_create_semaphores() {
+    VkSemaphoreCreateInfo semaphoreInfo = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+    const VkResult presentRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr, &g_vulkanBackend.semaphores.presentDone);
+    ASSERT_MSG(presentRes == VK_SUCCESS, "Err: failed to create present semaphore");
+
+    const VkResult renderRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr, &g_vulkanBackend.semaphores.renderDone);
+    ASSERT_MSG(renderRes == VK_SUCCESS, "Err: failed to create render semaphore");
+
+    g_vulkanBackend.submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    g_vulkanBackend.submitInfo.pWaitDstStageMask = &g_vulkanBackend.submitPipelineStages;
+    g_vulkanBackend.submitInfo.waitSemaphoreCount = 1;
+    g_vulkanBackend.submitInfo.pWaitSemaphores = &g_vulkanBackend.semaphores.presentDone;
+    g_vulkanBackend.submitInfo.signalSemaphoreCount = 1;
+    g_vulkanBackend.submitInfo.pSignalSemaphores = &g_vulkanBackend.semaphores.renderDone;
+}
+
+void gfx_cleanup_semaphores() {
+    vkDestroySemaphore(g_vulkanBackend.device, g_vulkanBackend.semaphores.presentDone, nullptr);
+    vkDestroySemaphore(g_vulkanBackend.device, g_vulkanBackend.semaphores.renderDone, nullptr);
+    g_vulkanBackend.submitInfo = {};
+}
 
 void gfx_create(void *windowHandle) {
     gfx_create_instance();
@@ -920,6 +1066,7 @@ void gfx_create(void *windowHandle) {
     gfx_create_surface(windowHandle, &g_vulkanBackend.instance, &g_vulkanBackend.swapChain.surface);
     gfx_create_queues();
     gfx_create_command_pool();
+    gfx_create_semaphores();
     gfx_create_swap_chain();
     gfx_create_command_buffers();
     gfx_create_fences();
@@ -937,6 +1084,7 @@ void gfx_cleanup() {
     gfx_cleanup_fences();
     gfx_cleanup_command_buffers();
     gfx_cleanup_swap_chain();
+    gfx_cleanup_semaphores();
     gfx_cleanup_command_pool();
     gfx_cleanup_queues();
     gfx_cleanup_surface();
