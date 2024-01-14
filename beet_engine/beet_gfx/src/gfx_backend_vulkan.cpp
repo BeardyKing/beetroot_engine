@@ -1011,12 +1011,34 @@ void gfx_render_pass(VkCommandBuffer &cmdBuffer) {
     vkCmdEndRenderPass(cmdBuffer);
 }
 
+bool query_has_valid_extent_size() {
+    VkSurfaceCapabilitiesKHR surfaceCapabilities{};
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceCapabilities);
+    return surfaceCapabilities.currentExtent.width != 0 || surfaceCapabilities.currentExtent.height != 0;
+}
+
+void gfx_window_resize() {
+    if (!query_has_valid_extent_size()) {
+        return;
+    }
+    gfx_flush();
+
+    gfx_cleanup_frame_buffer();
+    gfx_cleanup_render_pass();
+    gfx_cleanup_depth_stencil_buffer();
+    gfx_cleanup_swap_chain();
+
+    gfx_create_swap_chain();
+    gfx_create_depth_stencil_buffer();
+    gfx_create_render_pass();
+    gfx_create_frame_buffer();
+}
+
 void gfx_update(const double &deltaTime) {
     const VkResult nextRes = gfx_acquire_next_swap_chain_image();
 
     if (nextRes == VK_ERROR_OUT_OF_DATE_KHR) {
-        //gfx_recreate_swapchain(); TODO:
-        SANITY_CHECK();
+        gfx_window_resize();
         return;
     } else if (nextRes < 0) {
         ASSERT(nextRes == VK_SUCCESS)
