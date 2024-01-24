@@ -13,6 +13,8 @@ const char *log_channel_name_lookup(const MSG_CHANNEL &channel) {
             return "[gfx]";
         case MSG_MATH:
             return "[math]";
+        case MSG_DDS:
+            return "[dds]";
 
         case MSG_DBG:
             return "[debugging]";

@@ -22,6 +22,7 @@ enum MSG_CHANNEL : uint32_t {
 
     MSG_GFX = 1u << 4u,
     MSG_MATH = 1u << 5u,
+    MSG_DDS = 1u << 6u,
 
     MSG_DBG = 1u << 31u,
     MSG_ALL = UINT32_MAX,

@@ -10,6 +10,9 @@ add_library(beet_shared
         src/shared_utils.cpp
         inc/beet_shared/memory.h
         src/memory.cpp
+        inc/beet_shared/texture_formats.h
+        inc/beet_shared/dds_loader.h
+        src/dds_loader.cpp
 )
 
 #====LIB TARGET DIR=======
