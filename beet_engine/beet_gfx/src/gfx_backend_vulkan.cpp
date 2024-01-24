@@ -13,7 +13,6 @@
 #include <beet_shared/texture_formats.h>
 #include <beet_shared/dds_loader.h>
 
-
 static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_OTHER",
         "VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU",
@@ -27,23 +26,23 @@ constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_
 static struct UserArguments {
     uint32_t selectedPhysicalDeviceIndex = {};
     bool vsync = {true};
-} g_userArguments;
+} g_userArguments = {};
 
 static struct VulkanDebug {
     VkDebugUtilsMessengerEXT debugUtilsMessenger = {VK_NULL_HANDLE};
-} g_vulkanDebug;
+} g_vulkanDebug = {};
 
 struct TargetVulkanFormats {
     // TODO: this struct should only last a single "frame" would be a good candidate for the inevitable gfx backend arena allocator
     VkSurfaceFormatKHR surfaceFormat = {};
     VkFormat depthFormat = {};
-} g_vulkanTargetFormats;
+} g_vulkanTargetFormats = {};
 
 static struct textures {
     GfxTexture uvGrid;
-} g_textures;
+} g_textures = {};
 
-static struct VulkanBackend g_vulkanBackend;
+struct VulkanBackend g_vulkanBackend = {};
 
 bool gfx_find_supported_extension(const char *extensionName) {
     for (uint32_t i = 0; i < g_vulkanBackend.extensionsCount; ++i) {
@@ -1381,6 +1380,7 @@ void gfx_create(void *windowHandle) {
     gfx_create_render_pass();
     gfx_create_pipeline_cache();
     gfx_create_frame_buffer();
+    gfx_create_samplers();
 
     gfx_load_packages();
     //TODO: 1) MANUAL load scene/package into memory
@@ -1394,6 +1394,7 @@ void gfx_create(void *windowHandle) {
 void gfx_cleanup() {
     gfx_unload_packages();
 
+    gfx_cleanup_samplers();
     gfx_cleanup_frame_buffer();
     gfx_cleanup_pipeline_cache();
     gfx_cleanup_render_pass();

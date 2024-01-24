@@ -1,7 +1,6 @@
 #include <cstdint>
 
 #include <beet_shared/assert.h>
-#include <beet_shared/memory.h>
 #include <beet_core/window.h>
 #include <beet_core/input.h>
 #include <beet_math/vec2.h>
@@ -18,7 +17,7 @@
 #include "input_types.h"
 
 //===internal structs========
-struct WindowInfo {
+static struct WindowInfo {
     WNDCLASS windowClass;
     HWND handle;
     const wchar_t *applicationName;
@@ -34,16 +33,14 @@ struct WindowInfo {
     vec2i lockedCursorPosition;
     vec2i virtualCursorPosition;
     bool cursorOverWindow;
-};
-
-WindowInfo *g_windowInfo;
+} g_windowInfo = {};
 
 //===internal functions======
 LRESULT CALLBACK window_procedure_callback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
         case WM_DESTROY: {
             PostQuitMessage(0);
-            g_windowInfo->shouldWindowClose = true;
+            g_windowInfo.shouldWindowClose = true;
             break;
         };
         case WM_PAINT: {
@@ -51,21 +48,21 @@ LRESULT CALLBACK window_procedure_callback(HWND hwnd, UINT uMsg, WPARAM wParam, 
             break;
         };
         case WM_SIZE: {
-            g_windowInfo->width = LOWORD(lParam);
-            g_windowInfo->height = HIWORD(lParam);
+            g_windowInfo.width = LOWORD(lParam);
+            g_windowInfo.height = HIWORD(lParam);
             break;
         }
         case WM_MOVE: {
-            g_windowInfo->posX = (int32_t) (short) LOWORD(lParam);
-            g_windowInfo->posY = (int32_t) (short) HIWORD(lParam);
+            g_windowInfo.posX = (int32_t) (short) LOWORD(lParam);
+            g_windowInfo.posY = (int32_t) (short) HIWORD(lParam);
             break;
         }
         case WM_MOUSELEAVE: {
-            g_windowInfo->cursorOverWindow = false;
+            g_windowInfo.cursorOverWindow = false;
             break;
         }
         case WM_MOUSEHOVER: {
-            g_windowInfo->cursorOverWindow = true;
+            g_windowInfo.cursorOverWindow = true;
             break;
         }
             //input
@@ -82,11 +79,11 @@ LRESULT CALLBACK window_procedure_callback(HWND hwnd, UINT uMsg, WPARAM wParam, 
             static RAWINPUT raw[sizeof(RAWINPUT)];
 
             GetRawInputData((HRAWINPUT) lParam, RID_INPUT, raw, &size, sizeof(RAWINPUTHEADER));
-            g_windowInfo->virtualCursorPosition.x += raw->data.mouse.lLastX;
-            g_windowInfo->virtualCursorPosition.y += raw->data.mouse.lLastY;
+            g_windowInfo.virtualCursorPosition.x += raw->data.mouse.lLastX;
+            g_windowInfo.virtualCursorPosition.y += raw->data.mouse.lLastY;
 
-            input_mouse_move_callback(g_windowInfo->virtualCursorPosition.x,
-                                      g_windowInfo->virtualCursorPosition.y
+            input_mouse_move_callback(g_windowInfo.virtualCursorPosition.x,
+                                      g_windowInfo.virtualCursorPosition.y
             );
 
             //TODO:CORE consider moving other input callbacks to WM_INPUT i.e. WHEEL_DELTA and JOY PADS.
@@ -165,9 +162,9 @@ LRESULT CALLBACK window_procedure_callback(HWND hwnd, UINT uMsg, WPARAM wParam, 
 }
 
 void update_cursor_state() {
-    switch (g_windowInfo->currentCursorState) {
+    switch (g_windowInfo.currentCursorState) {
         case CursorState::HiddenLockedLockMousePos: {
-            vec2i &pos = g_windowInfo->lockedCursorPosition;
+            vec2i &pos = g_windowInfo.lockedCursorPosition;
             SetCursorPos(pos.x, pos.y);
             break;
         }
@@ -180,25 +177,25 @@ void check_cursor_over_window(MSG *msg) {
     POINT point;
     GetCursorPos(&point);
     const RECT rect{
-            g_windowInfo->posX,
-            g_windowInfo->posY,
-            g_windowInfo->posX + g_windowInfo->width,
-            g_windowInfo->posY + g_windowInfo->height,
+            g_windowInfo.posX,
+            g_windowInfo.posY,
+            g_windowInfo.posX + g_windowInfo.width,
+            g_windowInfo.posY + g_windowInfo.height,
     };
     bool cursorOverWindow = !(point.x <= rect.left || point.x >= rect.right || point.y >= rect.bottom ||
                               point.y <= rect.top);
     if (cursorOverWindow) {
-        if (!g_windowInfo->cursorOverWindow) {
-            g_windowInfo->cursorOverWindow = true;
+        if (!g_windowInfo.cursorOverWindow) {
+            g_windowInfo.cursorOverWindow = true;
             msg->message = WM_MOUSEHOVER;
-            msg->hwnd = g_windowInfo->handle;
+            msg->hwnd = g_windowInfo.handle;
             msg->lParam = 0xFFFFFFFF;
         }
     } else {
-        if (g_windowInfo->cursorOverWindow) {
-            g_windowInfo->cursorOverWindow = false;
+        if (g_windowInfo.cursorOverWindow) {
+            g_windowInfo.cursorOverWindow = false;
             msg->message = WM_MOUSELEAVE;
-            msg->hwnd = g_windowInfo->handle;
+            msg->hwnd = g_windowInfo.handle;
             msg->lParam = 0xFFFFFFFF;
         }
     }
@@ -206,7 +203,7 @@ void check_cursor_over_window(MSG *msg) {
 
 void window_poll() {
     MSG msg = {};
-    if (PeekMessage(&msg, g_windowInfo->handle, 0, 0, PM_REMOVE)) {
+    if (PeekMessage(&msg, g_windowInfo.handle, 0, 0, PM_REMOVE)) {
         check_cursor_over_window(&msg);
         TranslateMessage(&msg);
         DispatchMessage(&msg);
@@ -220,29 +217,29 @@ void window_update() {
 }
 
 bool window_is_open() {
-    return !g_windowInfo->shouldWindowClose;
+    return !g_windowInfo.shouldWindowClose;
 }
 
 bool window_is_cursor_over_window() {
-    return g_windowInfo->cursorOverWindow;
+    return g_windowInfo.cursorOverWindow;
 }
 
 void window_set_cursor_lock_position(const vec2i lockPos) {
-    g_windowInfo->lockedCursorPosition = vec2i{
-            g_windowInfo->posX + lockPos.x,
-            g_windowInfo->posY + lockPos.y
+    g_windowInfo.lockedCursorPosition = vec2i{
+            g_windowInfo.posX + lockPos.x,
+            g_windowInfo.posY + lockPos.y
     };
 }
 
 void window_set_cursor(CursorState state) {
     const RECT rect{
-            g_windowInfo->posX,
-            g_windowInfo->posY,
-            g_windowInfo->posX + g_windowInfo->width,
-            g_windowInfo->posY + g_windowInfo->height,
+            g_windowInfo.posX,
+            g_windowInfo.posY,
+            g_windowInfo.posX + g_windowInfo.width,
+            g_windowInfo.posY + g_windowInfo.height,
     };
-    g_windowInfo->currentCursorState = state;
-    switch (g_windowInfo->currentCursorState) {
+    g_windowInfo.currentCursorState = state;
+    switch (g_windowInfo.currentCursorState) {
         case CursorState::Normal: {
             ShowCursor(true);
             ClipCursor(nullptr);
@@ -270,7 +267,7 @@ void window_set_cursor(CursorState state) {
 }
 
 void *window_get_handle() {
-    return g_windowInfo->handle;
+    return g_windowInfo.handle;
 }
 
 //===init & shutdown=========
@@ -287,53 +284,52 @@ void window_create(const char windowTitle[MAX_WINDOW_TITLE_SIZE], const vec2i &w
 
     HINSTANCE hInstance = GetModuleHandle(nullptr);
     {
-        g_windowInfo = (WindowInfo *) mem_zalloc(sizeof(WindowInfo));
-
-        g_windowInfo->width = windowSize.x;
-        g_windowInfo->height = windowSize.y;
-        g_windowInfo->posX = screenX;
-        g_windowInfo->posY = screenY;
-        g_windowInfo->applicationName = L"" "BEET_WINDOW_APPLICATION_NAME";
-        g_windowInfo->titleName = wc_windowTitle;
-        g_windowInfo->windowClass.lpfnWndProc = window_procedure_callback;
-        g_windowInfo->windowClass.hInstance = hInstance;
-        g_windowInfo->windowClass.lpszClassName = g_windowInfo->applicationName;
-        g_windowInfo->windowClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
+//        g_windowInfo = {};
+        g_windowInfo.width = windowSize.x;
+        g_windowInfo.height = windowSize.y;
+        g_windowInfo.posX = screenX;
+        g_windowInfo.posY = screenY;
+        g_windowInfo.applicationName = L"" "BEET_WINDOW_APPLICATION_NAME";
+        g_windowInfo.titleName = wc_windowTitle;
+        g_windowInfo.windowClass.lpfnWndProc = window_procedure_callback;
+        g_windowInfo.windowClass.hInstance = hInstance;
+        g_windowInfo.windowClass.lpszClassName = g_windowInfo.applicationName;
+        g_windowInfo.windowClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
     }
 
-    RegisterClass(&g_windowInfo->windowClass);
+    RegisterClass(&g_windowInfo.windowClass);
 
-    g_windowInfo->handle = CreateWindowEx(
+    g_windowInfo.handle = CreateWindowEx(
             0,
-            g_windowInfo->applicationName,
-            g_windowInfo->titleName,
+            g_windowInfo.applicationName,
+            g_windowInfo.titleName,
             WS_OVERLAPPEDWINDOW,
-            g_windowInfo->posX,
-            g_windowInfo->posY,
-            g_windowInfo->width,
-            g_windowInfo->height,
+            g_windowInfo.posX,
+            g_windowInfo.posY,
+            g_windowInfo.width,
+            g_windowInfo.height,
             nullptr,
             nullptr,
             hInstance,
             nullptr
     );
 
-    ASSERT_MSG(g_windowInfo->handle, "Err: Failed to create window.")
-    ShowWindow(g_windowInfo->handle, SW_SHOWDEFAULT);
-    g_windowInfo->shouldWindowClose = false;
+    ASSERT_MSG(g_windowInfo.handle, "Err: Failed to create window.")
+    ShowWindow(g_windowInfo.handle, SW_SHOWDEFAULT);
+    g_windowInfo.shouldWindowClose = false;
     {
         RAWINPUTDEVICE rawInputDevice[1];
         rawInputDevice[0].usUsagePage = 0x01;          // HID_USAGE_PAGE_GENERIC
         rawInputDevice[0].usUsage = 0x02;              // HID_USAGE_GENERIC_MOUSE
         rawInputDevice[0].dwFlags = RIDEV_INPUTSINK;
-        rawInputDevice[0].hwndTarget = g_windowInfo->handle;
-        auto result = RegisterRawInputDevices(rawInputDevice, 1, sizeof(rawInputDevice[0]));
+        rawInputDevice[0].hwndTarget = g_windowInfo.handle;
+        const auto result = RegisterRawInputDevices(rawInputDevice, 1, sizeof(rawInputDevice[0]));
         ASSERT_MSG(result == TRUE, "Failed to register raw input devices");
     }
 }
 
 void window_cleanup() {
-    mem_free(g_windowInfo);
+    g_windowInfo = {};
 }
 
 
