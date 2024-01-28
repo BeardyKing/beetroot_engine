@@ -4,14 +4,15 @@
 #include <beet_shared/log.h>
 #include <beet_shared/shared_utils.h>
 #include <beet_shared/memory.h>
+#include <beet_shared/texture_formats.h>
+#include <beet_shared/dds_loader.h>
 
 #include <beet_gfx/gfx_vulkan_platform_defines.h>
 #include <beet_gfx/gfx_interface.h>
 #include <beet_gfx/gfx_vulkan_surface.h>
 #include <beet_gfx/gfx_types.h>
 #include <beet_gfx/gfx_samplers.h>
-#include <beet_shared/texture_formats.h>
-#include <beet_shared/dds_loader.h>
+#include <beet_gfx/gfx_mesh.h>
 
 static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_OTHER",
@@ -41,6 +42,10 @@ struct TargetVulkanFormats {
 static struct textures {
     GfxTexture uvGrid;
 } g_textures = {};
+
+static struct meshes {
+    GfxMesh cube;
+} g_meshes = {};
 
 struct VulkanBackend g_vulkanBackend = {};
 
@@ -1350,19 +1355,206 @@ void gfx_create_texture_immediate(VkCommandBuffer &commandBuffer, const char *pa
     ASSERT(imageViewRes == VK_SUCCESS);
 }
 
+void gfx_cleanup_mesh(GfxMesh &mesh) {
+    vkDestroyBuffer(g_vulkanBackend.device, mesh.vertBuffer, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, mesh.vertMemory, nullptr);
+    vkDestroyBuffer(g_vulkanBackend.device, mesh.indexBuffer, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, mesh.indexMemory, nullptr);
+}
+
 void gfx_cleanup_texture(GfxTexture &texture) {
     vkDestroyImageView(g_vulkanBackend.device, texture.view, nullptr);
     vkDestroyImage(g_vulkanBackend.device, texture.image, nullptr);
     vkFreeMemory(g_vulkanBackend.device, texture.deviceMemory, nullptr);
 }
 
+VkResult create_buffer(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags, const VkDeviceSize &size,
+                       VkBuffer &outBuffer, VkDeviceMemory &memory, void *inData) {
+    VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    bufferCreateInfo.usage = usageFlags;
+    bufferCreateInfo.size = size;
+
+    bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    const VkResult createBuffer = vkCreateBuffer(g_vulkanBackend.device, &bufferCreateInfo, nullptr, &outBuffer);
+    ASSERT(createBuffer == VK_SUCCESS);
+
+    VkMemoryRequirements memReqs;
+    VkMemoryAllocateInfo memAlloc{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+
+    vkGetBufferMemoryRequirements(g_vulkanBackend.device, outBuffer, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    memAlloc.memoryTypeIndex = gfx_get_memory_type(memReqs.memoryTypeBits, memoryPropertyFlags);
+    // when outBuffer has VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT set we also need to enable the appropriate flag during allocation
+    VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
+    if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
+        allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
+        allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
+        memAlloc.pNext = &allocFlagsInfo;
+    }
+    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &memAlloc, nullptr, &memory);
+    ASSERT(allocRes == VK_SUCCESS);
+
+    if (inData != nullptr) {
+        void *mapped;
+        const VkResult VkMapRes = vkMapMemory(g_vulkanBackend.device, memory, 0, size, 0, &mapped);
+        ASSERT(VkMapRes == VK_SUCCESS);
+
+        memcpy(mapped, inData, size);
+        // when host coherency hasn't been requested, do a manual flush to make writes visible
+        if ((memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+            VkMappedMemoryRange mappedRange{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
+            mappedRange.memory = memory;
+            mappedRange.offset = 0;
+            mappedRange.size = size;
+            vkFlushMappedMemoryRanges(g_vulkanBackend.device, 1, &mappedRange);
+        }
+        vkUnmapMemory(g_vulkanBackend.device, memory);
+    }
+
+    const VkResult bindRes = vkBindBufferMemory(g_vulkanBackend.device, outBuffer, memory, 0);
+    return bindRes;
+}
+
+void gfx_create_mesh_immediate(const RawMesh &rawMesh, GfxMesh &outMesh) {
+    ASSERT((rawMesh.vertexCount > 0) && (rawMesh.indexCount > 0));
+
+    struct StagingBuffer {
+        VkBuffer buffer;
+        VkDeviceMemory memory;
+    };
+    StagingBuffer vertexStaging = {};
+    StagingBuffer indexStaging = {};
+
+    const size_t vertexBufferSize = sizeof(Vertex) * rawMesh.vertexCount;
+    const size_t indexBufferSize = sizeof(uint32_t) * rawMesh.indexCount;
+
+    outMesh.indexCount = rawMesh.indexCount;
+    outMesh.vertCount = rawMesh.vertexCount;
+
+    // Create staging buffers
+    VkResult vertexCreateStageRes = create_buffer(
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            vertexBufferSize,
+            vertexStaging.buffer,
+            vertexStaging.memory,
+            rawMesh.vertexData
+    );
+    ASSERT(vertexCreateStageRes == VK_SUCCESS);
+
+    VkResult indexCreateStageRes = create_buffer(
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            indexBufferSize,
+            indexStaging.buffer,
+            indexStaging.memory,
+            rawMesh.indexData
+    );
+    ASSERT(indexCreateStageRes == VK_SUCCESS);
+
+    // Create device local buffers
+    const VkResult vertexCreateDeviceLocalRes = create_buffer(
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            vertexBufferSize,
+            outMesh.vertBuffer,
+            outMesh.vertMemory,
+            nullptr
+    );
+    ASSERT(vertexCreateDeviceLocalRes == VK_SUCCESS);
+    // Index buffer
+    const VkResult indexCreateDeviceLocalRes = create_buffer(
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            indexBufferSize,
+            outMesh.indexBuffer,
+            outMesh.indexMemory,
+            nullptr
+    );
+    ASSERT(indexCreateDeviceLocalRes == VK_SUCCESS);
+
+    gfx_command_begin_immediate_recording();
+    {
+        VkBufferCopy copyRegion = {};
+        copyRegion.size = vertexBufferSize;
+        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, vertexStaging.buffer, outMesh.vertBuffer, 1, &copyRegion);
+
+        copyRegion.size = indexBufferSize;
+        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, indexStaging.buffer, outMesh.indexBuffer, 1, &copyRegion);
+    }
+    gfx_command_end_immediate_recording();
+
+    vkDestroyBuffer(g_vulkanBackend.device, vertexStaging.buffer, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, vertexStaging.memory, nullptr);
+    vkDestroyBuffer(g_vulkanBackend.device, indexStaging.buffer, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, indexStaging.memory, nullptr);
+}
+
+void gfx_create_cube_immediate(GfxMesh &outMesh) {
+    const uint32_t vertexCount = 24;
+    static Vertex vertexData[vertexCount] = {
+            //===POS================//===COLOUR=========//===UV======
+            {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+            {{+0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+            {{+0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+            {{-0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+            {{+0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+            {{+0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+            {{-0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+            {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+            {{-0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+            {{+0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+            {{+0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+            {{+0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+            {{+0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+            {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+            {{+0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+            {{+0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+            {{+0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+            {{-0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+            {{-0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+            {{+0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+    };
+
+    const uint32_t indexCount = 36;
+    static uint32_t indexData[indexCount] = {
+            0, 3, 2,
+            2, 1, 0,
+            4, 5, 6,
+            6, 7, 4,
+            11, 8, 9,
+            9, 10, 11,
+            12, 13, 14,
+            14, 15, 12,
+            16, 17, 18,
+            18, 19, 16,
+            20, 21, 22,
+            22, 23, 20
+    };
+
+    RawMesh rawMesh = {
+            vertexData,
+            indexData,
+            vertexCount,
+            indexCount,
+    };
+
+    gfx_create_mesh_immediate(rawMesh, outMesh);
+}
+
 void gfx_load_packages() {
     const char *pathUVGrid = "../res/textures/UV_Grid/UV_Grid_test.dds";
     gfx_create_texture_immediate(g_vulkanBackend.immediateCommandBuffer, pathUVGrid, g_textures.uvGrid);
+    gfx_create_cube_immediate(g_meshes.cube);
 };
 
 void gfx_unload_packages() {
     gfx_cleanup_texture(g_textures.uvGrid);
+    gfx_cleanup_mesh(g_meshes.cube);
 }
 
 void gfx_create(void *windowHandle) {
@@ -1383,7 +1575,7 @@ void gfx_create(void *windowHandle) {
     gfx_create_samplers();
 
     gfx_load_packages();
-    //TODO: 1) MANUAL load scene/package into memory
+    //TODO: 1) DONE - MANUAL load scene/package into memory
     //TODO: 2) build indirect draw commands
     //TODO: 3) build UBO
     //TODO: 3) create descriptor set layout

@@ -10,6 +10,7 @@ add_library(beet_gfx
         inc/beet_gfx/gfx_types.h
         inc/beet_gfx/gfx_samplers.h
         src/gfx_samplers.cpp
+        inc/beet_gfx/gfx_mesh.h
 )
 
 target_include_directories(beet_gfx

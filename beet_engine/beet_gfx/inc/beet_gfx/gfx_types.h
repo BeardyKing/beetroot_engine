@@ -89,15 +89,5 @@ struct GfxTexture {
     uint32_t imageSamplerType;
 };
 
-//struct GfxMesh {
-//    VkBuffer vertexBuffer;
-//    VmaAllocation vertexAllocation;
-//
-//    VkBuffer indexBuffer;
-//    VmaAllocation indexAllocation;
-//    uint32_t vertexCount;
-//    uint32_t indexCount;
-//};
-
 
 #endif //BEETROOT_GFX_TYPES_H
