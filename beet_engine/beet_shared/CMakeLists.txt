@@ -21,7 +21,7 @@ target_include_directories(beet_shared
         PRIVATE inc/beet_shared
 )
 
-set_target_properties(beet_shared PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+set_target_properties(beet_shared PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 
 #====DEBUG================
 if (CMAKE_BUILD_TYPE MATCHES Debug)

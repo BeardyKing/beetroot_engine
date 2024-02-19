@@ -52,7 +52,7 @@ struct GfxBuffer {
     VkDescriptorBufferInfo descriptor;
     VkDeviceSize size = 0;
     VkDeviceSize alignment = 0;
-    void* mappedData = nullptr;
+    void *mappedData = nullptr;
 
     VkBufferUsageFlags usageFlags;
     VkMemoryPropertyFlags memoryPropertyFlags;
@@ -96,7 +96,7 @@ struct VulkanBackend {
     VkPhysicalDeviceFeatures deviceFeatures = {};
     VkPhysicalDeviceMemoryProperties deviceMemoryProperties = {};
 
-    VkPipeline cubePipeline{ VK_NULL_HANDLE };
+    VkPipeline cubePipeline{VK_NULL_HANDLE};
 
     uint32_t objectCount = 0;
 
@@ -105,12 +105,16 @@ struct VulkanBackend {
     std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
     // Contains the indirect drawing commands
     GfxBuffer indirectCommandsBuffer;
-    uint32_t indirectDrawCount{ 0 };
+    uint32_t indirectDrawCount{0};
     //==============================
 
     //===UNIFORM BUFFER=============
-    GfxBuffer uniformBuffer;
+    GfxBuffer uniformBuffer = {VK_NULL_HANDLE};
     //==============================
+
+    VkPipelineLayout pipelineLayout = {VK_NULL_HANDLE};
+    VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
+    VkDescriptorSetLayout descriptorSetLayout = {VK_NULL_HANDLE};
 
     VkCommandBuffer immediateCommandBuffer = {VK_NULL_HANDLE};
 };

@@ -1704,6 +1704,45 @@ void gfx_update_uniform_buffers() {
     //TODO: UPDATE UBO with camera info i.e. view & proj.
 }
 
+void gfx_build_descriptor_set_layout() {
+    constexpr uint32_t layoutBindingsCount = 2;
+    VkDescriptorSetLayoutBinding layoutBindings[layoutBindingsCount] = {
+            {VkDescriptorSetLayoutBinding{
+                    .binding = 0,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    .descriptorCount = 1,
+                    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            }},
+            {VkDescriptorSetLayoutBinding{
+                    .binding = 1,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                    .descriptorCount = 1,
+                    .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            }},
+    };
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .bindingCount = layoutBindingsCount,
+            .pBindings = &layoutBindings[0],
+    };
+    const VkResult descriptorResult = vkCreateDescriptorSetLayout(g_vulkanBackend.device, &descriptorSetLayoutCreateInfo, nullptr, &g_vulkanBackend.descriptorSetLayout);
+    ASSERT(descriptorResult == VK_SUCCESS);
+
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .setLayoutCount = 1,
+            .pSetLayouts = &g_vulkanBackend.descriptorSetLayout
+    };
+    const VkResult pipelineRes = vkCreatePipelineLayout(g_vulkanBackend.device, &pipelineLayoutCreateInfo, nullptr, &g_vulkanBackend.pipelineLayout);
+    ASSERT(pipelineRes == VK_SUCCESS);
+}
+
+void gfx_cleanup_descriptor_set_layout() {
+    vkDestroyPipelineLayout(g_vulkanBackend.device, g_vulkanBackend.pipelineLayout, nullptr);
+    vkDestroyDescriptorSetLayout(g_vulkanBackend.device, g_vulkanBackend.descriptorSetLayout, nullptr);
+}
+
 void gfx_create(void *windowHandle) {
     gfx_create_instance();
     gfx_create_debug_callbacks();
@@ -1724,15 +1763,17 @@ void gfx_create(void *windowHandle) {
     gfx_load_packages();
     gfx_build_indirect_commands();
     gfx_build_uniform_buffers();
+    gfx_build_descriptor_set_layout();
     //TODO: 1) DONE - MANUAL load scene/package into memory
     //TODO: 2) DONE - build indirect draw commands
     //TODO: 3) DONE - build UBO
-    //TODO: 3) create descriptor set layout
-    //TODO: 3) create pipelines set layout
-    //TODO: 3) create descriptor pools
+    //TODO: 4) DONE - descriptor set layout
+    //TODO: 5) create pipelines set layout
+    //TODO: 6) create descriptor pools
 }
 
 void gfx_cleanup() {
+    gfx_cleanup_descriptor_set_layout();
     gfx_cleanup_uniform_buffers();
     gfx_cleanup_indirect_commands();
     gfx_unload_packages();
