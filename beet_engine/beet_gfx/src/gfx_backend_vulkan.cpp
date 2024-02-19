@@ -49,6 +49,7 @@ static struct meshes {
 
 struct VulkanBackend g_vulkanBackend = {};
 
+void gfx_cleanup_indirect_commands();
 bool gfx_find_supported_extension(const char *extensionName) {
     for (uint32_t i = 0; i < g_vulkanBackend.extensionsCount; ++i) {
         if (strcmp(g_vulkanBackend.supportedExtensions[i].extensionName, extensionName) == 0) {
@@ -1202,7 +1203,7 @@ void gfx_command_end_immediate_recording() {
     vkQueueWaitIdle(g_vulkanBackend.queue);
 }
 
-void gfx_create_texture_immediate(VkCommandBuffer &commandBuffer, const char *path, GfxTexture &outTexture) {
+void gfx_texture_create_immediate(VkCommandBuffer &commandBuffer, const char *path, GfxTexture &outTexture) {
     outTexture.imageSamplerType = TextureSamplerType::Linear;
 
     RawImage myImage{};
@@ -1355,24 +1356,81 @@ void gfx_create_texture_immediate(VkCommandBuffer &commandBuffer, const char *pa
     ASSERT(imageViewRes == VK_SUCCESS);
 }
 
-void gfx_cleanup_mesh(GfxMesh &mesh) {
+void gfx_mesh_cleanup(GfxMesh &mesh) {
     vkDestroyBuffer(g_vulkanBackend.device, mesh.vertBuffer, nullptr);
     vkFreeMemory(g_vulkanBackend.device, mesh.vertMemory, nullptr);
     vkDestroyBuffer(g_vulkanBackend.device, mesh.indexBuffer, nullptr);
     vkFreeMemory(g_vulkanBackend.device, mesh.indexMemory, nullptr);
 }
 
-void gfx_cleanup_texture(GfxTexture &texture) {
+void gfx_texture_cleanup(GfxTexture &texture) {
     vkDestroyImageView(g_vulkanBackend.device, texture.view, nullptr);
     vkDestroyImage(g_vulkanBackend.device, texture.image, nullptr);
     vkFreeMemory(g_vulkanBackend.device, texture.deviceMemory, nullptr);
 }
 
-VkResult create_buffer(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags, const VkDeviceSize &size,
-                       VkBuffer &outBuffer, VkDeviceMemory &memory, void *inData) {
+VkResult gfx_buffer_create(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags, GfxBuffer &outBuffer, const VkDeviceSize size, void *inData) {
     VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferCreateInfo.usage = usageFlags;
     bufferCreateInfo.size = size;
+    ASSERT(bufferCreateInfo.size > 0);
+
+    const VkResult createResult = vkCreateBuffer(g_vulkanBackend.device, &bufferCreateInfo, nullptr, &outBuffer.buffer);
+    ASSERT(createResult == VK_SUCCESS);
+
+    VkMemoryRequirements memReqs;
+    VkMemoryAllocateInfo memAllocInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+    vkGetBufferMemoryRequirements(g_vulkanBackend.device, outBuffer.buffer, &memReqs);
+    memAllocInfo.allocationSize = memReqs.size;
+    memAllocInfo.memoryTypeIndex = gfx_get_memory_type(memReqs.memoryTypeBits, memoryPropertyFlags);
+
+    // when outBuffer has VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT set we also need to enable the appropriate flag during allocation
+    VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
+    if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
+        allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
+        allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
+        memAllocInfo.pNext = &allocFlagsInfo;
+    }
+    const VkResult allocResult = vkAllocateMemory(g_vulkanBackend.device, &memAllocInfo, nullptr, &outBuffer.memory);
+    ASSERT(allocResult == VK_SUCCESS);
+
+    outBuffer.alignment = memReqs.alignment;
+    outBuffer.size = size;
+    outBuffer.usageFlags = usageFlags;
+    outBuffer.memoryPropertyFlags = memoryPropertyFlags;
+
+    if (inData != nullptr) {
+        void *mapped;
+        const VkResult VkMapRes = vkMapMemory(g_vulkanBackend.device, outBuffer.memory, 0, size, 0, &mapped);
+        ASSERT(VkMapRes == VK_SUCCESS);
+
+        memcpy(mapped, inData, size);
+        // when host coherency hasn't been requested, do a manual flush to make writes visible
+        if ((memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+            VkMappedMemoryRange mappedRange{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
+            mappedRange.memory = outBuffer.memory;
+            mappedRange.offset = 0;
+            mappedRange.size = size;
+            vkFlushMappedMemoryRanges(g_vulkanBackend.device, 1, &mappedRange);
+        }
+        vkUnmapMemory(g_vulkanBackend.device, outBuffer.memory);
+    }
+
+    // Initialize a default descriptor that covers the whole buffer size
+    outBuffer.descriptor.offset = VK_WHOLE_SIZE;
+    outBuffer.descriptor.buffer = outBuffer.buffer;
+    outBuffer.descriptor.range = 0;
+
+    return vkBindBufferMemory(g_vulkanBackend.device, outBuffer.buffer, outBuffer.memory, 0);
+}
+
+VkResult gfx_buffer_create(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags, const VkDeviceSize &size,
+                           VkBuffer &outBuffer, VkDeviceMemory &memory, void *inData) {
+    VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    bufferCreateInfo.usage = usageFlags;
+    bufferCreateInfo.size = size;
+    ASSERT(bufferCreateInfo.size > 0);
+
 
     bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     const VkResult createBuffer = vkCreateBuffer(g_vulkanBackend.device, &bufferCreateInfo, nullptr, &outBuffer);
@@ -1384,6 +1442,7 @@ VkResult create_buffer(const VkBufferUsageFlags &usageFlags, const VkMemoryPrope
     vkGetBufferMemoryRequirements(g_vulkanBackend.device, outBuffer, &memReqs);
     memAlloc.allocationSize = memReqs.size;
     memAlloc.memoryTypeIndex = gfx_get_memory_type(memReqs.memoryTypeBits, memoryPropertyFlags);
+
     // when outBuffer has VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT set we also need to enable the appropriate flag during allocation
     VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
     if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
@@ -1415,7 +1474,7 @@ VkResult create_buffer(const VkBufferUsageFlags &usageFlags, const VkMemoryPrope
     return bindRes;
 }
 
-void gfx_create_mesh_immediate(const RawMesh &rawMesh, GfxMesh &outMesh) {
+void gfx_mesh_create_immediate(const RawMesh &rawMesh, GfxMesh &outMesh) {
     ASSERT((rawMesh.vertexCount > 0) && (rawMesh.indexCount > 0));
 
     struct StagingBuffer {
@@ -1432,7 +1491,7 @@ void gfx_create_mesh_immediate(const RawMesh &rawMesh, GfxMesh &outMesh) {
     outMesh.vertCount = rawMesh.vertexCount;
 
     // Create staging buffers
-    VkResult vertexCreateStageRes = create_buffer(
+    VkResult vertexCreateStageRes = gfx_buffer_create(
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             vertexBufferSize,
@@ -1442,7 +1501,7 @@ void gfx_create_mesh_immediate(const RawMesh &rawMesh, GfxMesh &outMesh) {
     );
     ASSERT(vertexCreateStageRes == VK_SUCCESS);
 
-    VkResult indexCreateStageRes = create_buffer(
+    VkResult indexCreateStageRes = gfx_buffer_create(
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             indexBufferSize,
@@ -1453,7 +1512,7 @@ void gfx_create_mesh_immediate(const RawMesh &rawMesh, GfxMesh &outMesh) {
     ASSERT(indexCreateStageRes == VK_SUCCESS);
 
     // Create device local buffers
-    const VkResult vertexCreateDeviceLocalRes = create_buffer(
+    const VkResult vertexCreateDeviceLocalRes = gfx_buffer_create(
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             vertexBufferSize,
@@ -1463,7 +1522,7 @@ void gfx_create_mesh_immediate(const RawMesh &rawMesh, GfxMesh &outMesh) {
     );
     ASSERT(vertexCreateDeviceLocalRes == VK_SUCCESS);
     // Index buffer
-    const VkResult indexCreateDeviceLocalRes = create_buffer(
+    const VkResult indexCreateDeviceLocalRes = gfx_buffer_create(
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             indexBufferSize,
@@ -1490,7 +1549,7 @@ void gfx_create_mesh_immediate(const RawMesh &rawMesh, GfxMesh &outMesh) {
     vkFreeMemory(g_vulkanBackend.device, indexStaging.memory, nullptr);
 }
 
-void gfx_create_cube_immediate(GfxMesh &outMesh) {
+void gfx_cube_create_immediate(GfxMesh &outMesh) {
     const uint32_t vertexCount = 24;
     static Vertex vertexData[vertexCount] = {
             //===POS================//===COLOUR=========//===UV======
@@ -1543,18 +1602,106 @@ void gfx_create_cube_immediate(GfxMesh &outMesh) {
             indexCount,
     };
 
-    gfx_create_mesh_immediate(rawMesh, outMesh);
+    gfx_mesh_create_immediate(rawMesh, outMesh);
 }
 
 void gfx_load_packages() {
     const char *pathUVGrid = "../res/textures/UV_Grid/UV_Grid_test.dds";
-    gfx_create_texture_immediate(g_vulkanBackend.immediateCommandBuffer, pathUVGrid, g_textures.uvGrid);
-    gfx_create_cube_immediate(g_meshes.cube);
+    gfx_texture_create_immediate(g_vulkanBackend.immediateCommandBuffer, pathUVGrid, g_textures.uvGrid);
+    gfx_cube_create_immediate(g_meshes.cube);
 };
 
 void gfx_unload_packages() {
-    gfx_cleanup_texture(g_textures.uvGrid);
-    gfx_cleanup_mesh(g_meshes.cube);
+    gfx_texture_cleanup(g_textures.uvGrid);
+    gfx_mesh_cleanup(g_meshes.cube);
+}
+#define OBJECT_INSTANCE_COUNT 2048
+
+void gfx_build_indirect_commands() {
+    auto &indirectCommands = g_vulkanBackend.indirectCommands;
+    auto &indirectCommandsBuffer = g_vulkanBackend.indirectCommandsBuffer;
+    auto &indirectDrawCount = g_vulkanBackend.indirectDrawCount;
+    auto &objectCount = g_vulkanBackend.objectCount;
+    indirectCommands.clear();
+
+    // TODO: Create on indirect command for each element in a package
+    {
+        uint32_t idx = 0;
+        VkDrawIndexedIndirectCommand indirectCmd{};
+        indirectCmd.instanceCount = OBJECT_INSTANCE_COUNT;
+        indirectCmd.firstInstance = idx * OBJECT_INSTANCE_COUNT;
+        indirectCmd.firstIndex = g_meshes.cube.indexCount;
+        indirectCmd.indexCount = g_meshes.cube.vertCount;
+
+        indirectCommands.push_back(indirectCmd);
+
+        idx++;
+    }
+
+    indirectDrawCount = uint32_t(indirectCommands.size());
+
+    objectCount = 0;
+    for (auto indirectCmd: indirectCommands) {
+        objectCount += indirectCmd.instanceCount;
+    }
+
+    GfxBuffer stagingBuffer;
+    const VkResult stagingResult = gfx_buffer_create(
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            stagingBuffer,
+            indirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
+            indirectCommands.data()
+    );
+    ASSERT(stagingResult == VK_SUCCESS);
+
+    const VkResult indirectCreateResult = gfx_buffer_create(
+            VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            indirectCommandsBuffer,
+            stagingBuffer.size,
+            nullptr
+    );
+    ASSERT(indirectCreateResult == VK_SUCCESS);
+
+    gfx_command_begin_immediate_recording();
+    {
+        VkBufferCopy copyRegion = {};
+        copyRegion.size = stagingBuffer.size;
+        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, stagingBuffer.buffer, g_vulkanBackend.indirectCommandsBuffer.buffer, 1, &copyRegion);
+    }
+    gfx_command_end_immediate_recording();
+
+    vkDestroyBuffer(g_vulkanBackend.device, stagingBuffer.buffer, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, stagingBuffer.memory, nullptr);
+}
+
+void gfx_cleanup_indirect_commands() {
+    vkDestroyBuffer(g_vulkanBackend.device, g_vulkanBackend.indirectCommandsBuffer.buffer, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.indirectCommandsBuffer.memory, nullptr);
+}
+
+void gfx_build_uniform_buffers() {
+    const VkResult uniformResult = gfx_buffer_create(
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            g_vulkanBackend.uniformBuffer,
+            sizeof(UniformData),
+            nullptr
+    );
+    ASSERT(uniformResult == VK_SUCCESS);
+
+    const VkResult mapResult = vkMapMemory(g_vulkanBackend.device, g_vulkanBackend.uniformBuffer.memory, 0, VK_WHOLE_SIZE, 0, &g_vulkanBackend.uniformBuffer.mappedData);
+    ASSERT(mapResult == VK_SUCCESS);
+}
+
+void gfx_cleanup_uniform_buffers() {
+    vkDestroyBuffer(g_vulkanBackend.device, g_vulkanBackend.uniformBuffer.buffer, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.uniformBuffer.memory, nullptr);
+}
+
+void gfx_update_uniform_buffers() {
+    //TODO: UPDATE UBO with camera info i.e. view & proj.
 }
 
 void gfx_create(void *windowHandle) {
@@ -1575,15 +1722,19 @@ void gfx_create(void *windowHandle) {
     gfx_create_samplers();
 
     gfx_load_packages();
+    gfx_build_indirect_commands();
+    gfx_build_uniform_buffers();
     //TODO: 1) DONE - MANUAL load scene/package into memory
-    //TODO: 2) build indirect draw commands
-    //TODO: 3) build UBO
+    //TODO: 2) DONE - build indirect draw commands
+    //TODO: 3) DONE - build UBO
     //TODO: 3) create descriptor set layout
     //TODO: 3) create pipelines set layout
     //TODO: 3) create descriptor pools
 }
 
 void gfx_cleanup() {
+    gfx_cleanup_uniform_buffers();
+    gfx_cleanup_indirect_commands();
     gfx_unload_packages();
 
     gfx_cleanup_samplers();
