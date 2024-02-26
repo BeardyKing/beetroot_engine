@@ -13,6 +13,10 @@ add_library(beet_shared
         inc/beet_shared/texture_formats.h
         inc/beet_shared/dds_loader.h
         src/dds_loader.cpp
+        inc/beet_shared/filesystem.h
+        src/filesystem_win.cpp
+        inc/beet_shared/c_string.h
+        src/c_string.cpp
 )
 
 #====LIB TARGET DIR=======

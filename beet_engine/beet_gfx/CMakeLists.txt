@@ -11,6 +11,8 @@ add_library(beet_gfx
         inc/beet_gfx/gfx_samplers.h
         src/gfx_samplers.cpp
         inc/beet_gfx/gfx_mesh.h
+        inc/beet_gfx/gfx_pipeline.h
+        src/gfx_pipeline.cpp
 )
 
 target_include_directories(beet_gfx

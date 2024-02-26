@@ -3,6 +3,7 @@
 #include <beet_shared/assert.h>
 #include <beet_core/window.h>
 #include <beet_core/input.h>
+#include <beet_core/input_types.h>
 #include <beet_math/vec2.h>
 
 #ifndef UNICODE
@@ -14,7 +15,6 @@
 #include <Windows.h>
 #include <WindowsX.h>
 
-#include "input_types.h"
 
 //===internal structs========
 static struct WindowInfo {

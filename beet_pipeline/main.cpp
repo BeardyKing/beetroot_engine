@@ -4,7 +4,12 @@
 #define CGLTF_IMPLEMENTATION
 
 #include <cgltf.h>
+
+#include <beet_pipeline/pipeline_commandlines.h>
 #include <beet_shared/assert.h>
+#include <beet_pipeline/shader_compile.h>
+#include "beet_pipeline/pipeline_defines.h"
+#include "beet_shared/filesystem.h"
 
 // investigate https://github.com/floooh/sokol-samples/blob/master/sapp/cgltf-sapp.c
 // gltf_parse_images() / gltf_parse()
@@ -26,7 +31,7 @@ struct Package {
 //    NodeHierarchy nodes[DBG_MAX_SIZE];
 };
 
-int main(int argc, char **argv) {
+void gltf_parsing_tests() {
     log_info(MSG_PIPELINE, "hello pipeline\n");
     const char *fileName = BEET_CMAKE_PIPELINE_ASSETS_DIR "scenes/example_scene.gltf";
 
@@ -37,4 +42,23 @@ int main(int argc, char **argv) {
     if (result == cgltf_result_success) {
         log_info(MSG_PIPELINE, "parsed file successfully\n");
     }
+}
+
+void build_spv_from_source() {
+    fs_mkdir_recursive(CLIENT_RUNTIME_SHADER_DIR);
+    pipeline_shader_log();
+    {
+        pipeline_build_shader_spv("indirectdraw/indirectdraw.frag", "indirectdraw.frag.spv");
+        pipeline_build_shader_spv("indirectdraw/indirectdraw.vert", "indirectdraw.vert.spv");
+    }
+}
+
+int main(int argc, char **argv) {
+    commandline_init(argc, argv);
+    if (commandline_get_arg(CLArgs::help).enabled) {
+        commandline_show_commands();
+        return 0;
+    }
+
+    build_spv_from_source();
 }
