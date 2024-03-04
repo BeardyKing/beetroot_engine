@@ -1,8 +1,22 @@
 project(beet_pipeline)
 
 add_executable(beet_pipeline
-    main.cpp
+        main.cpp
+        inc/beet_pipeline/shader_compile.h
+        src/shader_compile.cpp
+        inc/beet_pipeline/pipeline_defines.h
+        inc/beet_pipeline/pipeline_cache.h
+        src/pipeline_cache.cpp
+        inc/beet_pipeline/pipeline_commandlines.h
+        src/pipeline_commandlines.cpp
 )
+
+##===LIB TARGET DIR
+target_include_directories(beet_pipeline
+        PUBLIC inc
+)
+##===LIB FMT==============//
+add_subdirectory(third/fmt)
 
 #===C_GLTF
 project(c_gltf)
@@ -15,9 +29,10 @@ set(ISPC_COMPILER_TARGET "avx2")
 add_subdirectory(third/ispc_texture_compressor_cmake)
 
 target_link_libraries(beet_pipeline
+        beet_shared
         ispc_texture_compressor
         c_gltf
-        beet_shared
+        fmt::fmt
 )
 
 ##====SHADER DEPT=========//
@@ -41,7 +56,7 @@ set_target_properties(beet_pipeline PROPERTIES OUTPUT_NAME beet_pipeline)
 ##===DEBUG================//
 target_compile_definitions(beet_pipeline PUBLIC BEET_PIPELINE=1)
 target_compile_definitions(beet_pipeline PUBLIC "BEET_CMAKE_PIPELINE_ASSETS_DIR=\"${BEET_CMAKE_ROOT_DIR}/assets/\"")
-target_compile_definitions(beet_pipeline PUBLIC "BEET_CMAKE_RUNTIME_ASSETS_DIR=\"${CMAKE_BINARY_DIR}/dist/beet_runtime/assets/\"")
+target_compile_definitions(beet_pipeline PUBLIC "BEET_CMAKE_RUNTIME_ASSETS_DIR=\"${CMAKE_BINARY_DIR}/dist/runtime/assets/\"")
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(beet_pipeline PUBLIC BEET_DEBUG=1)

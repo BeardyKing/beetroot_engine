@@ -12,6 +12,8 @@ add_library(beet_gfx
         src/gfx_samplers.cpp
         inc/beet_gfx/gfx_mesh.h
         src/gfx_vulkan_surface_linux.cpp
+        inc/beet_gfx/gfx_pipeline.h
+        src/gfx_pipeline.cpp
 )
 
 target_include_directories(beet_gfx
@@ -26,7 +28,7 @@ target_link_libraries(beet_gfx
         Vulkan::Vulkan
 )
 
-set_target_properties(beet_gfx PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+set_target_properties(beet_gfx PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(beet_gfx PUBLIC BEET_DEBUG=1)

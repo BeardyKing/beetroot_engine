@@ -4,3 +4,9 @@
 [submodule "beet_pipeline/third/ispc_texture_compressor_cmake"]
 	path = beet_pipeline/third/ispc_texture_compressor_cmake
 	url = https://github.com/BeardyKing/ispc_texture_compressor_cmake.git
+[submodule "beet_pipeline/third/cgltf"]
+	path = beet_pipeline/third/cgltf
+	url = https://github.com/jkuhlmann/cgltf.git
+[submodule "beet_pipeline/third/fmt"]
+	path = beet_pipeline/third/fmt
+	url = https://github.com/fmtlib/fmt.git

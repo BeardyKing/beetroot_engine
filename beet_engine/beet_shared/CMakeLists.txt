@@ -13,9 +13,11 @@ add_library(beet_shared
         inc/beet_shared/texture_formats.h
         inc/beet_shared/dds_loader.h
         src/dds_loader.cpp
+        inc/beet_shared/filesystem.h
+        src/filesystem_win.cpp
+        inc/beet_shared/c_string.h
+        src/c_string.cpp
         inc/beet_shared/platform_defines.h
-        inc/beet_shared/string_utils.h
-        src/string_utils.cpp
 )
 
 #====LIB TARGET DIR=======
@@ -24,7 +26,7 @@ target_include_directories(beet_shared
         PRIVATE inc/beet_shared
 )
 
-set_target_properties(beet_shared PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+set_target_properties(beet_shared PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 
 #====DEBUG================
 if (CMAKE_BUILD_TYPE MATCHES Debug)

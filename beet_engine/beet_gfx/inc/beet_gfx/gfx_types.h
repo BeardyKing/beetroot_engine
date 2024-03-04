@@ -8,6 +8,7 @@
 #include <beet_math/mat4.h>
 #include <beet_math/vec3.h>
 #include <beet_math/vec2.h>
+#include <vector>
 
 struct SwapChainBuffers {
     VkImage image;
@@ -45,6 +46,23 @@ struct QueueFamilyIndices {
     uint32_t present = {UINT32_MAX};
 };
 
+struct GfxBuffer {
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkDescriptorBufferInfo descriptor;
+    VkDeviceSize size = 0;
+    VkDeviceSize alignment = 0;
+    void *mappedData = nullptr;
+
+    VkBufferUsageFlags usageFlags;
+    VkMemoryPropertyFlags memoryPropertyFlags;
+};
+
+struct UniformData {
+    glm::mat4 projection;
+    glm::mat4 view;
+};
+
 struct VulkanBackend {
     VkInstance instance = {VK_NULL_HANDLE};
     VkPhysicalDevice physicalDevice = {VK_NULL_HANDLE};
@@ -77,6 +95,26 @@ struct VulkanBackend {
     VkPhysicalDeviceProperties deviceProperties = {};
     VkPhysicalDeviceFeatures deviceFeatures = {};
     VkPhysicalDeviceMemoryProperties deviceMemoryProperties = {};
+
+    VkPipeline cubePipeline{VK_NULL_HANDLE};
+
+    uint32_t objectCount = 0;
+
+    //===INDIRECT===================
+    //REPLACE WITH POOL
+    std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
+    // Contains the indirect drawing commands
+    GfxBuffer indirectCommandsBuffer;
+    uint32_t indirectDrawCount{0};
+    //==============================
+
+    //===UNIFORM BUFFER=============
+    GfxBuffer uniformBuffer = {VK_NULL_HANDLE};
+    //==============================
+
+    VkPipelineLayout pipelineLayout = {VK_NULL_HANDLE};
+    VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
+    VkDescriptorSetLayout descriptorSetLayout = {VK_NULL_HANDLE};
 
     VkCommandBuffer immediateCommandBuffer = {VK_NULL_HANDLE};
 };
