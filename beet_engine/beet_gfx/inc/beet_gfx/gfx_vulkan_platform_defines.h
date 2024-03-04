@@ -2,14 +2,25 @@
 #define BEETROOT_GFX_VULKAN_PLATFORM_DEFINES_H
 
 #include <cstdint>
+#include <beet_shared/platform_defines.h>
+
+#if PLATFORM_WINDOWS
 #include <Windows.h>
 #include <vulkan/vulkan_win32.h>
+#define BEET_VK_SURFACE_EXTENSION VK_KHR_WIN32_SURFACE_EXTENSION_NAME
+#endif
+
+#if PLATFORM_LINUX
+#include <vulkan/vulkan_wayland.h>
+#define BEET_VK_SURFACE_EXTENSION VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
+
+#endif
 
 //===extensions==============
 static constexpr int32_t BEET_VK_EXTENSION_COUNT = 3;
 static constexpr const char *BEET_VK_EXTENSIONS[BEET_VK_EXTENSION_COUNT]{
         VK_KHR_SURFACE_EXTENSION_NAME,
-        VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+        BEET_VK_SURFACE_EXTENSION,
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 };
 

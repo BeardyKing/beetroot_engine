@@ -1,0 +1,18 @@
+#ifndef BEETROOT_PLATFORM_DEFINES_H
+#define BEETROOT_PLATFORM_DEFINES_H
+
+#if defined(_WIN32)
+#define PLATFORM_WINDOWS 1
+#define PLATFORM_LINUX 0
+#define PLATFORM_APPLE 0
+#elif defined(__linux__)
+#define PLATFORM_WINDOWS 0
+#define PLATFORM_LINUX 1
+#define PLATFORM_APPLE 0
+#elif defined(__APPLE__)
+#define PLATFORM_APPLE 0
+#define PLATFORM_LINUX 0
+#define PLATFORM_WINDOWS 1
+#endif
+
+#endif //BEETROOT_PLATFORM_DEFINES_H

@@ -2,10 +2,11 @@
 #include <beet_shared/log.h>
 #include <beet_shared/assert.h>
 #include <beet_shared/texture_formats.h>
+#include <beet_shared/memory.h>
 
 #include <iostream>
 #include <fstream>
-#include "memory.h"
+#include <cstring>
 
 struct PixelFormatDDS {
     uint32_t dwSize;                // dwSize:          Structure size

@@ -76,7 +76,7 @@ const char *log_channel_name_lookup(const MSG_CHANNEL &channel);
 #define beet_log(level, channel, levelName, ...){                       \
     time_t t = time(nullptr);                                           \
     struct tm buf{};                                                    \
-    localtime_s(&buf, &t);                                              \
+    localtime_r(&t, &buf);                                              \
     if(level >= MSG_MIN_WARNING_LEVEL){                                 \
         printf("[%i:%i:%i]", buf.tm_hour, buf.tm_min, buf.tm_sec);      \
         printf("%s", levelName);                                        \

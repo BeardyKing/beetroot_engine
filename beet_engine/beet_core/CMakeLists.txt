@@ -9,12 +9,15 @@ add_library(beet_core
         inc/beet_core/window.h
         inc/beet_core/engine.h
         src/input.cpp
-        src/time.cpp
-        src/window.cpp
+        src/time_win.cpp
+        src/window_win.cpp
         src/engine.cpp
+        src/time_linux.cpp
+        src/window_linux.cpp
 )
 
 #====LIB TARGET DIR=======
+
 target_include_directories(beet_core
         PUBLIC inc
         PRIVATE inc/beet_core

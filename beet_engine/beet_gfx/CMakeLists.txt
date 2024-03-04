@@ -4,13 +4,14 @@ add_library(beet_gfx
         inc/beet_gfx/gfx_vulkan_platform_defines.h
         
         src/gfx_backend_vulkan.cpp
-        src/gfx_vulkan_surface_windows.cpp
+        src/gfx_vulkan_surface_win.cpp
         inc/beet_gfx/gfx_vulkan_surface.h
 
         inc/beet_gfx/gfx_types.h
         inc/beet_gfx/gfx_samplers.h
         src/gfx_samplers.cpp
         inc/beet_gfx/gfx_mesh.h
+        src/gfx_vulkan_surface_linux.cpp
 )
 
 target_include_directories(beet_gfx

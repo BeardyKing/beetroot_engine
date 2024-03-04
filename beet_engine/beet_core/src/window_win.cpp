@@ -1,3 +1,5 @@
+#include <beet_shared/platform_defines.h>
+#if PLATFORM_WINDOWS
 #include <cstdint>
 
 #include <beet_shared/assert.h>
@@ -331,6 +333,4 @@ void window_create(const char windowTitle[MAX_WINDOW_TITLE_SIZE], const vec2i &w
 void window_cleanup() {
     g_windowInfo = {};
 }
-
-
-
+#endif

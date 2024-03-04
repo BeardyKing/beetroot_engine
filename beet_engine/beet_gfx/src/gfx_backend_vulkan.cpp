@@ -6,6 +6,7 @@
 #include <beet_shared/memory.h>
 #include <beet_shared/texture_formats.h>
 #include <beet_shared/dds_loader.h>
+#include <beet_shared/string_utils.h>
 
 #include <beet_gfx/gfx_vulkan_platform_defines.h>
 #include <beet_gfx/gfx_interface.h>
@@ -13,6 +14,8 @@
 #include <beet_gfx/gfx_types.h>
 #include <beet_gfx/gfx_samplers.h>
 #include <beet_gfx/gfx_mesh.h>
+
+#include <cstring>
 
 static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_OTHER",
@@ -22,7 +25,7 @@ static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_CPU",
 };
 
-constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM,VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
 
 static struct UserArguments {
     uint32_t selectedPhysicalDeviceIndex = {};
@@ -51,7 +54,7 @@ struct VulkanBackend g_vulkanBackend = {};
 
 bool gfx_find_supported_extension(const char *extensionName) {
     for (uint32_t i = 0; i < g_vulkanBackend.extensionsCount; ++i) {
-        if (strcmp(g_vulkanBackend.supportedExtensions[i].extensionName, extensionName) == 0) {
+        if (string_equal(g_vulkanBackend.supportedExtensions[i].extensionName, extensionName)) {
             return true;
         }
     }
@@ -60,7 +63,7 @@ bool gfx_find_supported_extension(const char *extensionName) {
 
 bool gfx_find_supported_validation(const char *layerName) {
     for (uint32_t i = 0; i < g_vulkanBackend.validationLayersCount; ++i) {
-        if (strcmp(g_vulkanBackend.supportedValidationLayers[i].layerName, layerName) == 0) {
+        if (string_equal(g_vulkanBackend.supportedValidationLayers[i].layerName, layerName)) {
             return true;
         }
     }
@@ -79,9 +82,11 @@ void gfx_cleanup_instance() {
 void gfx_create_instance() {
     vkEnumerateInstanceExtensionProperties(nullptr, &g_vulkanBackend.extensionsCount, nullptr);
     ASSERT(g_vulkanBackend.supportedExtensions == nullptr);
-    g_vulkanBackend.supportedExtensions = (VkExtensionProperties *) mem_zalloc(sizeof(VkExtensionProperties) * g_vulkanBackend.extensionsCount);
+    g_vulkanBackend.supportedExtensions = (VkExtensionProperties *) mem_zalloc(
+            sizeof(VkExtensionProperties) * g_vulkanBackend.extensionsCount);
     if (g_vulkanBackend.extensionsCount > 0) {
-        vkEnumerateInstanceExtensionProperties(nullptr, &g_vulkanBackend.extensionsCount, g_vulkanBackend.supportedExtensions);
+        vkEnumerateInstanceExtensionProperties(nullptr, &g_vulkanBackend.extensionsCount,
+                                               g_vulkanBackend.supportedExtensions);
     }
 
     for (uint32_t i = 0; i < g_vulkanBackend.extensionsCount; ++i) {
@@ -95,9 +100,11 @@ void gfx_create_instance() {
 
     vkEnumerateInstanceLayerProperties(&g_vulkanBackend.validationLayersCount, nullptr);
     ASSERT(g_vulkanBackend.supportedValidationLayers == nullptr);
-    g_vulkanBackend.supportedValidationLayers = (VkLayerProperties *) mem_zalloc(sizeof(VkLayerProperties) * g_vulkanBackend.validationLayersCount);
+    g_vulkanBackend.supportedValidationLayers = (VkLayerProperties *) mem_zalloc(
+            sizeof(VkLayerProperties) * g_vulkanBackend.validationLayersCount);
     if (g_vulkanBackend.validationLayersCount > 0) {
-        vkEnumerateInstanceLayerProperties(&g_vulkanBackend.validationLayersCount, g_vulkanBackend.supportedValidationLayers);
+        vkEnumerateInstanceLayerProperties(&g_vulkanBackend.validationLayersCount,
+                                           g_vulkanBackend.supportedValidationLayers);
     }
 
     for (uint32_t i = 0; i < g_vulkanBackend.validationLayersCount; ++i) {
@@ -148,7 +155,8 @@ void gfx_create_physical_device() {
 #if BEET_DEBUG
     if (BEET_DEBUG_VK_FORCE_GPU_SELECTION > -1) {
         selectedDevice = BEET_DEBUG_VK_FORCE_GPU_SELECTION;
-        log_warning(MSG_GFX, "Using debug ONLY feature `BEET_VK_FORCE_GPU_SELECTION` selecting device [%i]\n", selectedDevice)
+        log_warning(MSG_GFX, "Using debug ONLY feature `BEET_VK_FORCE_GPU_SELECTION` selecting device [%i]\n",
+                    selectedDevice)
     }
 #endif
 
@@ -198,11 +206,13 @@ static VkBool32 VKAPI_PTR validation_message_callback(
 
     switch (messageWarningLevel) {
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: {
-            log_error(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
+            log_error(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName,
+                      callbackData->pMessage);
             break;
         }
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: {
-            log_warning(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
+            log_warning(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName,
+                        callbackData->pMessage);
             break;
         }
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: {
@@ -210,7 +220,8 @@ static VkBool32 VKAPI_PTR validation_message_callback(
             break;
         }
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: {
-            log_verbose(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
+            log_verbose(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName,
+                        callbackData->pMessage);
             break;
         }
         default: {
@@ -221,21 +232,28 @@ static VkBool32 VKAPI_PTR validation_message_callback(
 }
 
 void gfx_cleanup_debug_callbacks() {
-    ASSERT_MSG(g_vulkanDebug.debugUtilsMessenger != VK_NULL_HANDLE, "Err: debug utils messenger has already been destroyed");
+    ASSERT_MSG(g_vulkanDebug.debugUtilsMessenger != VK_NULL_HANDLE,
+               "Err: debug utils messenger has already been destroyed");
     vkDestroyDebugUtilsMessengerEXT_Func(g_vulkanBackend.instance, g_vulkanDebug.debugUtilsMessenger, nullptr);
     g_vulkanDebug.debugUtilsMessenger = VK_NULL_HANDLE;
 }
 
 void gfx_create_debug_callbacks() {
     VkInstance &instance = g_vulkanBackend.instance;
-    vkCreateDebugUtilsMessengerEXT_Func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, BEET_VK_CREATE_DEBUG_UTIL_EXT);
-    ASSERT_MSG(vkCreateDebugUtilsMessengerEXT_Func, "Err: failed to setup debug callback %s", BEET_VK_CREATE_DEBUG_UTIL_EXT);
+    vkCreateDebugUtilsMessengerEXT_Func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance,
+                                                                                                     BEET_VK_CREATE_DEBUG_UTIL_EXT);
+    ASSERT_MSG(vkCreateDebugUtilsMessengerEXT_Func, "Err: failed to setup debug callback %s",
+               BEET_VK_CREATE_DEBUG_UTIL_EXT);
 
-    vkDestroyDebugUtilsMessengerEXT_Func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, BEET_VK_DESTROY_DEBUG_UTIL_EXT);
-    ASSERT_MSG(vkDestroyDebugUtilsMessengerEXT_Func, "Err: failed to setup debug callback %s", BEET_VK_DESTROY_DEBUG_UTIL_EXT);
+    vkDestroyDebugUtilsMessengerEXT_Func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance,
+                                                                                                       BEET_VK_DESTROY_DEBUG_UTIL_EXT);
+    ASSERT_MSG(vkDestroyDebugUtilsMessengerEXT_Func, "Err: failed to setup debug callback %s",
+               BEET_VK_DESTROY_DEBUG_UTIL_EXT);
 
-    vkSetDebugUtilsObjectNameEXT_Func = (PFN_vkSetDebugUtilsObjectNameEXT) vkGetInstanceProcAddr(instance, BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT);
-    ASSERT_MSG(vkSetDebugUtilsObjectNameEXT_Func, "Err: failed to setup debug callback %s", BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT);
+    vkSetDebugUtilsObjectNameEXT_Func = (PFN_vkSetDebugUtilsObjectNameEXT) vkGetInstanceProcAddr(instance,
+                                                                                                 BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT);
+    ASSERT_MSG(vkSetDebugUtilsObjectNameEXT_Func, "Err: failed to setup debug callback %s",
+               BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT);
 
     VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
     messengerCreateInfo.messageSeverity = BEET_VK_DEBUG_UTILS_MESSAGE_SEVERITY;
@@ -259,17 +277,20 @@ void gfx_cleanup_queues() {
 void gfx_create_queues() {
     uint32_t devicePropertyCount = 0;
     vkEnumerateDeviceExtensionProperties(g_vulkanBackend.physicalDevice, nullptr, &devicePropertyCount, nullptr);
-    VkExtensionProperties *selectedPhysicalDeviceExtensions = (VkExtensionProperties *) mem_zalloc(sizeof(VkExtensionProperties) * devicePropertyCount);
+    VkExtensionProperties *selectedPhysicalDeviceExtensions = (VkExtensionProperties *) mem_zalloc(
+            sizeof(VkExtensionProperties) * devicePropertyCount);
 
     if (devicePropertyCount > 0) {
-        vkEnumerateDeviceExtensionProperties(g_vulkanBackend.physicalDevice, nullptr, &devicePropertyCount, selectedPhysicalDeviceExtensions);
+        vkEnumerateDeviceExtensionProperties(g_vulkanBackend.physicalDevice, nullptr, &devicePropertyCount,
+                                             selectedPhysicalDeviceExtensions);
     }
 
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(g_vulkanBackend.physicalDevice, &queueFamilyCount, nullptr);
     ASSERT(queueFamilyCount != 0);
 
-    VkQueueFamilyProperties *queueFamilies = (VkQueueFamilyProperties *) mem_zalloc(sizeof(VkQueueFamilyProperties) * queueFamilyCount);
+    VkQueueFamilyProperties *queueFamilies = (VkQueueFamilyProperties *) mem_zalloc(
+            sizeof(VkQueueFamilyProperties) * queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(g_vulkanBackend.physicalDevice, &queueFamilyCount, queueFamilies);
 
     struct QueueInfo {
@@ -420,22 +441,28 @@ void gfx_create_command_pool() {
     commandPoolInfo.queueFamilyIndex = g_vulkanBackend.queueFamilyIndices.graphics;
     commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-    VkResult cmdPoolResult = vkCreateCommandPool(g_vulkanBackend.device, &commandPoolInfo, nullptr, &g_vulkanBackend.graphicsCommandPool);
+    VkResult cmdPoolResult = vkCreateCommandPool(g_vulkanBackend.device, &commandPoolInfo, nullptr,
+                                                 &g_vulkanBackend.graphicsCommandPool);
     ASSERT_MSG(cmdPoolResult == VK_SUCCESS, "Err: failed to create graphics command pool");
 }
 
 VkPresentModeKHR select_present_mode() {
     uint32_t presentModeCount = {0};
-    const VkResult presentRes = vkGetPhysicalDeviceSurfacePresentModesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &presentModeCount, nullptr);
+    const VkResult presentRes = vkGetPhysicalDeviceSurfacePresentModesKHR(g_vulkanBackend.physicalDevice,
+                                                                          g_vulkanBackend.swapChain.surface,
+                                                                          &presentModeCount, nullptr);
     ASSERT_MSG(presentRes == VK_SUCCESS, "Err: failed to get physical device surface present modes");
     ASSERT(presentModeCount > 0);
 
     VkPresentModeKHR *presentModes = (VkPresentModeKHR *) mem_zalloc(sizeof(VkPresentModeKHR) * presentModeCount);
-    const VkResult populateRes = vkGetPhysicalDeviceSurfacePresentModesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &presentModeCount, presentModes);
+    const VkResult populateRes = vkGetPhysicalDeviceSurfacePresentModesKHR(g_vulkanBackend.physicalDevice,
+                                                                           g_vulkanBackend.swapChain.surface,
+                                                                           &presentModeCount, presentModes);
     ASSERT_MSG(populateRes == VK_SUCCESS, "Err: failed to populate present modes array");
 
     VkPresentModeKHR selectedPresentMode = {VK_PRESENT_MODE_FIFO_KHR};
-    VkPresentModeKHR preferredMode = g_userArguments.vsync ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+    VkPresentModeKHR preferredMode = g_userArguments.vsync ? VK_PRESENT_MODE_MAILBOX_KHR
+                                                           : VK_PRESENT_MODE_IMMEDIATE_KHR;
     for (uint32_t i = 0; i < presentModeCount; ++i) {
         if (presentModes[i] == preferredMode) {
             selectedPresentMode = presentModes[i];
@@ -449,10 +476,13 @@ VkPresentModeKHR select_present_mode() {
 
 VkSurfaceFormatKHR select_surface_format() {
     uint32_t surfaceFormatsCount = 0;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceFormatsCount, nullptr);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface,
+                                         &surfaceFormatsCount, nullptr);
 
-    VkSurfaceFormatKHR *surfaceFormats = (VkSurfaceFormatKHR *) mem_zalloc(sizeof(VkSurfaceFormatKHR) * surfaceFormatsCount);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceFormatsCount, surfaceFormats);
+    VkSurfaceFormatKHR *surfaceFormats = (VkSurfaceFormatKHR *) mem_zalloc(
+            sizeof(VkSurfaceFormatKHR) * surfaceFormatsCount);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface,
+                                         &surfaceFormatsCount, surfaceFormats);
 
     // try select best surface format
     VkSurfaceFormatKHR selectedSurfaceFormat{};
@@ -493,7 +523,9 @@ void gfx_create_swap_chain() {
     const VkSwapchainKHR oldSwapChain = g_vulkanBackend.swapChain.swapChain;
 
     VkSurfaceCapabilitiesKHR surfaceCapabilities = {0};
-    const VkResult surfRes = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceCapabilities);
+    const VkResult surfRes = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_vulkanBackend.physicalDevice,
+                                                                       g_vulkanBackend.swapChain.surface,
+                                                                       &surfaceCapabilities);
     ASSERT_MSG(surfRes == VK_SUCCESS, "Err: failed to get physical device surface capabilities");
 
     VkExtent2D swapChainExtent = {};
@@ -549,7 +581,8 @@ void gfx_create_swap_chain() {
         swapChainInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     }
 
-    const VkResult swapChainRes = vkCreateSwapchainKHR(g_vulkanBackend.device, &swapChainInfo, nullptr, &g_vulkanBackend.swapChain.swapChain);
+    const VkResult swapChainRes = vkCreateSwapchainKHR(g_vulkanBackend.device, &swapChainInfo, nullptr,
+                                                       &g_vulkanBackend.swapChain.swapChain);
     ASSERT_MSG(swapChainRes == VK_SUCCESS, "Err: failed to create swap chain");
 
     //cleanup vulkan resources
@@ -559,16 +592,19 @@ void gfx_create_swap_chain() {
         }
         vkDestroySwapchainKHR(g_vulkanBackend.device, oldSwapChain, nullptr);
     }
-    vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, &g_vulkanBackend.swapChain.imageCount, nullptr);
+    vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain,
+                            &g_vulkanBackend.swapChain.imageCount, nullptr);
 
     ASSERT(g_vulkanBackend.swapChain.images == nullptr);
     g_vulkanBackend.swapChain.images = (VkImage *) mem_zalloc(sizeof(VkImage) * g_vulkanBackend.swapChain.imageCount);
-    VkResult swapChainImageResult = vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, &g_vulkanBackend.swapChain.imageCount,
+    VkResult swapChainImageResult = vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain,
+                                                            &g_vulkanBackend.swapChain.imageCount,
                                                             &g_vulkanBackend.swapChain.images[0]);
     ASSERT_MSG(swapChainImageResult == VK_SUCCESS, "Err: failed to re-create swap chain images")
 
     ASSERT(g_vulkanBackend.swapChain.buffers == nullptr);
-    g_vulkanBackend.swapChain.buffers = (SwapChainBuffers *) mem_zalloc(sizeof(SwapChainBuffers) * g_vulkanBackend.swapChain.imageCount);
+    g_vulkanBackend.swapChain.buffers = (SwapChainBuffers *) mem_zalloc(
+            sizeof(SwapChainBuffers) * g_vulkanBackend.swapChain.imageCount);
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
         VkImageViewCreateInfo swapChainImageViewInfo = {};
         swapChainImageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -589,7 +625,8 @@ void gfx_create_swap_chain() {
         g_vulkanBackend.swapChain.buffers[i].image = g_vulkanBackend.swapChain.images[i];
         swapChainImageViewInfo.image = g_vulkanBackend.swapChain.buffers[i].image;
 
-        const VkResult imageViewResult = vkCreateImageView(g_vulkanBackend.device, &swapChainImageViewInfo, nullptr, &g_vulkanBackend.swapChain.buffers[i].view);
+        const VkResult imageViewResult = vkCreateImageView(g_vulkanBackend.device, &swapChainImageViewInfo, nullptr,
+                                                           &g_vulkanBackend.swapChain.buffers[i].view);
         ASSERT_MSG(imageViewResult == VK_SUCCESS, "Failed to create image view %u", i);
     }
 }
@@ -599,7 +636,8 @@ void gfx_cleanup_swap_chain() {
         vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.swapChain.buffers[i].view, nullptr);
     }
 
-    ASSERT_MSG(g_vulkanBackend.swapChain.surface != VK_NULL_HANDLE, "Err: swapchain surface has already been destroyed");
+    ASSERT_MSG(g_vulkanBackend.swapChain.surface != VK_NULL_HANDLE,
+               "Err: swapchain surface has already been destroyed");
     vkDestroySwapchainKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, nullptr);
     g_vulkanBackend.swapChain.swapChain = VK_NULL_HANDLE;
 
@@ -614,27 +652,31 @@ void gfx_create_command_buffers() {
 
     // GRAPHICS
     ASSERT(g_vulkanBackend.graphicsCommandBuffers == nullptr);
-    g_vulkanBackend.graphicsCommandBuffers = (VkCommandBuffer *) mem_zalloc(sizeof(VkCommandBuffer) * g_vulkanBackend.swapChain.imageCount);
+    g_vulkanBackend.graphicsCommandBuffers = (VkCommandBuffer *) mem_zalloc(
+            sizeof(VkCommandBuffer) * g_vulkanBackend.swapChain.imageCount);
 
     VkCommandBufferAllocateInfo commandBufferInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
     commandBufferInfo.commandPool = g_vulkanBackend.graphicsCommandPool;
     commandBufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     commandBufferInfo.commandBufferCount = g_vulkanBackend.swapChain.imageCount;
 
-    VkResult cmdBuffResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &commandBufferInfo, g_vulkanBackend.graphicsCommandBuffers);
+    VkResult cmdBuffResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &commandBufferInfo,
+                                                      g_vulkanBackend.graphicsCommandBuffers);
     ASSERT_MSG(cmdBuffResult == VK_SUCCESS, "Err: failed to create graphics command buffer");
 
 
     // IMMEDIATE
     ASSERT(g_vulkanBackend.immediateCommandBuffer == VK_NULL_HANDLE);
     commandBufferInfo.commandBufferCount = 1;
-    VkResult cmdImmediateBufferResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &commandBufferInfo, &g_vulkanBackend.immediateCommandBuffer);
+    VkResult cmdImmediateBufferResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &commandBufferInfo,
+                                                                 &g_vulkanBackend.immediateCommandBuffer);
     ASSERT_MSG(cmdImmediateBufferResult == VK_SUCCESS, "Err: failed to create immediate command buffer");
 }
 
 void gfx_cleanup_command_buffers() {
     // GRAPHICS
-    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, g_vulkanBackend.swapChain.imageCount, g_vulkanBackend.graphicsCommandBuffers);
+    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool,
+                         g_vulkanBackend.swapChain.imageCount, g_vulkanBackend.graphicsCommandBuffers);
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
         g_vulkanBackend.graphicsCommandBuffers[i] = VK_NULL_HANDLE;
     }
@@ -643,7 +685,8 @@ void gfx_cleanup_command_buffers() {
     g_vulkanBackend.graphicsCommandBuffers = nullptr;
 
     // IMMEDIATE
-    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, 1, &g_vulkanBackend.immediateCommandBuffer);
+    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, 1,
+                         &g_vulkanBackend.immediateCommandBuffer);
     g_vulkanBackend.immediateCommandBuffer = VK_NULL_HANDLE;
 }
 
@@ -657,7 +700,8 @@ void gfx_create_fences() {
     ASSERT(g_vulkanBackend.graphicsFenceWait == nullptr);
     g_vulkanBackend.graphicsFenceWait = (VkFence *) mem_zalloc(sizeof(VkFence) * g_vulkanBackend.swapChain.imageCount);
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
-        const VkResult fenceRes = vkCreateFence(g_vulkanBackend.device, &fenceCreateInfo, nullptr, &g_vulkanBackend.graphicsFenceWait[i]);
+        const VkResult fenceRes = vkCreateFence(g_vulkanBackend.device, &fenceCreateInfo, nullptr,
+                                                &g_vulkanBackend.graphicsFenceWait[i]);
         ASSERT_MSG(fenceRes == VK_SUCCESS, "Err: failed to create graphics fence [%u]", i);
     }
 }
@@ -726,7 +770,8 @@ void gfx_create_depth_stencil_buffer() {
     depthImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     depthImageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-    const VkResult imgRes = vkCreateImage(g_vulkanBackend.device, &depthImageInfo, nullptr, &g_vulkanBackend.depthStencil.image);
+    const VkResult imgRes = vkCreateImage(g_vulkanBackend.device, &depthImageInfo, nullptr,
+                                          &g_vulkanBackend.depthStencil.image);
     ASSERT_MSG(imgRes == VK_SUCCESS, "Err: failed to create depth stencil image");
 
     VkMemoryRequirements memoryRequirements{};
@@ -735,12 +780,15 @@ void gfx_create_depth_stencil_buffer() {
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memoryRequirements.size;
-    allocInfo.memoryTypeIndex = gfx_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    allocInfo.memoryTypeIndex = gfx_get_memory_type(memoryRequirements.memoryTypeBits,
+                                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr, &g_vulkanBackend.depthStencil.deviceMemory);
+    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr,
+                                               &g_vulkanBackend.depthStencil.deviceMemory);
     ASSERT_MSG(allocRes == VK_SUCCESS, "Err: failed to allocate memory for depth stencil")
 
-    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencil.image, g_vulkanBackend.depthStencil.deviceMemory, 0);
+    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencil.image,
+                                               g_vulkanBackend.depthStencil.deviceMemory, 0);
     ASSERT_MSG(bindRes == VK_SUCCESS, "Err: failed to bind depth stencil");
 
     VkImageViewCreateInfo depthImageViewInfo{};
@@ -758,7 +806,8 @@ void gfx_create_depth_stencil_buffer() {
         depthImageViewInfo.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
     }
 
-    const VkResult createRes = vkCreateImageView(g_vulkanBackend.device, &depthImageViewInfo, nullptr, &g_vulkanBackend.depthStencil.view);
+    const VkResult createRes = vkCreateImageView(g_vulkanBackend.device, &depthImageViewInfo, nullptr,
+                                                 &g_vulkanBackend.depthStencil.view);
     ASSERT_MSG(createRes == VK_SUCCESS, "Err: failed to create depth image view");
 }
 
@@ -812,10 +861,13 @@ void gfx_create_render_pass() {
     VkSubpassDependency dependencies[SUBPASS_DEPENDENCY_SIZE] = {0};
     dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[0].dstSubpass = 0;
-    dependencies[0].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependencies[0].srcStageMask =
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependencies[0].dstStageMask =
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
     dependencies[0].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    dependencies[0].dstAccessMask =
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
     dependencies[0].dependencyFlags = 0;
 
     dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -835,7 +887,8 @@ void gfx_create_render_pass() {
     renderPassInfo.dependencyCount = SUBPASS_DEPENDENCY_SIZE;
     renderPassInfo.pDependencies = dependencies;
 
-    const VkResult result = vkCreateRenderPass(g_vulkanBackend.device, &renderPassInfo, nullptr, &g_vulkanBackend.renderPass);
+    const VkResult result = vkCreateRenderPass(g_vulkanBackend.device, &renderPassInfo, nullptr,
+                                               &g_vulkanBackend.renderPass);
     ASSERT_MSG(result == VK_SUCCESS, "Err: failed to create render pass");
 }
 
@@ -848,7 +901,8 @@ void gfx_cleanup_render_pass() {
 void gfx_create_pipeline_cache() {
     VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
     pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    const VkResult cacheRes = vkCreatePipelineCache(g_vulkanBackend.device, &pipelineCacheCreateInfo, nullptr, &g_vulkanBackend.pipelineCache);
+    const VkResult cacheRes = vkCreatePipelineCache(g_vulkanBackend.device, &pipelineCacheCreateInfo, nullptr,
+                                                    &g_vulkanBackend.pipelineCache);
     ASSERT_MSG(cacheRes == VK_SUCCESS, "Err: failed to create pipeline cache")
 }
 
@@ -860,11 +914,13 @@ void gfx_cleanup_pipeline_cache() {
 
 void gfx_create_frame_buffer() {
     ASSERT(g_vulkanBackend.frameBuffers == nullptr);
-    g_vulkanBackend.frameBuffers = (VkFramebuffer *) mem_zalloc(sizeof(VkFramebuffer) * g_vulkanBackend.swapChain.imageCount);
+    g_vulkanBackend.frameBuffers = (VkFramebuffer *) mem_zalloc(
+            sizeof(VkFramebuffer) * g_vulkanBackend.swapChain.imageCount);
 
     constexpr uint32_t ATTACHMENT_COUNT = 2;
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
-        const VkImageView attachments[ATTACHMENT_COUNT] = {g_vulkanBackend.swapChain.buffers[i].view, g_vulkanBackend.depthStencil.view};
+        const VkImageView attachments[ATTACHMENT_COUNT] = {g_vulkanBackend.swapChain.buffers[i].view,
+                                                           g_vulkanBackend.depthStencil.view};
 
         VkFramebufferCreateInfo framebufferInfo = {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
         framebufferInfo.pNext = nullptr;
@@ -875,7 +931,8 @@ void gfx_create_frame_buffer() {
         framebufferInfo.height = g_vulkanBackend.swapChain.height;
         framebufferInfo.layers = 1;
 
-        const VkResult frameBuffRes = vkCreateFramebuffer(g_vulkanBackend.device, &framebufferInfo, nullptr, &g_vulkanBackend.frameBuffers[i]);
+        const VkResult frameBuffRes = vkCreateFramebuffer(g_vulkanBackend.device, &framebufferInfo, nullptr,
+                                                          &g_vulkanBackend.frameBuffers[i]);
         ASSERT_MSG(frameBuffRes == VK_SUCCESS, "Err: failed to create frame buffer [%u]", i);
     }
 }
@@ -960,7 +1017,8 @@ void gfx_render_pass(VkCommandBuffer &cmdBuffer) {
 
     vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     {
-        VkViewport viewport = {0, 0, float(g_vulkanBackend.swapChain.width), float(g_vulkanBackend.swapChain.height), 0.0f, 1.0f};
+        VkViewport viewport = {0, 0, float(g_vulkanBackend.swapChain.width), float(g_vulkanBackend.swapChain.height),
+                               0.0f, 1.0f};
         vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
 
         VkRect2D scissor = {0, 0, g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
@@ -971,7 +1029,8 @@ void gfx_render_pass(VkCommandBuffer &cmdBuffer) {
 
 bool query_has_valid_extent_size() {
     VkSurfaceCapabilitiesKHR surfaceCapabilities{};
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceCapabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface,
+                                              &surfaceCapabilities);
     return surfaceCapabilities.currentExtent.width != 0 || surfaceCapabilities.currentExtent.height != 0;
 }
 
@@ -1018,10 +1077,12 @@ void gfx_update(const double &deltaTime) {
 
 void gfx_create_semaphores() {
     VkSemaphoreCreateInfo semaphoreInfo = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-    const VkResult presentRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr, &g_vulkanBackend.semaphores.presentDone);
+    const VkResult presentRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr,
+                                                  &g_vulkanBackend.semaphores.presentDone);
     ASSERT_MSG(presentRes == VK_SUCCESS, "Err: failed to create present semaphore");
 
-    const VkResult renderRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr, &g_vulkanBackend.semaphores.renderDone);
+    const VkResult renderRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr,
+                                                 &g_vulkanBackend.semaphores.renderDone);
     ASSERT_MSG(renderRes == VK_SUCCESS, "Err: failed to create render semaphore");
 
     g_vulkanBackend.submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
@@ -1157,7 +1218,8 @@ void set_image_layout(
         case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
             // Image layout will be used as a depth/stencil attachment
             // Make sure any writes to depth/stencil buffer have been finished
-            imageMemoryBarrier.dstAccessMask = imageMemoryBarrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            imageMemoryBarrier.dstAccessMask =
+                    imageMemoryBarrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
             break;
 
         case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
@@ -1229,14 +1291,18 @@ void gfx_create_texture_immediate(VkCommandBuffer &commandBuffer, const char *pa
     stagingBufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     stagingBufInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    const VkResult createStageBuffRes = vkCreateBuffer(g_vulkanBackend.device, &stagingBufInfo, nullptr, &stagingBuffer);
+    const VkResult createStageBuffRes = vkCreateBuffer(g_vulkanBackend.device, &stagingBufInfo, nullptr,
+                                                       &stagingBuffer);
     ASSERT(createStageBuffRes == VK_SUCCESS);
 
     vkGetBufferMemoryRequirements(g_vulkanBackend.device, stagingBuffer, &memoryRequirements);
     memoryAllocateInfo.allocationSize = memoryRequirements.size;
-    memoryAllocateInfo.memoryTypeIndex = gfx_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    memoryAllocateInfo.memoryTypeIndex = gfx_get_memory_type(memoryRequirements.memoryTypeBits,
+                                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    const VkResult memAllocResult = vkAllocateMemory(g_vulkanBackend.device, &memoryAllocateInfo, nullptr, &stagingMemory);
+    const VkResult memAllocResult = vkAllocateMemory(g_vulkanBackend.device, &memoryAllocateInfo, nullptr,
+                                                     &stagingMemory);
     ASSERT(memAllocResult == VK_SUCCESS);
 
     const VkResult memBindResult = vkBindBufferMemory(g_vulkanBackend.device, stagingBuffer, stagingMemory, 0);
@@ -1244,7 +1310,8 @@ void gfx_create_texture_immediate(VkCommandBuffer &commandBuffer, const char *pa
 
     // map raw image data to staging buffer
     uint8_t *data;
-    const VkResult mapResult(vkMapMemory(g_vulkanBackend.device, stagingMemory, 0, memoryRequirements.size, 0, (void **) &data));
+    const VkResult mapResult(
+            vkMapMemory(g_vulkanBackend.device, stagingMemory, 0, memoryRequirements.size, 0, (void **) &data));
     ASSERT(mapResult == VK_SUCCESS)
 
     memcpy(data, rawImageData, imageSize);
@@ -1288,9 +1355,11 @@ void gfx_create_texture_immediate(VkCommandBuffer &commandBuffer, const char *pa
     vkGetImageMemoryRequirements(g_vulkanBackend.device, outTexture.image, &memoryRequirements);
 
     memoryAllocateInfo.allocationSize = memoryRequirements.size;
-    memoryAllocateInfo.memoryTypeIndex = gfx_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    memoryAllocateInfo.memoryTypeIndex = gfx_get_memory_type(memoryRequirements.memoryTypeBits,
+                                                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    const VkResult memAllocRes = vkAllocateMemory(g_vulkanBackend.device, &memoryAllocateInfo, nullptr, &outTexture.deviceMemory);
+    const VkResult memAllocRes = vkAllocateMemory(g_vulkanBackend.device, &memoryAllocateInfo, nullptr,
+                                                  &outTexture.deviceMemory);
     ASSERT(memAllocRes == VK_SUCCESS);
 
     const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, outTexture.image, outTexture.deviceMemory, 0);
@@ -1368,7 +1437,8 @@ void gfx_cleanup_texture(GfxTexture &texture) {
     vkFreeMemory(g_vulkanBackend.device, texture.deviceMemory, nullptr);
 }
 
-VkResult create_buffer(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags, const VkDeviceSize &size,
+VkResult create_buffer(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags,
+                       const VkDeviceSize &size,
                        VkBuffer &outBuffer, VkDeviceMemory &memory, void *inData) {
     VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferCreateInfo.usage = usageFlags;
@@ -1477,10 +1547,12 @@ void gfx_create_mesh_immediate(const RawMesh &rawMesh, GfxMesh &outMesh) {
     {
         VkBufferCopy copyRegion = {};
         copyRegion.size = vertexBufferSize;
-        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, vertexStaging.buffer, outMesh.vertBuffer, 1, &copyRegion);
+        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, vertexStaging.buffer, outMesh.vertBuffer, 1,
+                        &copyRegion);
 
         copyRegion.size = indexBufferSize;
-        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, indexStaging.buffer, outMesh.indexBuffer, 1, &copyRegion);
+        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, indexStaging.buffer, outMesh.indexBuffer, 1,
+                        &copyRegion);
     }
     gfx_command_end_immediate_recording();
 

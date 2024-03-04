@@ -4,8 +4,8 @@
 #include <cstdio>
 
 #if defined(__linux__) || defined(__APPLE__)
-#include <signal.h>
-#define BVM_DEBUG_BREAK() raise(SIGTRAP)
+#include <csignal>
+#define DEBUG_BREAK() raise(SIGTRAP)
 #elif defined(_WIN32)
 #define DEBUG_BREAK() __debugbreak()
 #endif
