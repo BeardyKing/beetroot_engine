@@ -1679,7 +1679,7 @@ void gfx_cube_create_immediate(GfxMesh &outMesh) {
 }
 
 void gfx_load_packages() {
-    const char *pathUVGrid = "../res/textures/UV_Grid/UV_Grid_test.dds";
+    const char *pathUVGrid = "../assets/textures/UV_Grid/UV_Grid_test.dds";
     gfx_texture_create_immediate(g_vulkanBackend.immediateCommandBuffer, pathUVGrid, g_textures.uvGrid);
     gfx_cube_create_immediate(g_meshes.cube);
 };
