@@ -15,9 +15,13 @@
 #include <beet_gfx/gfx_samplers.h>
 #include <beet_gfx/gfx_mesh.h>
 #include <beet_gfx/gfx_pipeline.h>
+#include <beet_gfx/gfx_descriptors.h>
 #include <fstream>
 
 #include <cstring>
+#include "beet_shared/db_types.h"
+#include "beet_math/quat.h"
+#include "beet_math/utilities.h"
 
 static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_OTHER",
@@ -28,7 +32,8 @@ static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
 };
 
 constexpr uint32_t BEET_INSTANCE_BUFFER_BIND_ID = 1;
-constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM,
+                                                             VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
 static struct UserArguments {
     uint32_t selectedPhysicalDeviceIndex = {};
     bool vsync = {true};
@@ -44,6 +49,7 @@ struct TargetVulkanFormats {
     VkFormat depthFormat = {};
 } g_vulkanTargetFormats = {};
 
+
 static struct textures {
     GfxTexture uvGrid;
 } g_textures = {};
@@ -52,9 +58,18 @@ static struct meshes {
     GfxMesh cube;
 } g_meshes = {};
 
+//TODO: replace with db arr of structs with id lookups
+static struct Objects {
+    struct CamObj {
+        Camera cam;
+        Transform transform;
+    } camObj;
+} g_dbEntities = {};
+
 struct VulkanBackend g_vulkanBackend = {};
 
 void gfx_cleanup_indirect_commands();
+
 bool gfx_find_supported_extension(const char *extensionName) {
     for (uint32_t i = 0; i < g_vulkanBackend.extensionsCount; ++i) {
         if (c_str_equal(g_vulkanBackend.supportedExtensions[i].extensionName, extensionName)) {
@@ -1026,6 +1041,24 @@ void gfx_render_pass(VkCommandBuffer &cmdBuffer) {
 
         VkRect2D scissor = {0, 0, g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
         vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+
+        VkDeviceSize offsets[1] = {0};
+        vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_vulkanBackend.pipelineLayout, 0, 1,
+                                &g_vulkanBackend.descriptorSet, 0, NULL);
+
+        //cubePipeline
+        // [POI] Instanced multi draw rendering of the cubes
+        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_vulkanBackend.cubePipeline);
+        // Binding point 0 : Mesh vertex buffer
+        // Binding point 1 : Instance data buffer
+        vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &g_meshes.cube.vertBuffer, offsets);
+        vkCmdBindVertexBuffers(cmdBuffer, 1, 1, &g_vulkanBackend.instanceBuffer.buffer, offsets);
+
+        vkCmdBindIndexBuffer(cmdBuffer, g_meshes.cube.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+        vkCmdDrawIndexedIndirect(cmdBuffer, g_vulkanBackend.indirectCommandsBuffer.buffer, 0,
+                                 g_vulkanBackend.indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
+
     }
     vkCmdEndRenderPass(cmdBuffer);
 }
@@ -1036,6 +1069,7 @@ bool query_has_valid_extent_size() {
                                               &surfaceCapabilities);
     return surfaceCapabilities.currentExtent.width != 0 || surfaceCapabilities.currentExtent.height != 0;
 }
+
 
 void gfx_window_resize() {
     if (!query_has_valid_extent_size()) {
@@ -1414,7 +1448,7 @@ void gfx_texture_create_immediate(VkCommandBuffer &commandBuffer, const char *pa
     vkFreeMemory(g_vulkanBackend.device, stagingMemory, nullptr);
 
     VkImageViewCreateInfo view{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
     view.format = beet_image_format_to_vk(myImage.textureFormat);;
     view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     view.subresourceRange.baseMipLevel = 0;
@@ -1425,6 +1459,10 @@ void gfx_texture_create_immediate(VkCommandBuffer &commandBuffer, const char *pa
 
     const VkResult imageViewRes = vkCreateImageView(g_vulkanBackend.device, &view, nullptr, &outTexture.view);
     ASSERT(imageViewRes == VK_SUCCESS);
+
+    outTexture.descriptor.imageView = outTexture.view;
+    outTexture.descriptor.sampler = gfx_samplers()->samplers[outTexture.imageSamplerType];
+    outTexture.descriptor.imageLayout = outTexture.layout;
 }
 
 void gfx_mesh_cleanup(GfxMesh &mesh) {
@@ -1440,7 +1478,8 @@ void gfx_texture_cleanup(GfxTexture &texture) {
     vkFreeMemory(g_vulkanBackend.device, texture.deviceMemory, nullptr);
 }
 
-VkResult gfx_buffer_create(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags, GfxBuffer &outBuffer, const VkDeviceSize size, void *inData) {
+VkResult gfx_buffer_create(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags,
+                           GfxBuffer &outBuffer, const VkDeviceSize size, void *inData) {
     VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferCreateInfo.usage = usageFlags;
     bufferCreateInfo.size = size;
@@ -1488,14 +1527,15 @@ VkResult gfx_buffer_create(const VkBufferUsageFlags &usageFlags, const VkMemoryP
     }
 
     // Initialize a default descriptor that covers the whole buffer size
-    outBuffer.descriptor.offset = VK_WHOLE_SIZE;
+    outBuffer.descriptor.offset = 0;
     outBuffer.descriptor.buffer = outBuffer.buffer;
-    outBuffer.descriptor.range = 0;
+    outBuffer.descriptor.range = VK_WHOLE_SIZE;
 
     return vkBindBufferMemory(g_vulkanBackend.device, outBuffer.buffer, outBuffer.memory, 0);
 }
 
-VkResult gfx_buffer_create(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags, const VkDeviceSize &size,
+VkResult gfx_buffer_create(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags,
+                           const VkDeviceSize &size,
                            VkBuffer &outBuffer, VkDeviceMemory &memory, void *inData) {
     VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferCreateInfo.usage = usageFlags;
@@ -1688,6 +1728,7 @@ void gfx_unload_packages() {
     gfx_texture_cleanup(g_textures.uvGrid);
     gfx_mesh_cleanup(g_meshes.cube);
 }
+
 #define OBJECT_INSTANCE_COUNT 2048
 
 void gfx_build_indirect_commands() {
@@ -1741,7 +1782,8 @@ void gfx_build_indirect_commands() {
     {
         VkBufferCopy copyRegion = {};
         copyRegion.size = stagingBuffer.size;
-        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, stagingBuffer.buffer, g_vulkanBackend.indirectCommandsBuffer.buffer, 1, &copyRegion);
+        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, stagingBuffer.buffer,
+                        g_vulkanBackend.indirectCommandsBuffer.buffer, 1, &copyRegion);
     }
     gfx_command_end_immediate_recording();
 
@@ -1754,6 +1796,60 @@ void gfx_cleanup_indirect_commands() {
     vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.indirectCommandsBuffer.memory, nullptr);
 }
 
+void gfx_buffer_copy_immediate(GfxBuffer &src, GfxBuffer &dst, VkQueue queue, VkBufferCopy *copyRegion) {
+    ASSERT(dst.size <= src.size);
+    ASSERT(src.buffer);
+    gfx_command_begin_immediate_recording();
+    {
+        VkBufferCopy bufferCopy{};
+        if (copyRegion == nullptr) {
+            bufferCopy.size = src.size;
+        } else {
+            bufferCopy = *copyRegion;
+        }
+        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, src.buffer, dst.buffer, 1, &bufferCopy);
+    }
+    gfx_command_end_immediate_recording();
+}
+
+void gfx_build_instance_data() {
+    constexpr uint32_t objectCount = 1;
+    std::vector<GfxInstanceData> instanceData;
+    instanceData.resize(objectCount);
+
+//    std::default_random_engine rndEngine(benchmark.active ? 0 : (unsigned)time(nullptr));
+//    std::uniform_real_distribution<float> uniformDist(0.0f, 1.0f);
+//TODO: add to obj struct
+    for (uint32_t i = 0; i < objectCount; i++) {
+        instanceData[i].rot = vec3f(0);
+        instanceData[i].pos = vec3f(0);
+        instanceData[i].scale = 1.0f;
+        instanceData[i].texIndex = i / OBJECT_INSTANCE_COUNT;
+    }
+
+    GfxBuffer stagingBuffer;
+    gfx_buffer_create(
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            stagingBuffer,
+            instanceData.size() * sizeof(GfxInstanceData),
+            instanceData.data()
+    );
+
+    gfx_buffer_create(
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            g_vulkanBackend.instanceBuffer,
+            stagingBuffer.size,
+            nullptr
+    );
+
+    gfx_buffer_copy_immediate(stagingBuffer, g_vulkanBackend.instanceBuffer, g_vulkanBackend.queue, nullptr);
+
+    vkDestroyBuffer(g_vulkanBackend.device, stagingBuffer.buffer, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, stagingBuffer.memory, nullptr);
+}
+
 void gfx_build_uniform_buffers() {
     const VkResult uniformResult = gfx_buffer_create(
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -1764,7 +1860,8 @@ void gfx_build_uniform_buffers() {
     );
     ASSERT(uniformResult == VK_SUCCESS);
 
-    const VkResult mapResult = vkMapMemory(g_vulkanBackend.device, g_vulkanBackend.uniformBuffer.memory, 0, VK_WHOLE_SIZE, 0, &g_vulkanBackend.uniformBuffer.mappedData);
+    const VkResult mapResult = vkMapMemory(g_vulkanBackend.device, g_vulkanBackend.uniformBuffer.memory, 0,
+                                           VK_WHOLE_SIZE, 0, &g_vulkanBackend.uniformBuffer.mappedData);
     ASSERT(mapResult == VK_SUCCESS);
 }
 
@@ -1773,11 +1870,57 @@ void gfx_cleanup_uniform_buffers() {
     vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.uniformBuffer.memory, nullptr);
 }
 
+
 void gfx_update_uniform_buffers() {
+
+    struct UniformBufferLayout {
+        glm::mat4 projection;
+        glm::mat4 view;
+    };
+
     //TODO: UPDATE UBO with camera info i.e. view & proj.
+    const Camera &camera = g_dbEntities.camObj.cam;
+    const Transform &camTransform = g_dbEntities.camObj.transform;
+
+    const vec3f camForward = glm::quat(camTransform.rotation) * WORLD_FORWARD;
+    const vec3f lookTarget = camTransform.position + camForward;
+
+    const mat4 view = lookAt(camTransform.position, lookTarget, WORLD_UP);
+    const vec2f screen = {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
+    mat4 proj = perspective(as_radians(camera.fov), (float) screen.x / (float) screen.y, camera.zNear, camera.zFar);
+    proj[1][1] *= -1; // flip view proj, need to switch to the vulkan glm define to fix this.
+    mat4 viewProj = proj * view;
+
+    const UniformBufferLayout uniformBuffData{
+            .projection = proj,
+            .view = view,
+    };
+//    // copy to ubo
+//    g_vulkanBackend.uniformData.projection = camera.matrices.perspective;
+//    uniformData.view = camera.matrices.view;
+    memcpy(g_vulkanBackend.uniformBuffer.mappedData, &uniformBuffData, sizeof(uniformBuffData));
 }
 
 void gfx_build_descriptor_set_layout() {
+
+    //=== POOL =====//
+    constexpr uint32_t poolSizeCount = 2;
+    VkDescriptorPoolSize poolSizes[poolSizeCount] = {
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1},
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1},
+    };
+
+    VkDescriptorPoolCreateInfo descriptorPoolInfo{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .maxSets = 2,
+            .poolSizeCount = poolSizeCount,
+            .pPoolSizes = &poolSizes[0],
+    };
+    const VkResult createPoolRes = (vkCreateDescriptorPool(g_vulkanBackend.device, &descriptorPoolInfo, nullptr,
+                                                           &g_vulkanBackend.descriptorPool));
+    ASSERT(createPoolRes == VK_SUCCESS);
+    //=== LAYOUT ===//
+
     constexpr uint32_t layoutBindingsCount = 2;
     VkDescriptorSetLayoutBinding layoutBindings[layoutBindingsCount] = {
             {VkDescriptorSetLayoutBinding{
@@ -1799,16 +1942,29 @@ void gfx_build_descriptor_set_layout() {
             .bindingCount = layoutBindingsCount,
             .pBindings = &layoutBindings[0],
     };
-    const VkResult descriptorResult = vkCreateDescriptorSetLayout(g_vulkanBackend.device, &descriptorSetLayoutCreateInfo, nullptr, &g_vulkanBackend.descriptorSetLayout);
+    const VkResult descriptorResult = vkCreateDescriptorSetLayout(g_vulkanBackend.device,
+                                                                  &descriptorSetLayoutCreateInfo, nullptr,
+                                                                  &g_vulkanBackend.descriptorSetLayout);
     ASSERT(descriptorResult == VK_SUCCESS);
 
-    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 1,
-            .pSetLayouts = &g_vulkanBackend.descriptorSetLayout
+    //=== SET ======//
+
+    VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(g_vulkanBackend.descriptorPool,
+                                                                          &g_vulkanBackend.descriptorSetLayout, 1);
+    const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo,
+                                                           &g_vulkanBackend.descriptorSet);
+    ASSERT(allocDescRes == VK_SUCCESS);
+    std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
+            // Binding 0: Vertex shader uniform buffer
+            // Binding 1: uv grid image // TODO: Add a per package loaded texture array
+            gfx_descriptor_set_write(g_vulkanBackend.descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0,
+                                     &g_vulkanBackend.uniformBuffer.descriptor, 1),
+            gfx_descriptor_set_write(g_vulkanBackend.descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
+                                     &g_textures.uvGrid.descriptor, 1)
     };
-    const VkResult pipelineRes = vkCreatePipelineLayout(g_vulkanBackend.device, &pipelineLayoutCreateInfo, nullptr, &g_vulkanBackend.pipelineLayout);
-    ASSERT(pipelineRes == VK_SUCCESS);
+    vkUpdateDescriptorSets(g_vulkanBackend.device, static_cast<uint32_t>(writeDescriptorSets.size()),
+                           writeDescriptorSets.data(), 0, nullptr);
+
 }
 
 void gfx_cleanup_descriptor_set_layout() {
@@ -1834,7 +1990,8 @@ VkShaderModule gfx_load_shader_binary(const char *path) {
             .pCode = (uint32_t *) shaderCode,
     };
     VkShaderModule shaderModule = {};
-    const VkResult moduleResult = vkCreateShaderModule(g_vulkanBackend.device, &moduleCreateInfo, nullptr, &shaderModule);
+    const VkResult moduleResult = vkCreateShaderModule(g_vulkanBackend.device, &moduleCreateInfo, nullptr,
+                                                       &shaderModule);
     ASSERT(moduleResult == VK_SUCCESS);
 
     free(shaderCode);
@@ -1853,22 +2010,41 @@ VkPipelineShaderStageCreateInfo gfx_load_shader(const char *path, VkShaderStageF
 }
 
 void gfx_build_pipelines() {
-    const VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = gfx_pipeline_input_assembly_create(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
-    const VkPipelineRasterizationStateCreateInfo rasterizationState = gfx_pipeline_rasterization_create(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-    const VkPipelineColorBlendAttachmentState blendAttachmentState = gfx_pipeline_color_blend_attachment_state(0xf, VK_FALSE);
-    const VkPipelineColorBlendStateCreateInfo colorBlendState = gfx_pipeline_color_blend_state_create(1, &blendAttachmentState);
-    const VkPipelineDepthStencilStateCreateInfo depthStencilState = gfx_pipeline_depth_stencil_state_create(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
+
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .setLayoutCount = 1,
+            .pSetLayouts = &g_vulkanBackend.descriptorSetLayout
+    };
+    const VkResult pipelineLayoutRes = vkCreatePipelineLayout(g_vulkanBackend.device, &pipelineLayoutCreateInfo,
+                                                              nullptr, &g_vulkanBackend.pipelineLayout);
+    ASSERT(pipelineLayoutRes == VK_SUCCESS);
+
+    const VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = gfx_pipeline_input_assembly_create(
+            VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
+    const VkPipelineRasterizationStateCreateInfo rasterizationState = gfx_pipeline_rasterization_create(
+            VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+    const VkPipelineColorBlendAttachmentState blendAttachmentState = gfx_pipeline_color_blend_attachment_state(0xf,
+                                                                                                               VK_FALSE);
+    const VkPipelineColorBlendStateCreateInfo colorBlendState = gfx_pipeline_color_blend_state_create(1,
+                                                                                                      &blendAttachmentState);
+    const VkPipelineDepthStencilStateCreateInfo depthStencilState = gfx_pipeline_depth_stencil_state_create(VK_TRUE,
+                                                                                                            VK_TRUE,
+                                                                                                            VK_COMPARE_OP_LESS_OR_EQUAL);
     const VkPipelineViewportStateCreateInfo viewportState = gfx_pipeline_viewport_state_create(1, 1, 0);
-    const VkPipelineMultisampleStateCreateInfo multisampleState = gfx_pipeline_multisample_state_create(VK_SAMPLE_COUNT_1_BIT, 0);
+    const VkPipelineMultisampleStateCreateInfo multisampleState = gfx_pipeline_multisample_state_create(
+            VK_SAMPLE_COUNT_1_BIT, 0);
 
     constexpr uint32_t dynamicStateCount = 2;
     const VkDynamicState dynamicStateEnables[dynamicStateCount] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    VkPipelineDynamicStateCreateInfo dynamicState = gfx_pipeline_dynamic_state_create(dynamicStateEnables, dynamicStateCount, 0);
+    VkPipelineDynamicStateCreateInfo dynamicState = gfx_pipeline_dynamic_state_create(dynamicStateEnables,
+                                                                                      dynamicStateCount, 0);
 
     constexpr uint32_t shaderStagesCount = 2;
     VkPipelineShaderStageCreateInfo shaderStages[shaderStagesCount] = {};
 
-    VkGraphicsPipelineCreateInfo pipelineCreateInfo = gfx_graphics_pipeline_create(g_vulkanBackend.pipelineLayout, g_vulkanBackend.renderPass, 0);
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = gfx_graphics_pipeline_create(g_vulkanBackend.pipelineLayout,
+                                                                                   g_vulkanBackend.renderPass, 0);
     pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
     pipelineCreateInfo.pRasterizationState = &rasterizationState;
     pipelineCreateInfo.pColorBlendState = &colorBlendState;
@@ -1883,20 +2059,29 @@ void gfx_build_pipelines() {
     const uint32_t bindingDescriptionsSize = 2;
     VkVertexInputBindingDescription bindingDescriptions[bindingDescriptionsSize] = {
             gfx_vertex_input_binding_desc(0, sizeof(GfxVertex), VK_VERTEX_INPUT_RATE_VERTEX),
-            gfx_vertex_input_binding_desc(BEET_INSTANCE_BUFFER_BIND_ID, sizeof(GfxInstanceData), VK_VERTEX_INPUT_RATE_VERTEX),
+            gfx_vertex_input_binding_desc(BEET_INSTANCE_BUFFER_BIND_ID, sizeof(GfxInstanceData),
+                                          VK_VERTEX_INPUT_RATE_VERTEX),
     };
 
     constexpr uint32_t attributeDescriptionsSize = 8;
     VkVertexInputAttributeDescription attributeDescriptions[attributeDescriptionsSize] = {
-            gfx_vertex_input_attribute_desc(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxVertex, pos)),                                  // 0: Position
-            gfx_vertex_input_attribute_desc(0, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxVertex, normal)),                               // 1: Normal
-            gfx_vertex_input_attribute_desc(0, 2, VK_FORMAT_R32G32_SFLOAT, offsetof(GfxVertex, uv)),                                      // 2: Texture coordinates
-            gfx_vertex_input_attribute_desc(0, 3, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxVertex, normal)),                               // 3: Color
+            gfx_vertex_input_attribute_desc(0, 0, VK_FORMAT_R32G32B32_SFLOAT,
+                                            offsetof(GfxVertex, pos)),                                  // 0: Position
+            gfx_vertex_input_attribute_desc(0, 1, VK_FORMAT_R32G32B32_SFLOAT,
+                                            offsetof(GfxVertex, normal)),                               // 1: Normal
+            gfx_vertex_input_attribute_desc(0, 2, VK_FORMAT_R32G32_SFLOAT, offsetof(GfxVertex,
+                                                                                    uv)),                                      // 2: Texture coordinates
+            gfx_vertex_input_attribute_desc(0, 3, VK_FORMAT_R32G32B32_SFLOAT,
+                                            offsetof(GfxVertex, normal)),                               // 3: Color
 
-            gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 4, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxInstanceData, pos)), // 4: Position
-            gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 5, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxInstanceData, rot)), // 5: Rotation
-            gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 6, VK_FORMAT_R32_SFLOAT, offsetof(GfxInstanceData, scale)),     // 6: Scale
-            gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 7, VK_FORMAT_R32_SINT, offsetof(GfxInstanceData, texIndex)),    // 7: Texture array layer index
+            gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 4, VK_FORMAT_R32G32B32_SFLOAT,
+                                            offsetof(GfxInstanceData, pos)), // 4: Position
+            gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 5, VK_FORMAT_R32G32B32_SFLOAT,
+                                            offsetof(GfxInstanceData, rot)), // 5: Rotation
+            gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 6, VK_FORMAT_R32_SFLOAT,
+                                            offsetof(GfxInstanceData, scale)),     // 6: Scale
+            gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 7, VK_FORMAT_R32_SINT,
+                                            offsetof(GfxInstanceData, texIndex)),    // 7: Texture array layer index
     };
 
     VkPipelineVertexInputStateCreateInfo inputState = {
@@ -1911,7 +2096,9 @@ void gfx_build_pipelines() {
 
     shaderStages[0] = gfx_load_shader("../assets/shaders/indirectdraw.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
     shaderStages[1] = gfx_load_shader("../assets/shaders/indirectdraw.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-    const VkResult pipelineRes = (vkCreateGraphicsPipelines(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, 1, &pipelineCreateInfo, nullptr, &g_vulkanBackend.cubePipeline));
+    const VkResult pipelineRes = (vkCreateGraphicsPipelines(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, 1,
+                                                            &pipelineCreateInfo, nullptr,
+                                                            &g_vulkanBackend.cubePipeline));
     ASSERT_MSG(pipelineRes == VK_SUCCESS, "Err: failed to create graphics pipeline");
     vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[0].module, nullptr);
     vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[1].module, nullptr);
@@ -1940,15 +2127,18 @@ void gfx_create(void *windowHandle) {
 
     gfx_load_packages();
     gfx_build_indirect_commands();
+    gfx_build_instance_data();
     gfx_build_uniform_buffers();
     gfx_build_descriptor_set_layout();
     gfx_build_pipelines();
+
     //TODO: 1) DONE - MANUAL load scene/package into memory
     //TODO: 2) DONE - build indirect draw commands
     //TODO: 3) DONE - build UBO
     //TODO: 4) DONE - descriptor set layout
     //TODO: 5) DONE - create pipelines
-    //TODO: 6) create descriptor pools
+    //TODO: 6) create descriptors/pools
+    //TODO: 7) build command buffers
 }
 
 void gfx_cleanup() {

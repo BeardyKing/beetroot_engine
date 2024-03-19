@@ -21,7 +21,7 @@ add_library(beet_shared
         inc/beet_shared/os_time.h
         src/os_time_win.cpp
         src/os_time_linux.cpp
-        )
+        inc/beet_shared/db_types.h)
 
 #====LIB TARGET DIR=======
 target_include_directories(beet_shared

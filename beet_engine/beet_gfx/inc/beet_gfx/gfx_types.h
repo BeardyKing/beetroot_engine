@@ -106,6 +106,8 @@ struct VulkanBackend {
     // Contains the indirect drawing commands
     GfxBuffer indirectCommandsBuffer;
     uint32_t indirectDrawCount{0};
+
+    GfxBuffer instanceBuffer;
     //==============================
 
     //===UNIFORM BUFFER=============
@@ -115,16 +117,20 @@ struct VulkanBackend {
     VkPipelineLayout pipelineLayout = {VK_NULL_HANDLE};
     VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
     VkDescriptorSetLayout descriptorSetLayout = {VK_NULL_HANDLE};
+    VkDescriptorPool descriptorPool = {VK_NULL_HANDLE};
 
     VkCommandBuffer immediateCommandBuffer = {VK_NULL_HANDLE};
 };
 
+//TODO: Add something like a GfxTextureArray which stores all the textures loaded from a package.
+// this way we can have a single descriptor/image allocation to a large amount of textures
 struct GfxTexture {
     VkImage image;
     VkDeviceMemory deviceMemory;
     VkImageView view;
     VkImageLayout layout;
     uint32_t imageSamplerType;
+    VkDescriptorImageInfo descriptor;
 };
 
 
