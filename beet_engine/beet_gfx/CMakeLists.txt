@@ -14,7 +14,19 @@ add_library(beet_gfx
         src/gfx_vulkan_surface_linux.cpp
         inc/beet_gfx/gfx_pipeline.h
         src/gfx_pipeline.cpp
-        inc/beet_gfx/gfx_descriptors.h src/gfx_descriptors.cpp)
+        inc/beet_gfx/gfx_descriptors.h src/gfx_descriptors.cpp
+        inc/beet_gfx/gfx_indexed_indirect.h
+        src/gfx_indexed_indirect.cpp
+        inc/beet_gfx/gfx_shader.h
+        src/gfx_shader.cpp
+        inc/beet_gfx/gfx_buffer.h
+        src/gfx_buffer.cpp
+        inc/beet_gfx/gfx_utils.h
+        src/gfx_utils.cpp
+        inc/beet_gfx/gfx_command.h
+        src/gfx_command.cpp
+        src/gfx_mesh.cpp
+)
 
 target_include_directories(beet_gfx
         PUBLIC inc

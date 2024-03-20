@@ -14,8 +14,8 @@
 
 #if PLATFORM_LINUX
 #include <vulkan/vulkan_wayland.h>
-#define BEET_VK_SURFACE_EXTENSION VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
 
+#define BEET_VK_SURFACE_EXTENSION VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
 #endif
 
 //===extensions==============

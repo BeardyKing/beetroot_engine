@@ -1,13 +1,15 @@
 #ifndef BEETROOT_GFX_TYPES_H
 #define BEETROOT_GFX_TYPES_H
-
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_core.h> // must go before any vulkan implementations
 
 #include <beet_gfx/gfx_vulkan_platform_defines.h>
-
 #include <beet_math/mat4.h>
 #include <beet_math/vec3.h>
 #include <beet_math/vec2.h>
+
+#include <beet_gfx/gfx_buffer.h> // TODO: consider moving the struct into here instead.
+#include <beet_gfx/gfx_mesh.h> // TODO: consider moving the struct into here instead.
+
 #include <vector>
 
 struct SwapChainBuffers {
@@ -44,18 +46,6 @@ struct QueueFamilyIndices {
     uint32_t compute = {UINT32_MAX};
     uint32_t transfer = {UINT32_MAX};
     uint32_t present = {UINT32_MAX};
-};
-
-struct GfxBuffer {
-    VkBuffer buffer = VK_NULL_HANDLE;
-    VkDeviceMemory memory = VK_NULL_HANDLE;
-    VkDescriptorBufferInfo descriptor;
-    VkDeviceSize size = 0;
-    VkDeviceSize alignment = 0;
-    void *mappedData = nullptr;
-
-    VkBufferUsageFlags usageFlags;
-    VkMemoryPropertyFlags memoryPropertyFlags;
 };
 
 struct UniformData {
@@ -133,5 +123,12 @@ struct GfxTexture {
     VkDescriptorImageInfo descriptor;
 };
 
+struct GlobTextures {
+    GfxTexture uvGrid;
+};
+
+struct GlobMeshes {
+    GfxMesh cube;
+};
 
 #endif //BEETROOT_GFX_TYPES_H

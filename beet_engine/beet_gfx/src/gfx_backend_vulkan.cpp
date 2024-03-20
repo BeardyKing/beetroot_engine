@@ -15,8 +15,9 @@
 #include <beet_gfx/gfx_types.h>
 #include <beet_gfx/gfx_samplers.h>
 #include <beet_gfx/gfx_mesh.h>
-#include <beet_gfx/gfx_pipeline.h>
-#include <beet_gfx/gfx_descriptors.h>
+#include <beet_gfx/gfx_buffer.h>
+#include <beet_gfx/gfx_command.h>
+#include <beet_gfx/gfx_utils.h>
 
 #include <beet_math/quat.h>
 #include <beet_math/utilities.h>
@@ -32,9 +33,8 @@ static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_CPU",
 };
 
-constexpr uint32_t BEET_INSTANCE_BUFFER_BIND_ID = 1;
-constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM,
-                                                             VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+
 static struct UserArguments {
     uint32_t selectedPhysicalDeviceIndex = {};
     bool vsync = {true};
@@ -51,14 +51,6 @@ struct TargetVulkanFormats {
 } g_vulkanTargetFormats = {};
 
 
-static struct textures {
-    GfxTexture uvGrid;
-} g_textures = {};
-
-static struct meshes {
-    GfxMesh cube;
-} g_meshes = {};
-
 //TODO: replace with db arr of structs with id lookups
 static struct Objects {
     struct CamObj {
@@ -67,9 +59,9 @@ static struct Objects {
     } camObj;
 } g_dbEntities = {};
 
-struct VulkanBackend g_vulkanBackend = {};
-
-void gfx_cleanup_indirect_commands();
+VulkanBackend g_vulkanBackend = {};
+GlobTextures g_textures = {};
+GlobMeshes g_meshes = {};
 
 bool gfx_find_supported_extension(const char *extensionName) {
     for (uint32_t i = 0; i < g_vulkanBackend.extensionsCount; ++i) {
@@ -221,13 +213,11 @@ static VkBool32 VKAPI_PTR validation_message_callback(
 
     switch (messageWarningLevel) {
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: {
-            log_error(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName,
-                      callbackData->pMessage);
+            log_error(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
             break;
         }
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: {
-            log_warning(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName,
-                        callbackData->pMessage);
+            log_warning(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
             break;
         }
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: {
@@ -235,8 +225,7 @@ static VkBool32 VKAPI_PTR validation_message_callback(
             break;
         }
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: {
-            log_verbose(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName,
-                        callbackData->pMessage);
+            log_verbose(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
             break;
         }
         default: {
@@ -595,8 +584,7 @@ void gfx_create_swap_chain() {
     ASSERT_MSG(swapChainImageResult == VK_SUCCESS, "Err: failed to re-create swap chain images")
 
     ASSERT(g_vulkanBackend.swapChain.buffers == nullptr);
-    g_vulkanBackend.swapChain.buffers = (SwapChainBuffers *) mem_zalloc(
-            sizeof(SwapChainBuffers) * g_vulkanBackend.swapChain.imageCount);
+    g_vulkanBackend.swapChain.buffers = (SwapChainBuffers *) mem_zalloc(sizeof(SwapChainBuffers) * g_vulkanBackend.swapChain.imageCount);
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
         VkImageViewCreateInfo swapChainImageViewInfo = {};
         swapChainImageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -639,8 +627,7 @@ void gfx_cleanup_swap_chain() {
 }
 
 void gfx_create_command_buffers() {
-
-    // GRAPHICS
+    // === GRAPHICS ===
     ASSERT(g_vulkanBackend.graphicsCommandBuffers == nullptr);
     g_vulkanBackend.graphicsCommandBuffers = (VkCommandBuffer *) mem_zalloc(sizeof(VkCommandBuffer) * g_vulkanBackend.swapChain.imageCount);
 
@@ -652,8 +639,7 @@ void gfx_create_command_buffers() {
     VkResult cmdBuffResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &commandBufferInfo, g_vulkanBackend.graphicsCommandBuffers);
     ASSERT_MSG(cmdBuffResult == VK_SUCCESS, "Err: failed to create graphics command buffer");
 
-
-    // IMMEDIATE
+    // === IMMEDIATE ===
     ASSERT(g_vulkanBackend.immediateCommandBuffer == VK_NULL_HANDLE);
     commandBufferInfo.commandBufferCount = 1;
     VkResult cmdImmediateBufferResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &commandBufferInfo, &g_vulkanBackend.immediateCommandBuffer);
@@ -661,7 +647,7 @@ void gfx_create_command_buffers() {
 }
 
 void gfx_cleanup_command_buffers() {
-    // GRAPHICS
+    // === GRAPHICS ===
     vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, g_vulkanBackend.swapChain.imageCount, g_vulkanBackend.graphicsCommandBuffers);
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
         g_vulkanBackend.graphicsCommandBuffers[i] = VK_NULL_HANDLE;
@@ -670,7 +656,7 @@ void gfx_cleanup_command_buffers() {
     mem_free(g_vulkanBackend.graphicsCommandBuffers);
     g_vulkanBackend.graphicsCommandBuffers = nullptr;
 
-    // IMMEDIATE
+    // === IMMEDIATE ===
     vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, 1, &g_vulkanBackend.immediateCommandBuffer);
     g_vulkanBackend.immediateCommandBuffer = VK_NULL_HANDLE;
 }
@@ -727,19 +713,6 @@ VkFormat find_depth_format(const VkImageTiling &desiredTilingFormat) {
     return VK_FORMAT_UNDEFINED;
 }
 
-uint32_t gfx_get_memory_type(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties) {
-    for (uint32_t i = 0; i < g_vulkanBackend.deviceMemoryProperties.memoryTypeCount; i++) {
-        if ((memoryTypeBits & 1) == 1) {
-            if ((g_vulkanBackend.deviceMemoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-                return i;
-            }
-        }
-        memoryTypeBits >>= 1;
-    }
-    ASSERT_MSG(false, "Err: fid not find memory type of target %u", properties);
-    return UINT32_MAX; // TODO:TEST: validate this is the correct value to return to crash the backend.
-}
-
 void gfx_create_depth_stencil_buffer() {
     g_vulkanTargetFormats.depthFormat = find_depth_format(VK_IMAGE_TILING_OPTIMAL);
 
@@ -763,7 +736,7 @@ void gfx_create_depth_stencil_buffer() {
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memoryRequirements.size;
-    allocInfo.memoryTypeIndex = gfx_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    allocInfo.memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr, &g_vulkanBackend.depthStencil.deviceMemory);
     ASSERT_MSG(allocRes == VK_SUCCESS, "Err: failed to allocate memory for depth stencil")
@@ -972,6 +945,7 @@ void end_command_recording(const VkCommandBuffer &cmdBuffer) {
     vkEndCommandBuffer(cmdBuffer);
 }
 
+
 void gfx_render_pass(VkCommandBuffer &cmdBuffer) {
     constexpr uint32_t clearValueCount = 2;
     VkClearValue clearValues[2];
@@ -994,20 +968,7 @@ void gfx_render_pass(VkCommandBuffer &cmdBuffer) {
         VkRect2D scissor = {0, 0, g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
         vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
-        VkDeviceSize offsets[1] = {0};
-        vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_vulkanBackend.pipelineLayout, 0, 1, &g_vulkanBackend.descriptorSet, 0, NULL);
-
-        //cubePipeline
-        // [POI] Instanced multi draw rendering of the cubes
-        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_vulkanBackend.cubePipeline);
-        // Binding point 0 : Mesh vertex buffer
-        // Binding point 1 : Instance data buffer
-        vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &g_meshes.cube.vertBuffer, offsets);
-        vkCmdBindVertexBuffers(cmdBuffer, 1, 1, &g_vulkanBackend.instanceBuffer.buffer, offsets);
-
-        vkCmdBindIndexBuffer(cmdBuffer, g_meshes.cube.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-        vkCmdDrawIndexedIndirect(cmdBuffer, g_vulkanBackend.indirectCommandsBuffer.buffer, 0, g_vulkanBackend.indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
+//        gfx_indexed_indirect_render(cmdBuffer); // Disabled for now
 
     }
     vkCmdEndRenderPass(cmdBuffer);
@@ -1033,8 +994,8 @@ void gfx_window_resize() {
 
     gfx_create_swap_chain();
     gfx_create_depth_stencil_buffer();
-    gfx_create_render_pass();
-    gfx_create_frame_buffer();
+    gfx_create_render_pass(); //TODO: consider moving to VK_KHR_dynamic_rendering as it's in the in 1.3 spec.
+    gfx_create_frame_buffer();//TODO: consider moving to VK_KHR_dynamic_rendering as it's in the in 1.3 spec.
 }
 
 void gfx_update_uniform_buffers() {
@@ -1060,9 +1021,6 @@ void gfx_update_uniform_buffers() {
             .projection = proj,
             .view = view,
     };
-//    // copy to ubo
-//    g_vulkanBackend.uniformData.projection = camera.matrices.perspective;
-//    uniformData.view = camera.matrices.view;
     memcpy(g_vulkanBackend.uniformBuffer.mappedData, &uniformBuffData, sizeof(uniformBuffData));
 }
 
@@ -1260,23 +1218,6 @@ void set_image_layout(
             1, &imageMemoryBarrier);
 }
 
-void gfx_command_begin_immediate_recording() {
-    VkCommandBufferBeginInfo cmdBufBeginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-    cmdBufBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(g_vulkanBackend.immediateCommandBuffer, &cmdBufBeginInfo);
-}
-
-void gfx_command_end_immediate_recording() {
-    vkEndCommandBuffer(g_vulkanBackend.immediateCommandBuffer);
-
-    VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &g_vulkanBackend.immediateCommandBuffer;
-
-    //TODO:GFX replace immediate submit with transfer immediate submit.
-    vkQueueSubmit(g_vulkanBackend.queue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(g_vulkanBackend.queue);
-}
 
 void gfx_texture_create_immediate(VkCommandBuffer &commandBuffer, const char *path, GfxTexture &outTexture) {
     outTexture.imageSamplerType = TextureSamplerType::Linear;
@@ -1310,9 +1251,9 @@ void gfx_texture_create_immediate(VkCommandBuffer &commandBuffer, const char *pa
 
     vkGetBufferMemoryRequirements(g_vulkanBackend.device, stagingBuffer, &memoryRequirements);
     memoryAllocateInfo.allocationSize = memoryRequirements.size;
-    memoryAllocateInfo.memoryTypeIndex = gfx_get_memory_type(memoryRequirements.memoryTypeBits,
-                                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    memoryAllocateInfo.memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits,
+                                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     const VkResult memAllocResult = vkAllocateMemory(g_vulkanBackend.device, &memoryAllocateInfo, nullptr, &stagingMemory);
     ASSERT(memAllocResult == VK_SUCCESS);
@@ -1366,7 +1307,7 @@ void gfx_texture_create_immediate(VkCommandBuffer &commandBuffer, const char *pa
     vkGetImageMemoryRequirements(g_vulkanBackend.device, outTexture.image, &memoryRequirements);
 
     memoryAllocateInfo.allocationSize = memoryRequirements.size;
-    memoryAllocateInfo.memoryTypeIndex = gfx_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    memoryAllocateInfo.memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     const VkResult memAllocRes = vkAllocateMemory(g_vulkanBackend.device, &memoryAllocateInfo, nullptr, &outTexture.deviceMemory);
     ASSERT(memAllocRes == VK_SUCCESS);
@@ -1450,241 +1391,6 @@ void gfx_texture_cleanup(GfxTexture &texture) {
     vkFreeMemory(g_vulkanBackend.device, texture.deviceMemory, nullptr);
 }
 
-VkResult gfx_buffer_create(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags, GfxBuffer &outBuffer, const VkDeviceSize size, void *inData) {
-    VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    bufferCreateInfo.usage = usageFlags;
-    bufferCreateInfo.size = size;
-    ASSERT(bufferCreateInfo.size > 0);
-
-    const VkResult createResult = vkCreateBuffer(g_vulkanBackend.device, &bufferCreateInfo, nullptr, &outBuffer.buffer);
-    ASSERT(createResult == VK_SUCCESS);
-
-    VkMemoryRequirements memReqs;
-    VkMemoryAllocateInfo memAllocInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
-    vkGetBufferMemoryRequirements(g_vulkanBackend.device, outBuffer.buffer, &memReqs);
-    memAllocInfo.allocationSize = memReqs.size;
-    memAllocInfo.memoryTypeIndex = gfx_get_memory_type(memReqs.memoryTypeBits, memoryPropertyFlags);
-
-    // when outBuffer has VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT set we also need to enable the appropriate flag during allocation
-    VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
-    if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
-        allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
-        allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
-        memAllocInfo.pNext = &allocFlagsInfo;
-    }
-    const VkResult allocResult = vkAllocateMemory(g_vulkanBackend.device, &memAllocInfo, nullptr, &outBuffer.memory);
-    ASSERT(allocResult == VK_SUCCESS);
-
-    outBuffer.alignment = memReqs.alignment;
-    outBuffer.size = size;
-    outBuffer.usageFlags = usageFlags;
-    outBuffer.memoryPropertyFlags = memoryPropertyFlags;
-
-    if (inData != nullptr) {
-        void *mapped;
-        const VkResult VkMapRes = vkMapMemory(g_vulkanBackend.device, outBuffer.memory, 0, size, 0, &mapped);
-        ASSERT(VkMapRes == VK_SUCCESS);
-
-        memcpy(mapped, inData, size);
-        // when host coherency hasn't been requested, do a manual flush to make writes visible
-        if ((memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
-            VkMappedMemoryRange mappedRange{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
-            mappedRange.memory = outBuffer.memory;
-            mappedRange.offset = 0;
-            mappedRange.size = size;
-            vkFlushMappedMemoryRanges(g_vulkanBackend.device, 1, &mappedRange);
-        }
-        vkUnmapMemory(g_vulkanBackend.device, outBuffer.memory);
-    }
-
-    // Initialize a default descriptor that covers the whole buffer size
-    outBuffer.descriptor.offset = 0;
-    outBuffer.descriptor.buffer = outBuffer.buffer;
-    outBuffer.descriptor.range = VK_WHOLE_SIZE;
-
-    return vkBindBufferMemory(g_vulkanBackend.device, outBuffer.buffer, outBuffer.memory, 0);
-}
-
-VkResult
-gfx_buffer_create(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags, const VkDeviceSize &size, VkBuffer &outBuffer, VkDeviceMemory &memory,
-                  void *inData) {
-    VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    bufferCreateInfo.usage = usageFlags;
-    bufferCreateInfo.size = size;
-    ASSERT(bufferCreateInfo.size > 0);
-
-    bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    const VkResult createBuffer = vkCreateBuffer(g_vulkanBackend.device, &bufferCreateInfo, nullptr, &outBuffer);
-    ASSERT(createBuffer == VK_SUCCESS);
-
-    VkMemoryRequirements memReqs;
-    VkMemoryAllocateInfo memAlloc{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
-
-    vkGetBufferMemoryRequirements(g_vulkanBackend.device, outBuffer, &memReqs);
-    memAlloc.allocationSize = memReqs.size;
-    memAlloc.memoryTypeIndex = gfx_get_memory_type(memReqs.memoryTypeBits, memoryPropertyFlags);
-
-    // when outBuffer has VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT set we also need to enable the appropriate flag during allocation
-    VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
-    if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
-        allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
-        allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
-        memAlloc.pNext = &allocFlagsInfo;
-    }
-    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &memAlloc, nullptr, &memory);
-    ASSERT(allocRes == VK_SUCCESS);
-
-    if (inData != nullptr) {
-        void *mapped;
-        const VkResult VkMapRes = vkMapMemory(g_vulkanBackend.device, memory, 0, size, 0, &mapped);
-        ASSERT(VkMapRes == VK_SUCCESS);
-
-        memcpy(mapped, inData, size);
-        // when host coherency hasn't been requested, do a manual flush to make writes visible
-        if ((memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
-            VkMappedMemoryRange mappedRange{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
-            mappedRange.memory = memory;
-            mappedRange.offset = 0;
-            mappedRange.size = size;
-            vkFlushMappedMemoryRanges(g_vulkanBackend.device, 1, &mappedRange);
-        }
-        vkUnmapMemory(g_vulkanBackend.device, memory);
-    }
-
-    const VkResult bindRes = vkBindBufferMemory(g_vulkanBackend.device, outBuffer, memory, 0);
-    return bindRes;
-}
-
-void gfx_mesh_create_immediate(const RawMesh &rawMesh, GfxMesh &outMesh) {
-    ASSERT((rawMesh.vertexCount > 0) && (rawMesh.indexCount > 0));
-
-    struct StagingBuffer {
-        VkBuffer buffer;
-        VkDeviceMemory memory;
-    };
-    StagingBuffer vertexStaging = {};
-    StagingBuffer indexStaging = {};
-
-    const size_t vertexBufferSize = sizeof(GfxVertex) * rawMesh.vertexCount;
-    const size_t indexBufferSize = sizeof(uint32_t) * rawMesh.indexCount;
-
-    outMesh.indexCount = rawMesh.indexCount;
-    outMesh.vertCount = rawMesh.vertexCount;
-
-    // Create staging buffers
-    VkResult vertexCreateStageRes = gfx_buffer_create(
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            vertexBufferSize,
-            vertexStaging.buffer,
-            vertexStaging.memory,
-            rawMesh.vertexData
-    );
-    ASSERT(vertexCreateStageRes == VK_SUCCESS);
-
-    VkResult indexCreateStageRes = gfx_buffer_create(
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            indexBufferSize,
-            indexStaging.buffer,
-            indexStaging.memory,
-            rawMesh.indexData
-    );
-    ASSERT(indexCreateStageRes == VK_SUCCESS);
-
-    // Create device local buffers
-    const VkResult vertexCreateDeviceLocalRes = gfx_buffer_create(
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            vertexBufferSize,
-            outMesh.vertBuffer,
-            outMesh.vertMemory,
-            nullptr
-    );
-    ASSERT(vertexCreateDeviceLocalRes == VK_SUCCESS);
-    // Index buffer
-    const VkResult indexCreateDeviceLocalRes = gfx_buffer_create(
-            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            indexBufferSize,
-            outMesh.indexBuffer,
-            outMesh.indexMemory,
-            nullptr
-    );
-    ASSERT(indexCreateDeviceLocalRes == VK_SUCCESS);
-
-    gfx_command_begin_immediate_recording();
-    {
-        VkBufferCopy copyRegion = {};
-        copyRegion.size = vertexBufferSize;
-        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, vertexStaging.buffer, outMesh.vertBuffer, 1, &copyRegion);
-
-        copyRegion.size = indexBufferSize;
-        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, indexStaging.buffer, outMesh.indexBuffer, 1, &copyRegion);
-    }
-    gfx_command_end_immediate_recording();
-
-    vkDestroyBuffer(g_vulkanBackend.device, vertexStaging.buffer, nullptr);
-    vkFreeMemory(g_vulkanBackend.device, vertexStaging.memory, nullptr);
-    vkDestroyBuffer(g_vulkanBackend.device, indexStaging.buffer, nullptr);
-    vkFreeMemory(g_vulkanBackend.device, indexStaging.memory, nullptr);
-}
-
-void gfx_cube_create_immediate(GfxMesh &outMesh) {
-    const uint32_t vertexCount = 24;
-    static GfxVertex vertexData[vertexCount] = {
-            //===POS================//===COLOUR=========//===UV======
-            {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-            {{+0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-            {{+0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-            {{-0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-            {{+0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-            {{+0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-            {{-0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-            {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-            {{-0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-            {{+0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-            {{+0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-            {{+0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{+0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-            {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-            {{+0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-            {{+0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-            {{+0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-            {{-0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-            {{-0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{+0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    };
-
-    const uint32_t indexCount = 36;
-    static uint32_t indexData[indexCount] = {
-            0, 3, 2,
-            2, 1, 0,
-            4, 5, 6,
-            6, 7, 4,
-            11, 8, 9,
-            9, 10, 11,
-            12, 13, 14,
-            14, 15, 12,
-            16, 17, 18,
-            18, 19, 16,
-            20, 21, 22,
-            22, 23, 20
-    };
-
-    RawMesh rawMesh = {
-            vertexData,
-            indexData,
-            vertexCount,
-            indexCount,
-    };
-
-    gfx_mesh_create_immediate(rawMesh, outMesh);
-}
 
 void gfx_load_packages() {
     const char *pathUVGrid = "../assets/textures/UV_Grid/UV_Grid_test.dds";
@@ -1695,126 +1401,6 @@ void gfx_load_packages() {
 void gfx_unload_packages() {
     gfx_texture_cleanup(g_textures.uvGrid);
     gfx_mesh_cleanup(g_meshes.cube);
-}
-
-#define OBJECT_INSTANCE_COUNT 1
-
-void gfx_build_indirect_commands() {
-    auto &indirectCommands = g_vulkanBackend.indirectCommands;
-    auto &indirectCommandsBuffer = g_vulkanBackend.indirectCommandsBuffer;
-    auto &indirectDrawCount = g_vulkanBackend.indirectDrawCount;
-    auto &objectCount = g_vulkanBackend.objectCount;
-    indirectCommands.clear();
-
-    // TODO: Create on indirect command for each element in a package
-    {
-        uint32_t idx = 0;
-        VkDrawIndexedIndirectCommand indirectCmd{};
-        indirectCmd.instanceCount = OBJECT_INSTANCE_COUNT;
-        indirectCmd.firstInstance = idx * OBJECT_INSTANCE_COUNT;
-        indirectCmd.firstIndex = 0; // TODO: figure out what this should be when there are multiple instances
-        indirectCmd.indexCount = g_meshes.cube.indexCount;
-
-        indirectCommands.push_back(indirectCmd);
-
-        idx++;
-    }
-
-    indirectDrawCount = uint32_t(indirectCommands.size());
-
-    objectCount = 0;
-    for (auto indirectCmd: indirectCommands) {
-        objectCount += indirectCmd.instanceCount;
-    }
-
-    GfxBuffer stagingBuffer;
-    const VkResult stagingResult = gfx_buffer_create(
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stagingBuffer,
-            indirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
-            indirectCommands.data()
-    );
-    ASSERT(stagingResult == VK_SUCCESS);
-
-    const VkResult indirectCreateResult = gfx_buffer_create(
-            VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            indirectCommandsBuffer,
-            stagingBuffer.size,
-            nullptr
-    );
-    ASSERT(indirectCreateResult == VK_SUCCESS);
-
-    gfx_command_begin_immediate_recording();
-    {
-        VkBufferCopy copyRegion = {};
-        copyRegion.size = stagingBuffer.size;
-        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, stagingBuffer.buffer, g_vulkanBackend.indirectCommandsBuffer.buffer, 1, &copyRegion);
-    }
-    gfx_command_end_immediate_recording();
-
-    vkDestroyBuffer(g_vulkanBackend.device, stagingBuffer.buffer, nullptr);
-    vkFreeMemory(g_vulkanBackend.device, stagingBuffer.memory, nullptr);
-}
-
-void gfx_cleanup_indirect_commands() {
-    vkDestroyBuffer(g_vulkanBackend.device, g_vulkanBackend.indirectCommandsBuffer.buffer, nullptr);
-    vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.indirectCommandsBuffer.memory, nullptr);
-}
-
-void gfx_buffer_copy_immediate(GfxBuffer &src, GfxBuffer &dst, VkQueue queue, VkBufferCopy *copyRegion) {
-    ASSERT(dst.size <= src.size);
-    ASSERT(src.buffer);
-    gfx_command_begin_immediate_recording();
-    {
-        VkBufferCopy bufferCopy{};
-        if (copyRegion == nullptr) {
-            bufferCopy.size = src.size;
-        } else {
-            bufferCopy = *copyRegion;
-        }
-        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, src.buffer, dst.buffer, 1, &bufferCopy);
-    }
-    gfx_command_end_immediate_recording();
-}
-
-void gfx_build_instance_data() {
-    constexpr uint32_t objectCount = 1;
-    std::vector<GfxInstanceData> instanceData;
-    instanceData.resize(objectCount);
-
-//    std::default_random_engine rndEngine(benchmark.active ? 0 : (unsigned)time(nullptr));
-//    std::uniform_real_distribution<float> uniformDist(0.0f, 1.0f);
-//TODO: add to obj struct
-    for (uint32_t i = 0; i < objectCount; i++) {
-        instanceData[i].rot = vec3f(0);
-        instanceData[i].pos = vec3f(-2, 1, -12);
-        instanceData[i].scale = 1.0f;
-        instanceData[i].texIndex = i / OBJECT_INSTANCE_COUNT;
-    }
-
-    GfxBuffer stagingBuffer;
-    gfx_buffer_create(
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stagingBuffer,
-            instanceData.size() * sizeof(GfxInstanceData),
-            instanceData.data()
-    );
-
-    gfx_buffer_create(
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            g_vulkanBackend.instanceBuffer,
-            stagingBuffer.size,
-            nullptr
-    );
-
-    gfx_buffer_copy_immediate(stagingBuffer, g_vulkanBackend.instanceBuffer, g_vulkanBackend.queue, nullptr);
-
-    vkDestroyBuffer(g_vulkanBackend.device, stagingBuffer.buffer, nullptr);
-    vkFreeMemory(g_vulkanBackend.device, stagingBuffer.memory, nullptr);
 }
 
 void gfx_build_uniform_buffers() {
@@ -1836,179 +1422,6 @@ void gfx_cleanup_uniform_buffers() {
     vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.uniformBuffer.memory, nullptr);
 }
 
-
-void gfx_build_descriptor_set_layout() {
-    //=== POOL =====//
-    constexpr uint32_t poolSizeCount = 2;
-    VkDescriptorPoolSize poolSizes[poolSizeCount] = {
-            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1},
-            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1},
-    };
-
-    VkDescriptorPoolCreateInfo descriptorPoolInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .maxSets = 2,
-            .poolSizeCount = poolSizeCount,
-            .pPoolSizes = &poolSizes[0],
-    };
-    const VkResult createPoolRes = (vkCreateDescriptorPool(g_vulkanBackend.device, &descriptorPoolInfo, nullptr, &g_vulkanBackend.descriptorPool));
-    ASSERT(createPoolRes == VK_SUCCESS);
-
-    //=== LAYOUT ===//
-    constexpr uint32_t layoutBindingsCount = 2;
-    VkDescriptorSetLayoutBinding layoutBindings[layoutBindingsCount] = {
-            {VkDescriptorSetLayoutBinding{
-                    .binding = 0,
-                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                    .descriptorCount = 1,
-                    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-            }},
-            {VkDescriptorSetLayoutBinding{
-                    .binding = 1,
-                    .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                    .descriptorCount = 1,
-                    .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-            }},
-    };
-
-    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .bindingCount = layoutBindingsCount,
-            .pBindings = &layoutBindings[0],
-    };
-    const VkResult descriptorResult = vkCreateDescriptorSetLayout(g_vulkanBackend.device, &descriptorSetLayoutCreateInfo, nullptr, &g_vulkanBackend.descriptorSetLayout);
-    ASSERT(descriptorResult == VK_SUCCESS);
-
-    //=== SET ======//
-    VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(g_vulkanBackend.descriptorPool, &g_vulkanBackend.descriptorSetLayout, 1);
-    const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &g_vulkanBackend.descriptorSet);
-    ASSERT(allocDescRes == VK_SUCCESS);
-    std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
-            // Binding 0: Vertex shader uniform buffer
-            // Binding 1: uv grid image // TODO: Add a per package loaded texture array
-            gfx_descriptor_set_write(g_vulkanBackend.descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
-            gfx_descriptor_set_write(g_vulkanBackend.descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &g_textures.uvGrid.descriptor, 1)
-    };
-    vkUpdateDescriptorSets(g_vulkanBackend.device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
-}
-
-void gfx_cleanup_descriptor_set_layout() {
-    vkDestroyPipelineLayout(g_vulkanBackend.device, g_vulkanBackend.pipelineLayout, nullptr);
-    vkDestroyDescriptorSetLayout(g_vulkanBackend.device, g_vulkanBackend.descriptorSetLayout, nullptr);
-}
-
-VkShaderModule gfx_load_shader_binary(const char *path) {
-    //TODO Refactor this to using a new binary FS api that uses fstat as we shouldn't use tellg on a binary.
-    std::ifstream is(path, std::ios::binary | std::ios::in | std::ios::ate);
-    ASSERT_MSG(is.is_open(), "Err: Failed to open shader %s", path);
-    size_t size = is.tellg();
-    is.seekg(0, std::ios::beg);
-    char *shaderCode = (char *) malloc(sizeof(char) * size);
-    is.read(shaderCode, size);
-    is.close();
-    assert(size > 0);
-
-    VkShaderModuleCreateInfo moduleCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            .codeSize = size,
-            .pCode = (uint32_t *) shaderCode,
-    };
-    VkShaderModule shaderModule = {};
-    const VkResult moduleResult = vkCreateShaderModule(g_vulkanBackend.device, &moduleCreateInfo, nullptr, &shaderModule);
-    ASSERT(moduleResult == VK_SUCCESS);
-
-    free(shaderCode);
-    return shaderModule;
-}
-
-VkPipelineShaderStageCreateInfo gfx_load_shader(const char *path, VkShaderStageFlagBits stage) {
-    VkPipelineShaderStageCreateInfo shaderStage = {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage = stage,
-            .module = gfx_load_shader_binary(path),
-            .pName = "main",
-    };
-    assert(shaderStage.module != VK_NULL_HANDLE);
-    return shaderStage;
-}
-
-void gfx_build_pipelines() {
-
-    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 1,
-            .pSetLayouts = &g_vulkanBackend.descriptorSetLayout
-    };
-    const VkResult pipelineLayoutRes = vkCreatePipelineLayout(g_vulkanBackend.device, &pipelineLayoutCreateInfo, nullptr, &g_vulkanBackend.pipelineLayout);
-    ASSERT(pipelineLayoutRes == VK_SUCCESS);
-
-    const VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = gfx_pipeline_input_assembly_create(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
-    const VkPipelineRasterizationStateCreateInfo rasterizationState = gfx_pipeline_rasterization_create(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-    const VkPipelineColorBlendAttachmentState blendAttachmentState = gfx_pipeline_color_blend_attachment_state(0xf, VK_FALSE);
-    const VkPipelineColorBlendStateCreateInfo colorBlendState = gfx_pipeline_color_blend_state_create(1, &blendAttachmentState);
-    const VkPipelineDepthStencilStateCreateInfo depthStencilState = gfx_pipeline_depth_stencil_state_create(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
-    const VkPipelineViewportStateCreateInfo viewportState = gfx_pipeline_viewport_state_create(1, 1, 0);
-    const VkPipelineMultisampleStateCreateInfo multisampleState = gfx_pipeline_multisample_state_create(VK_SAMPLE_COUNT_1_BIT, 0);
-
-    constexpr uint32_t dynamicStateCount = 2;
-    const VkDynamicState dynamicStateEnables[dynamicStateCount] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    VkPipelineDynamicStateCreateInfo dynamicState = gfx_pipeline_dynamic_state_create(dynamicStateEnables, dynamicStateCount, 0);
-
-    constexpr uint32_t shaderStagesCount = 2;
-    VkPipelineShaderStageCreateInfo shaderStages[shaderStagesCount] = {};
-
-    VkGraphicsPipelineCreateInfo pipelineCreateInfo = gfx_graphics_pipeline_create(g_vulkanBackend.pipelineLayout, g_vulkanBackend.renderPass, 0);
-    pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
-    pipelineCreateInfo.pRasterizationState = &rasterizationState;
-    pipelineCreateInfo.pColorBlendState = &colorBlendState;
-    pipelineCreateInfo.pMultisampleState = &multisampleState;
-    pipelineCreateInfo.pViewportState = &viewportState;
-    pipelineCreateInfo.pDepthStencilState = &depthStencilState;
-    pipelineCreateInfo.pDynamicState = &dynamicState;
-    pipelineCreateInfo.stageCount = shaderStagesCount;
-    pipelineCreateInfo.pStages = &shaderStages[0];
-
-    const uint32_t bindingDescriptionsSize = 2;
-    VkVertexInputBindingDescription bindingDescriptions[bindingDescriptionsSize] = {
-            gfx_vertex_input_binding_desc(0, sizeof(GfxVertex), VK_VERTEX_INPUT_RATE_VERTEX),
-            gfx_vertex_input_binding_desc(BEET_INSTANCE_BUFFER_BIND_ID, sizeof(GfxInstanceData), VK_VERTEX_INPUT_RATE_VERTEX),
-    };
-
-    constexpr uint32_t attributeDescriptionsSize = 8;
-    VkVertexInputAttributeDescription attributeDescriptions[attributeDescriptionsSize] = {
-            gfx_vertex_input_attribute_desc(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxVertex, pos)),                                  // 0: Position
-            gfx_vertex_input_attribute_desc(0, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxVertex, normal)),                               // 1: Normal
-            gfx_vertex_input_attribute_desc(0, 2, VK_FORMAT_R32G32_SFLOAT, offsetof(GfxVertex, uv)),                                      // 2: Texture coordinates
-            gfx_vertex_input_attribute_desc(0, 3, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxVertex, normal)),                               // 3: Color
-
-            gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 4, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxInstanceData, pos)), // 4: Position
-            gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 5, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxInstanceData, rot)), // 5: Rotation
-            gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 6, VK_FORMAT_R32_SFLOAT, offsetof(GfxInstanceData, scale)),     // 6: Scale
-            gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 7, VK_FORMAT_R32_SINT, offsetof(GfxInstanceData, texIndex)),    // 7: Texture array layer index
-    };
-
-    VkPipelineVertexInputStateCreateInfo inputState = {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-            .vertexBindingDescriptionCount   = bindingDescriptionsSize,
-            .pVertexBindingDescriptions = &bindingDescriptions[0],
-
-            .vertexAttributeDescriptionCount = attributeDescriptionsSize,
-            .pVertexAttributeDescriptions = &attributeDescriptions[0],
-    };
-    pipelineCreateInfo.pVertexInputState = &inputState;
-
-    shaderStages[0] = gfx_load_shader("../assets/shaders/indirectdraw.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-    shaderStages[1] = gfx_load_shader("../assets/shaders/indirectdraw.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-    const VkResult pipelineRes = (vkCreateGraphicsPipelines(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, 1, &pipelineCreateInfo, nullptr, &g_vulkanBackend.cubePipeline));
-    ASSERT_MSG(pipelineRes == VK_SUCCESS, "Err: failed to create graphics pipeline");
-    vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[0].module, nullptr);
-    vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[1].module, nullptr);
-}
-
-void gfx_cleanup_pipelines() {
-    vkDestroyPipeline(g_vulkanBackend.device, g_vulkanBackend.cubePipeline, nullptr);
-}
-
 void gfx_create(void *windowHandle) {
     gfx_create_instance();
     gfx_create_debug_callbacks();
@@ -2027,26 +1440,11 @@ void gfx_create(void *windowHandle) {
     gfx_create_samplers();
 
     gfx_load_packages();
-    gfx_build_indirect_commands();
-    gfx_build_instance_data();
     gfx_build_uniform_buffers();
-    gfx_build_descriptor_set_layout();
-    gfx_build_pipelines();
-
-    //TODO: 1) DONE - MANUAL load scene/package into memory
-    //TODO: 2) DONE - build indirect draw commands
-    //TODO: 3) DONE - build UBO
-    //TODO: 4) DONE - descriptor set layout
-    //TODO: 5) DONE - create pipelines
-    //TODO: 6) create descriptors/pools
-    //TODO: 7) build command buffers
 }
 
 void gfx_cleanup() {
-    gfx_cleanup_pipelines();
-    gfx_cleanup_descriptor_set_layout();
     gfx_cleanup_uniform_buffers();
-    gfx_cleanup_indirect_commands();
     gfx_unload_packages();
 
     gfx_cleanup_samplers();

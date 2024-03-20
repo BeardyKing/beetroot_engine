@@ -41,4 +41,7 @@ struct GfxMesh {
     VkDeviceMemory indexMemory;
 };
 
+void gfx_cube_create_immediate(GfxMesh &outMesh);
+void gfx_mesh_create_immediate(const RawMesh &rawMesh, GfxMesh &outMesh);
+
 #endif //BEETROOT_GFX_MESH_H
