@@ -29,7 +29,7 @@ struct RawImage {
 
     uint32_t dataSize;
     uint32_t mipDataSizes[BEET_MAX_MIP_COUNT];
-    void* data;
+    void *data;
 };
 
 #endif //BEETROOT_TEXTURE_FORMATS_H

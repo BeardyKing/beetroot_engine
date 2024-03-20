@@ -1,5 +1,7 @@
 #include <beet_shared/platform_defines.h>
+
 #if PLATFORM_WINDOWS
+
 #include <cstdint>
 
 #include <beet_shared/assert.h>

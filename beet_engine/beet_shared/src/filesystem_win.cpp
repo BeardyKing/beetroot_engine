@@ -1,5 +1,7 @@
 #include <beet_shared/platform_defines.h>
+
 #if PLATFORM_WINDOWS
+
 #include <beet_shared/filesystem.h>
 #include <beet_shared/c_string.h>
 

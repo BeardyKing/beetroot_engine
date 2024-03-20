@@ -3,6 +3,6 @@
 
 #include <vulkan/vulkan.h>
 
-void gfx_create_surface(void* windowHandle, const VkInstance *instance, VkSurfaceKHR *outSurface);
+void gfx_create_surface(void *windowHandle, const VkInstance *instance, VkSurfaceKHR *outSurface);
 
 #endif //BEETROOT_GFX_VULKAN_SURFACE_H

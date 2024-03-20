@@ -9,6 +9,7 @@
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_win32.h>
+
 void gfx_create_surface(void *windowHandle, const VkInstance *instance, VkSurfaceKHR *outSurface) {
     VkWin32SurfaceCreateInfoKHR surfaceInfo = {
             VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR

@@ -5,8 +5,10 @@
 #include <beet_shared/platform_defines.h>
 
 #if PLATFORM_WINDOWS
+
 #include <Windows.h>
 #include <vulkan/vulkan_win32.h>
+
 #define BEET_VK_SURFACE_EXTENSION VK_KHR_WIN32_SURFACE_EXTENSION_NAME
 #endif
 

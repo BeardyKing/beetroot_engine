@@ -1,4 +1,5 @@
 #include <beet_shared/platform_defines.h>
+
 #if PLATFORM_LINUX
 
 #include <beet_core/time.h>

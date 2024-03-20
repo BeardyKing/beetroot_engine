@@ -1,5 +1,7 @@
 #include <beet_shared/platform_defines.h>
+
 #if PLATFORM_WINDOWS
+
 #include <beet_core/time.h>
 #include <windows.h>
 
