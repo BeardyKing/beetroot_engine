@@ -18,12 +18,27 @@
 #define BEET_VK_SURFACE_EXTENSION VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
 #endif
 
+//===targets================
+constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+
 //===extensions==============
-static constexpr int32_t BEET_VK_EXTENSION_COUNT = 3;
-static constexpr const char *BEET_VK_EXTENSIONS[BEET_VK_EXTENSION_COUNT]{
+static constexpr int32_t BEET_VK_INSTANCE_EXTENSION_COUNT = 4;
+static constexpr const char *BEET_VK_INSTANCE_EXTENSIONS[BEET_VK_INSTANCE_EXTENSION_COUNT]{
         VK_KHR_SURFACE_EXTENSION_NAME,
         BEET_VK_SURFACE_EXTENSION,
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+};
+
+static constexpr int32_t BEET_VK_MAX_DEVICE_EXTENSION_COUNT = 64;
+static constexpr int32_t BEET_VK_REQUIRED_DEVICE_EXTENSION_COUNT = 6;
+static constexpr const char* BEET_VK_REQUIRED_DEVICE_EXTENSIONS[6]{
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+        VK_KHR_MAINTENANCE2_EXTENSION_NAME,
+        VK_KHR_MULTIVIEW_EXTENSION_NAME,
+        VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
+        VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
 };
 
 //==debug====================
@@ -36,29 +51,9 @@ static constexpr int32_t BEET_DEBUG_VK_FORCE_GPU_SELECTION = -1; // ignore [-1] 
 static constexpr char BEET_VK_LAYER_VALIDATION[] = "VK_LAYER_KHRONOS_validation";
 
 static constexpr int32_t BEET_VK_VALIDATION_COUNT = 1;
-static constexpr const char *beetVulkanValidations[BEET_VK_EXTENSION_COUNT]{
+static constexpr const char *beetVulkanValidations[BEET_VK_VALIDATION_COUNT]{
         BEET_VK_LAYER_VALIDATION,
 };
-
-//===debug msg callbacks=====
-static PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT_Func;
-static PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT_Func;
-static PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT_Func;
-
-static constexpr char BEET_VK_CREATE_DEBUG_UTIL_EXT[] = "vkCreateDebugUtilsMessengerEXT";
-static constexpr char BEET_VK_DESTROY_DEBUG_UTIL_EXT[] = "vkDestroyDebugUtilsMessengerEXT";
-static constexpr char BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT[] = "vkSetDebugUtilsObjectNameEXT";
-
-static constexpr VkDebugUtilsMessageSeverityFlagsEXT BEET_VK_DEBUG_UTILS_MESSAGE_SEVERITY =
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-
-static constexpr VkDebugUtilsMessageTypeFlagsEXT BEET_VK_DEBUG_UTILS_MESSAGE_TYPE =
-        VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 
 //===api version=============
 // to be used for runtime version checking.

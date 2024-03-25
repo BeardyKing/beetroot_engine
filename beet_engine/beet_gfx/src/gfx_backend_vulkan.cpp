@@ -18,6 +18,8 @@
 #include <beet_gfx/gfx_buffer.h>
 #include <beet_gfx/gfx_command.h>
 #include <beet_gfx/gfx_utils.h>
+#include <beet_gfx/gfx_function_pointers.h>
+#include <beet_gfx/gfx_debug.h>
 
 #include <beet_math/quat.h>
 #include <beet_math/utilities.h>
@@ -33,23 +35,16 @@ static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_CPU",
 };
 
-constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
-
 static struct UserArguments {
     uint32_t selectedPhysicalDeviceIndex = {};
     bool vsync = {true};
 } g_userArguments = {};
-
-static struct VulkanDebug {
-    VkDebugUtilsMessengerEXT debugUtilsMessenger = {VK_NULL_HANDLE};
-} g_vulkanDebug = {};
 
 struct TargetVulkanFormats {
     // TODO: this struct should only last a single "frame" would be a good candidate for the inevitable gfx backend arena allocator
     VkSurfaceFormatKHR surfaceFormat = {};
     VkFormat depthFormat = {};
 } g_vulkanTargetFormats = {};
-
 
 //TODO: replace with db arr of structs with id lookups
 static struct Objects {
@@ -99,26 +94,23 @@ void gfx_create_instance() {
     }
 
     for (uint32_t i = 0; i < g_vulkanBackend.extensionsCount; ++i) {
-        log_verbose(MSG_GFX, "Extension: %s \n", g_vulkanBackend.supportedExtensions[i].extensionName);
+        log_verbose(MSG_GFX, "Instance extension: %s \n", g_vulkanBackend.supportedExtensions[i].extensionName);
     }
 
-    for (uint8_t i = 0; i < BEET_VK_EXTENSION_COUNT; i++) {
-        const bool result = gfx_find_supported_extension(BEET_VK_EXTENSIONS[i]);
-        ASSERT_MSG(result, "Err: failed find support for extension [%s]", BEET_VK_EXTENSIONS[i]);
+    for (uint8_t i = 0; i < BEET_VK_INSTANCE_EXTENSION_COUNT; i++) {
+        const bool result = gfx_find_supported_extension(BEET_VK_INSTANCE_EXTENSIONS[i]);
+        ASSERT_MSG(result, "Err: failed find support for extension [%s]", BEET_VK_INSTANCE_EXTENSIONS[i]);
     }
 
     vkEnumerateInstanceLayerProperties(&g_vulkanBackend.validationLayersCount, nullptr);
     ASSERT(g_vulkanBackend.supportedValidationLayers == nullptr);
-    g_vulkanBackend.supportedValidationLayers = (VkLayerProperties *) mem_zalloc(
-            sizeof(VkLayerProperties) * g_vulkanBackend.validationLayersCount);
+    g_vulkanBackend.supportedValidationLayers = (VkLayerProperties *) mem_zalloc(sizeof(VkLayerProperties) * g_vulkanBackend.validationLayersCount);
     if (g_vulkanBackend.validationLayersCount > 0) {
         vkEnumerateInstanceLayerProperties(&g_vulkanBackend.validationLayersCount, g_vulkanBackend.supportedValidationLayers);
     }
 
     for (uint32_t i = 0; i < g_vulkanBackend.validationLayersCount; ++i) {
-        log_verbose(MSG_GFX, "Layer: %s - Desc: %s \n",
-                    g_vulkanBackend.supportedValidationLayers[i].layerName,
-                    g_vulkanBackend.supportedValidationLayers[i].description);
+        log_verbose(MSG_GFX, "Layer: %s - Desc: %s \n", g_vulkanBackend.supportedValidationLayers[i].layerName, g_vulkanBackend.supportedValidationLayers[i].description);
     }
 
     for (uint8_t i = 0; i < BEET_VK_VALIDATION_COUNT; i++) {
@@ -135,8 +127,8 @@ void gfx_create_instance() {
 
     VkInstanceCreateInfo instInfo = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
     instInfo.pApplicationInfo = &appInfo;
-    instInfo.enabledExtensionCount = BEET_VK_EXTENSION_COUNT;
-    instInfo.ppEnabledExtensionNames = BEET_VK_EXTENSIONS;
+    instInfo.enabledExtensionCount = BEET_VK_INSTANCE_EXTENSION_COUNT;
+    instInfo.ppEnabledExtensionNames = BEET_VK_INSTANCE_EXTENSIONS;
     instInfo.enabledLayerCount = BEET_VK_VALIDATION_COUNT;
     instInfo.ppEnabledLayerNames = beetVulkanValidations;
 
@@ -203,61 +195,6 @@ void gfx_cleanup_surface() {
     ASSERT_MSG(g_vulkanBackend.swapChain.surface != VK_NULL_HANDLE, "Err: VkSurface has already been destroyed");
     vkDestroySurfaceKHR(g_vulkanBackend.instance, g_vulkanBackend.swapChain.surface, nullptr);
     g_vulkanBackend.swapChain.surface = VK_NULL_HANDLE;
-}
-
-static VkBool32 VKAPI_PTR validation_message_callback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT messageWarningLevel,
-        VkDebugUtilsMessageTypeFlagsEXT /*messageType*/,
-        const VkDebugUtilsMessengerCallbackDataEXT *callbackData,
-        void */*userData*/) {
-
-    switch (messageWarningLevel) {
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: {
-            log_error(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
-            break;
-        }
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: {
-            log_warning(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
-            break;
-        }
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: {
-            log_info(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
-            break;
-        }
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: {
-            log_verbose(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
-            break;
-        }
-        default: {
-            ASSERT(callbackData && callbackData->pMessageIdName && callbackData->pMessage);
-        }
-    }
-    return VK_FALSE;
-}
-
-void gfx_cleanup_debug_callbacks() {
-    ASSERT_MSG(g_vulkanDebug.debugUtilsMessenger != VK_NULL_HANDLE, "Err: debug utils messenger has already been destroyed");
-    vkDestroyDebugUtilsMessengerEXT_Func(g_vulkanBackend.instance, g_vulkanDebug.debugUtilsMessenger, nullptr);
-    g_vulkanDebug.debugUtilsMessenger = VK_NULL_HANDLE;
-}
-
-void gfx_create_debug_callbacks() {
-    VkInstance &instance = g_vulkanBackend.instance;
-    vkCreateDebugUtilsMessengerEXT_Func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, BEET_VK_CREATE_DEBUG_UTIL_EXT);
-    ASSERT_MSG(vkCreateDebugUtilsMessengerEXT_Func, "Err: failed to setup debug callback %s", BEET_VK_CREATE_DEBUG_UTIL_EXT);
-
-    vkDestroyDebugUtilsMessengerEXT_Func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, BEET_VK_DESTROY_DEBUG_UTIL_EXT);
-    ASSERT_MSG(vkDestroyDebugUtilsMessengerEXT_Func, "Err: failed to setup debug callback %s", BEET_VK_DESTROY_DEBUG_UTIL_EXT);
-
-    vkSetDebugUtilsObjectNameEXT_Func = (PFN_vkSetDebugUtilsObjectNameEXT) vkGetInstanceProcAddr(instance, BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT);
-    ASSERT_MSG(vkSetDebugUtilsObjectNameEXT_Func, "Err: failed to setup debug callback %s", BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT);
-
-    VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
-    messengerCreateInfo.messageSeverity = BEET_VK_DEBUG_UTILS_MESSAGE_SEVERITY;
-    messengerCreateInfo.messageType = BEET_VK_DEBUG_UTILS_MESSAGE_TYPE;
-    messengerCreateInfo.pfnUserCallback = validation_message_callback;
-
-    vkCreateDebugUtilsMessengerEXT_Func(instance, &messengerCreateInfo, nullptr, &g_vulkanDebug.debugUtilsMessenger);
 }
 
 void gfx_cleanup_queues() {
@@ -377,14 +314,27 @@ void gfx_create_queues() {
     queueCreateInfo[currentQueueCount].pQueuePriorities = &queuePriority;
     ++currentQueueCount;
 
-    VkPhysicalDeviceFeatures2 deviceFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-    deviceFeatures.features.samplerAnisotropy = VK_TRUE;
-
     uint32_t deviceExtensionCount = 0;
-    const uint32_t maxSupportedDeviceExtensions = 2;
-    const char *enabledDeviceExtensions[maxSupportedDeviceExtensions];
-    enabledDeviceExtensions[deviceExtensionCount] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
-    deviceExtensionCount++;
+    const char *enabledDeviceExtensions[BEET_VK_MAX_DEVICE_EXTENSION_COUNT] = {};
+    for (int32_t i = 0; i < BEET_VK_REQUIRED_DEVICE_EXTENSION_COUNT; ++i) {
+        enabledDeviceExtensions[i] = BEET_VK_REQUIRED_DEVICE_EXTENSIONS[i];
+        deviceExtensionCount++;
+    }
+
+    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeaturesKHR{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
+            .pNext = nullptr,
+            .dynamicRendering = VK_TRUE,
+    };
+    void *pNextRoot = &dynamicRenderingFeaturesKHR;
+
+    const VkPhysicalDeviceFeatures2 deviceFeatures2 = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            .pNext = pNextRoot,
+            .features = {
+                    .samplerAnisotropy = VK_TRUE,
+            },
+    };
 
 #if BEET_VK_COMPILE_VERSION_1_3
     const uint32_t runtimeVulkanVersion = g_vulkanBackend.deviceProperties.apiVersion;
@@ -394,14 +344,16 @@ void gfx_create_queues() {
     }
 #endif
 
-    VkDeviceCreateInfo deviceCreateInfo = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
-    deviceCreateInfo.pNext = &deviceFeatures;
-    deviceCreateInfo.enabledLayerCount = 0;
-    deviceCreateInfo.ppEnabledLayerNames = nullptr;
-    deviceCreateInfo.enabledExtensionCount = deviceExtensionCount;
-    deviceCreateInfo.ppEnabledExtensionNames = enabledDeviceExtensions;
-    deviceCreateInfo.queueCreateInfoCount = currentQueueCount;
-    deviceCreateInfo.pQueueCreateInfos = queueCreateInfo;
+    const VkDeviceCreateInfo deviceCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .pNext = &deviceFeatures2,
+            .queueCreateInfoCount = currentQueueCount,
+            .pQueueCreateInfos = queueCreateInfo,
+            .enabledLayerCount = 0,
+            .ppEnabledLayerNames = nullptr,
+            .enabledExtensionCount = deviceExtensionCount,
+            .ppEnabledExtensionNames = enabledDeviceExtensions,
+    };
 
     vkCreateDevice(g_vulkanBackend.physicalDevice, &deviceCreateInfo, nullptr, &g_vulkanBackend.device);
     ASSERT_MSG(g_vulkanBackend.device, "Err: failed to create vkDevice");
@@ -462,29 +414,6 @@ VkPresentModeKHR select_present_mode() {
     return selectedPresentMode;
 }
 
-VkSurfaceFormatKHR select_surface_format() {
-    uint32_t surfaceFormatsCount = 0;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceFormatsCount, nullptr);
-
-    VkSurfaceFormatKHR *surfaceFormats = (VkSurfaceFormatKHR *) mem_zalloc(sizeof(VkSurfaceFormatKHR) * surfaceFormatsCount);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceFormatsCount, surfaceFormats);
-
-    // try select best surface format
-    VkSurfaceFormatKHR selectedSurfaceFormat{};
-    if ((surfaceFormatsCount == 1) && (surfaceFormats[0].format == VK_FORMAT_UNDEFINED)) {
-        selectedSurfaceFormat = BEET_TARGET_SWAPCHAIN_FORMAT;
-    } else {
-        for (uint32_t i = 0; i < surfaceFormatsCount; ++i) {
-            if ((surfaceFormats[i].format == VK_FORMAT_B8G8R8A8_UNORM) &&
-                (surfaceFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)) {
-                selectedSurfaceFormat = surfaceFormats[i];
-                break;
-            }
-        }
-    }
-    mem_free(surfaceFormats);
-    return selectedSurfaceFormat;
-}
 
 VkCompositeAlphaFlagBitsKHR select_composite_alpha_format(const VkSurfaceCapabilitiesKHR &surfaceCapabilities) {
     VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -522,7 +451,7 @@ void gfx_create_swap_chain() {
     }
 
     const VkPresentModeKHR swapChainPresentMode = select_present_mode();
-    g_vulkanTargetFormats.surfaceFormat = select_surface_format();
+    g_vulkanTargetFormats.surfaceFormat = gfx_utils_select_surface_format();
     const VkCompositeAlphaFlagBitsKHR compositeAlphaFormat = select_composite_alpha_format(surfaceCapabilities);
 
     uint32_t targetSwapChainImageCount = surfaceCapabilities.minImageCount + 1;
@@ -685,36 +614,8 @@ void gfx_cleanup_fences() {
     g_vulkanBackend.graphicsFenceWait = nullptr;
 }
 
-VkFormat find_depth_format(const VkImageTiling &desiredTilingFormat) {
-    constexpr VkFormatFeatureFlags features = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    constexpr uint32_t FORMAT_CANDIDATE_COUNT = 5;
-    constexpr VkFormat candidates[FORMAT_CANDIDATE_COUNT]{
-            VK_FORMAT_D32_SFLOAT_S8_UINT,
-            VK_FORMAT_D32_SFLOAT,
-            VK_FORMAT_D24_UNORM_S8_UINT,
-            VK_FORMAT_D16_UNORM_S8_UINT,
-            VK_FORMAT_D16_UNORM,
-    };
-
-    for (uint32_t i = 0; i < FORMAT_CANDIDATE_COUNT; ++i) {
-        VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(g_vulkanBackend.physicalDevice, candidates[i], &props);
-
-        if ((desiredTilingFormat == VK_IMAGE_TILING_LINEAR) &&
-            ((props.linearTilingFeatures & features) == features)) {
-            return candidates[i];
-        }
-        if ((desiredTilingFormat == VK_IMAGE_TILING_OPTIMAL) &&
-            ((props.optimalTilingFeatures & features) == features)) {
-            return candidates[i];
-        }
-    }
-    ASSERT_MSG(false, "Err: could not find supported depth format");
-    return VK_FORMAT_UNDEFINED;
-}
-
 void gfx_create_depth_stencil_buffer() {
-    g_vulkanTargetFormats.depthFormat = find_depth_format(VK_IMAGE_TILING_OPTIMAL);
+    g_vulkanTargetFormats.depthFormat = gfx_utils_find_depth_format(VK_IMAGE_TILING_OPTIMAL);
 
     VkImageCreateInfo depthImageInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     depthImageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -769,82 +670,6 @@ void gfx_cleanup_depth_stencil_buffer() {
     vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencil.deviceMemory, nullptr);
 }
 
-void gfx_create_render_pass() {
-    constexpr uint32_t ATTACHMENT_SIZE = 2;
-    VkAttachmentDescription attachments[2] = {0};
-    attachments[0].format = g_vulkanTargetFormats.surfaceFormat.format;
-    attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-    attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-    attachments[1].format = g_vulkanTargetFormats.depthFormat;
-    attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-    attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference colorAttachmentRef = {};
-    colorAttachmentRef.attachment = 0;
-    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference depthStencilAttachmentRef = {};
-    depthStencilAttachmentRef.attachment = 1;
-    depthStencilAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    VkSubpassDescription subpassDescription = {};
-    subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpassDescription.colorAttachmentCount = 1;
-    subpassDescription.pColorAttachments = &colorAttachmentRef;
-    subpassDescription.pDepthStencilAttachment = &depthStencilAttachmentRef;
-    subpassDescription.inputAttachmentCount = 0;
-    subpassDescription.pInputAttachments = nullptr;
-    subpassDescription.preserveAttachmentCount = 0;
-    subpassDescription.pPreserveAttachments = nullptr;
-    subpassDescription.pResolveAttachments = nullptr;
-
-    constexpr uint32_t SUBPASS_DEPENDENCY_SIZE = 2;
-    VkSubpassDependency dependencies[SUBPASS_DEPENDENCY_SIZE] = {0};
-    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependencies[0].dstSubpass = 0;
-    dependencies[0].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependencies[0].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-    dependencies[0].dependencyFlags = 0;
-
-    dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependencies[1].dstSubpass = 0;
-    dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependencies[1].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependencies[1].srcAccessMask = 0;
-    dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-    dependencies[1].dependencyFlags = 0;
-
-    VkRenderPassCreateInfo renderPassInfo = {};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = ATTACHMENT_SIZE;
-    renderPassInfo.pAttachments = attachments;
-    renderPassInfo.subpassCount = 1;
-    renderPassInfo.pSubpasses = &subpassDescription;
-    renderPassInfo.dependencyCount = SUBPASS_DEPENDENCY_SIZE;
-    renderPassInfo.pDependencies = dependencies;
-
-    const VkResult result = vkCreateRenderPass(g_vulkanBackend.device, &renderPassInfo, nullptr, &g_vulkanBackend.renderPass);
-    ASSERT_MSG(result == VK_SUCCESS, "Err: failed to create render pass");
-}
-
-void gfx_cleanup_render_pass() {
-    ASSERT_MSG(g_vulkanBackend.renderPass != VK_NULL_HANDLE, "Err: render pass has already been destroyed");
-    vkDestroyRenderPass(g_vulkanBackend.device, g_vulkanBackend.renderPass, nullptr);
-    g_vulkanBackend.renderPass = VK_NULL_HANDLE;
-}
 
 void gfx_create_pipeline_cache() {
     VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
@@ -858,37 +683,6 @@ void gfx_cleanup_pipeline_cache() {
     vkDestroyPipelineCache(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, nullptr);
     g_vulkanBackend.pipelineCache = VK_NULL_HANDLE;
 }
-
-void gfx_create_frame_buffer() {
-    ASSERT(g_vulkanBackend.frameBuffers == nullptr);
-    g_vulkanBackend.frameBuffers = (VkFramebuffer *) mem_zalloc(sizeof(VkFramebuffer) * g_vulkanBackend.swapChain.imageCount);
-
-    constexpr uint32_t ATTACHMENT_COUNT = 2;
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
-        const VkImageView attachments[ATTACHMENT_COUNT] = {g_vulkanBackend.swapChain.buffers[i].view, g_vulkanBackend.depthStencil.view};
-
-        VkFramebufferCreateInfo framebufferInfo = {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-        framebufferInfo.pNext = nullptr;
-        framebufferInfo.renderPass = g_vulkanBackend.renderPass;
-        framebufferInfo.attachmentCount = ATTACHMENT_COUNT;
-        framebufferInfo.pAttachments = attachments;
-        framebufferInfo.width = g_vulkanBackend.swapChain.width;
-        framebufferInfo.height = g_vulkanBackend.swapChain.height;
-        framebufferInfo.layers = 1;
-
-        const VkResult frameBuffRes = vkCreateFramebuffer(g_vulkanBackend.device, &framebufferInfo, nullptr, &g_vulkanBackend.frameBuffers[i]);
-        ASSERT_MSG(frameBuffRes == VK_SUCCESS, "Err: failed to create frame buffer [%u]", i);
-    }
-}
-
-void gfx_cleanup_frame_buffer() {
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
-        vkDestroyFramebuffer(g_vulkanBackend.device, g_vulkanBackend.frameBuffers[i], nullptr);
-    }
-    mem_free(g_vulkanBackend.frameBuffers);
-    g_vulkanBackend.frameBuffers = nullptr;
-}
-
 
 void gfx_flush() {
     if (g_vulkanBackend.device != VK_NULL_HANDLE) {
@@ -946,34 +740,6 @@ void end_command_recording(const VkCommandBuffer &cmdBuffer) {
 }
 
 
-void gfx_render_pass(VkCommandBuffer &cmdBuffer) {
-    constexpr uint32_t clearValueCount = 2;
-    VkClearValue clearValues[2];
-    clearValues[0].color = {{0.5f, 0.092f, 0.167f, 1.0f}};
-    clearValues[1].depthStencil.depth = 1.0f;
-
-    VkRenderPassBeginInfo renderPassBeginInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-    renderPassBeginInfo.renderPass = g_vulkanBackend.renderPass;
-    renderPassBeginInfo.framebuffer = g_vulkanBackend.frameBuffers[g_vulkanBackend.currentBufferIndex];
-    renderPassBeginInfo.renderArea.extent.width = g_vulkanBackend.swapChain.width;
-    renderPassBeginInfo.renderArea.extent.height = g_vulkanBackend.swapChain.height;
-    renderPassBeginInfo.clearValueCount = clearValueCount;
-    renderPassBeginInfo.pClearValues = clearValues;
-
-    vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    {
-        VkViewport viewport = {0, 0, float(g_vulkanBackend.swapChain.width), float(g_vulkanBackend.swapChain.height), 0.0f, 1.0f};
-        vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
-
-        VkRect2D scissor = {0, 0, g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
-        vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
-
-//        gfx_indexed_indirect_render(cmdBuffer); // Disabled for now
-
-    }
-    vkCmdEndRenderPass(cmdBuffer);
-}
-
 bool query_has_valid_extent_size() {
     VkSurfaceCapabilitiesKHR surfaceCapabilities{};
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceCapabilities);
@@ -987,15 +753,11 @@ void gfx_window_resize() {
     }
     gfx_flush();
 
-    gfx_cleanup_frame_buffer();
-    gfx_cleanup_render_pass();
     gfx_cleanup_depth_stencil_buffer();
     gfx_cleanup_swap_chain();
 
     gfx_create_swap_chain();
     gfx_create_depth_stencil_buffer();
-    gfx_create_render_pass(); //TODO: consider moving to VK_KHR_dynamic_rendering as it's in the in 1.3 spec.
-    gfx_create_frame_buffer();//TODO: consider moving to VK_KHR_dynamic_rendering as it's in the in 1.3 spec.
 }
 
 void gfx_update_uniform_buffers() {
@@ -1024,6 +786,130 @@ void gfx_update_uniform_buffers() {
     memcpy(g_vulkanBackend.uniformBuffer.mappedData, &uniformBuffData, sizeof(uniformBuffData));
 }
 
+
+void gfx_barrier_insert_memory_barrier(
+        VkCommandBuffer &cmdBuffer,
+        const VkImage &image,
+        const VkAccessFlags srcAccessMask,
+        const VkAccessFlags dstAccessMask,
+        const VkImageLayout oldImageLayout,
+        const VkImageLayout newImageLayout,
+        const VkPipelineStageFlags srcStageMask,
+        const VkPipelineStageFlags dstStageMask,
+        const VkImageSubresourceRange subresourceRange) {
+
+    VkImageMemoryBarrier imageMemoryBarrier{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .srcAccessMask = srcAccessMask,
+            .dstAccessMask = dstAccessMask,
+            .oldLayout = oldImageLayout,
+            .newLayout = newImageLayout,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = image,
+            .subresourceRange = subresourceRange,
+    };
+    vkCmdPipelineBarrier(cmdBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+}
+
+//vkCmdBeginRendering(cmdBuffer, &renderingInfo);
+//vkCmdEndRendering(cmdBuffer);
+
+void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
+    //TODO: replace cmdIndexed variables with references.
+    const uint32_t cmdIndex = g_vulkanBackend.currentBufferIndex;
+    gfx_barrier_insert_memory_barrier(
+            cmdBuffer,
+            g_vulkanBackend.swapChain.buffers[cmdIndex].image,
+            0,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VkImageSubresourceRange{
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1
+            }
+    );
+    gfx_barrier_insert_memory_barrier(
+            cmdBuffer,
+            g_vulkanBackend.depthStencil.image,
+            0,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VkImageSubresourceRange{
+                    .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1
+            }
+    );
+
+    const VkRenderingAttachmentInfoKHR colorAttachment = {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+            .imageView = g_vulkanBackend.swapChain.buffers[cmdIndex].view,
+            .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .clearValue{
+                    .color = {{0.5f, 0.092f, 0.167f, 1.0f}}
+            },
+    };
+
+    const VkRenderingAttachmentInfoKHR depthStencilAttachment = {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+            .imageView = g_vulkanBackend.depthStencil.view,
+            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .clearValue = {
+                    .depthStencil = {1.0f, 0}
+            },
+    };
+
+    const VkRenderingInfoKHR renderingInfo = {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
+            .renderArea = {0, 0, g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height},
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &colorAttachment,
+            .pDepthAttachment = &depthStencilAttachment,
+            .pStencilAttachment = &depthStencilAttachment,
+    };
+
+    {
+        gfx_command_begin_rendering(cmdBuffer, renderingInfo);
+        {
+            const VkViewport viewport = {0, 0, float(g_vulkanBackend.swapChain.width), float(g_vulkanBackend.swapChain.height), 0.0f, 1.0f};
+            vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
+
+            const VkRect2D scissor = {0, 0, g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
+            vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+        }
+        gfx_command_end_rendering(cmdBuffer);
+    }
+
+    gfx_barrier_insert_memory_barrier(
+            cmdBuffer,
+            g_vulkanBackend.swapChain.buffers[cmdIndex].image,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            0,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
+    );
+}
+
 void gfx_update(const double &deltaTime) {
     gfx_update_uniform_buffers();
     const VkResult nextRes = gfx_acquire_next_swap_chain_image();
@@ -1039,7 +925,7 @@ void gfx_update(const double &deltaTime) {
 
     begin_command_recording(cmdBuffer);
     {
-        gfx_render_pass(cmdBuffer);
+        gfx_dynamic_render(cmdBuffer);
     }
     end_command_recording(cmdBuffer);
 
@@ -1403,7 +1289,7 @@ void gfx_unload_packages() {
     gfx_mesh_cleanup(g_meshes.cube);
 }
 
-void gfx_build_uniform_buffers() {
+void gfx_create_uniform_buffers() {
     const VkResult uniformResult = gfx_buffer_create(
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -1434,13 +1320,12 @@ void gfx_create(void *windowHandle) {
     gfx_create_command_buffers();
     gfx_create_fences();
     gfx_create_depth_stencil_buffer();
-    gfx_create_render_pass();
     gfx_create_pipeline_cache();
-    gfx_create_frame_buffer();
     gfx_create_samplers();
+    gfx_create_function_pointers();
 
     gfx_load_packages();
-    gfx_build_uniform_buffers();
+    gfx_create_uniform_buffers();
 }
 
 void gfx_cleanup() {
@@ -1448,9 +1333,7 @@ void gfx_cleanup() {
     gfx_unload_packages();
 
     gfx_cleanup_samplers();
-    gfx_cleanup_frame_buffer();
     gfx_cleanup_pipeline_cache();
-    gfx_cleanup_render_pass();
     gfx_cleanup_depth_stencil_buffer();
     gfx_cleanup_fences();
     gfx_cleanup_command_buffers();
@@ -1462,4 +1345,5 @@ void gfx_cleanup() {
     gfx_cleanup_physical_device();
     gfx_cleanup_debug_callbacks();
     gfx_cleanup_instance();
+    gfx_cleanup_function_pointers();
 }

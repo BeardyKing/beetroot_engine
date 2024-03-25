@@ -33,6 +33,8 @@ VkPipelineDynamicStateCreateInfo gfx_pipeline_dynamic_state_create(const VkDynam
                                                                    uint32_t dynamicStateCount,
                                                                    VkPipelineDynamicStateCreateFlags flags);
 
+VkGraphicsPipelineCreateInfo gfx_graphics_pipeline_create();
+
 VkGraphicsPipelineCreateInfo gfx_graphics_pipeline_create(VkPipelineLayout layout,
                                                           VkRenderPass renderPass,
                                                           VkPipelineCreateFlags flags);

@@ -1,5 +1,6 @@
 #ifndef BEETROOT_GFX_TYPES_H
 #define BEETROOT_GFX_TYPES_H
+
 #include <vulkan/vulkan_core.h> // must go before any vulkan implementations
 
 #include <beet_gfx/gfx_vulkan_platform_defines.h>
@@ -61,7 +62,6 @@ struct VulkanBackend {
 
     VkCommandPool graphicsCommandPool = {VK_NULL_HANDLE};
     VkCommandBuffer *graphicsCommandBuffers = {}; // size is based off swapChain.imageCount
-    VkRenderPass renderPass = {VK_NULL_HANDLE};
     VkFence *graphicsFenceWait = {};// size is based off swapChain.imageCount
 
     DepthImage depthStencil = {};
@@ -72,7 +72,7 @@ struct VulkanBackend {
     uint32_t validationLayersCount = {};
 
     VulkanSwapChain swapChain = {};
-    VkFramebuffer *frameBuffers = {}; // size is based off swapChain.imageCount
+
     uint32_t currentBufferIndex = 0;
 
     Semaphores semaphores = {};
@@ -104,12 +104,19 @@ struct VulkanBackend {
     GfxBuffer uniformBuffer = {VK_NULL_HANDLE};
     //==============================
 
-    VkPipelineLayout pipelineLayout = {VK_NULL_HANDLE};
+    VkPipelineLayout indirectPipelineLayout = {VK_NULL_HANDLE};
     VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
     VkDescriptorSetLayout descriptorSetLayout = {VK_NULL_HANDLE};
     VkDescriptorPool descriptorPool = {VK_NULL_HANDLE};
 
     VkCommandBuffer immediateCommandBuffer = {VK_NULL_HANDLE};
+
+    //===DEPRECATED=================
+    // variable deprecated due to dynamic rendering extension.
+    // if dynamic rendering ext is not supported we should consider a fallback.
+    VkRenderPass deprecated_renderPass = {VK_NULL_HANDLE};
+    VkFramebuffer *deprecated_frameBuffers = {VK_NULL_HANDLE}; // size is based off swapChain.imageCount
+    //==============================
 };
 
 //TODO: Add something like a GfxTextureArray which stores all the textures loaded from a package.

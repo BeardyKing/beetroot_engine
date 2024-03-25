@@ -16,7 +16,7 @@ extern GlobTextures g_textures;
 
 void gfx_indexed_indirect_render(VkCommandBuffer &cmdBuffer) {
     VkDeviceSize offsets[1] = {0};
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_vulkanBackend.pipelineLayout, 0, 1, &g_vulkanBackend.descriptorSet, 0, NULL);
+    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_vulkanBackend.indirectPipelineLayout, 0, 1, &g_vulkanBackend.descriptorSet, 0, NULL);
 
     //cubePipeline
     // [POI] Instanced multi draw rendering of the cubes
@@ -38,7 +38,7 @@ void gfx_build_indexed_indirect_pipelines() {
             .setLayoutCount = 1,
             .pSetLayouts = &g_vulkanBackend.descriptorSetLayout
     };
-    const VkResult pipelineLayoutRes = vkCreatePipelineLayout(g_vulkanBackend.device, &pipelineLayoutCreateInfo, nullptr, &g_vulkanBackend.pipelineLayout);
+    const VkResult pipelineLayoutRes = vkCreatePipelineLayout(g_vulkanBackend.device, &pipelineLayoutCreateInfo, nullptr, &g_vulkanBackend.indirectPipelineLayout);
     ASSERT(pipelineLayoutRes == VK_SUCCESS);
 
     const VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = gfx_pipeline_input_assembly_create(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
@@ -56,7 +56,8 @@ void gfx_build_indexed_indirect_pipelines() {
     constexpr uint32_t shaderStagesCount = 2;
     VkPipelineShaderStageCreateInfo shaderStages[shaderStagesCount] = {};
 
-    VkGraphicsPipelineCreateInfo pipelineCreateInfo = gfx_graphics_pipeline_create(g_vulkanBackend.pipelineLayout, g_vulkanBackend.renderPass, 0);
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = gfx_graphics_pipeline_create(); // using VK_KHR_dynamic_rendering we can skip passing a render pass
+    pipelineCreateInfo.layout = g_vulkanBackend.indirectPipelineLayout;
     pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
     pipelineCreateInfo.pRasterizationState = &rasterizationState;
     pipelineCreateInfo.pColorBlendState = &colorBlendState;
@@ -286,6 +287,6 @@ void gfx_build_indexed_indirect_descriptor_set_layout() {
 }
 
 void gfx_cleanup_indexed_indirect_descriptor_set_layout() {
-    vkDestroyPipelineLayout(g_vulkanBackend.device, g_vulkanBackend.pipelineLayout, nullptr);
+    vkDestroyPipelineLayout(g_vulkanBackend.device, g_vulkanBackend.indirectPipelineLayout, nullptr);
     vkDestroyDescriptorSetLayout(g_vulkanBackend.device, g_vulkanBackend.descriptorSetLayout, nullptr);
 }

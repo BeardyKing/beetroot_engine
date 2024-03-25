@@ -6,4 +6,7 @@
 
 uint32_t gfx_utils_get_memory_type(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties);
 
+VkSurfaceFormatKHR gfx_utils_select_surface_format();
+VkFormat gfx_utils_find_depth_format(const VkImageTiling &desiredTilingFormat);
+
 #endif //BEETROOT_GFX_UTILS_H

@@ -103,6 +103,14 @@ VkPipelineDynamicStateCreateInfo gfx_pipeline_dynamic_state_create(
     };
 }
 
+VkGraphicsPipelineCreateInfo gfx_graphics_pipeline_create() {
+    return {
+            .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+            .basePipelineHandle = VK_NULL_HANDLE,
+            .basePipelineIndex = -1,
+    };
+}
+
 VkGraphicsPipelineCreateInfo gfx_graphics_pipeline_create(
         VkPipelineLayout layout,
         VkRenderPass renderPass,

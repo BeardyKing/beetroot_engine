@@ -26,6 +26,12 @@ add_library(beet_gfx
         inc/beet_gfx/gfx_command.h
         src/gfx_command.cpp
         src/gfx_mesh.cpp
+        inc/beet_gfx/gfx_function_pointers.h
+        src/gfx_function_pointers.cpp
+        inc/beet_gfx/gfx_deprecated.h
+        src/gfx_deprecated.cpp
+        inc/beet_gfx/gfx_debug.h
+        src/gfx_debug.cpp
 )
 
 target_include_directories(beet_gfx
