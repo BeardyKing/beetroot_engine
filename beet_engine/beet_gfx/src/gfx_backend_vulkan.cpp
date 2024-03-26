@@ -20,6 +20,7 @@
 #include <beet_gfx/gfx_utils.h>
 #include <beet_gfx/gfx_function_pointers.h>
 #include <beet_gfx/gfx_debug.h>
+#include <beet_gfx/gfx_imgui.h>
 
 #include <beet_math/quat.h>
 #include <beet_math/utilities.h>
@@ -739,13 +740,11 @@ void end_command_recording(const VkCommandBuffer &cmdBuffer) {
     vkEndCommandBuffer(cmdBuffer);
 }
 
-
 bool query_has_valid_extent_size() {
     VkSurfaceCapabilitiesKHR surfaceCapabilities{};
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceCapabilities);
     return surfaceCapabilities.currentExtent.width != 0 || surfaceCapabilities.currentExtent.height != 0;
 }
-
 
 void gfx_window_resize() {
     if (!query_has_valid_extent_size()) {
@@ -893,6 +892,10 @@ void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 
             const VkRect2D scissor = {0, 0, g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
             vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+
+#if BEET_GFX_IMGUI
+            gfx_imgui_draw(cmdBuffer);
+#endif // BEET_GFX_IMGUI
         }
         gfx_command_end_rendering(cmdBuffer);
     }
@@ -910,30 +913,6 @@ void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
     );
 }
 
-void gfx_update(const double &deltaTime) {
-    gfx_update_uniform_buffers();
-    const VkResult nextRes = gfx_acquire_next_swap_chain_image();
-
-    if (nextRes == VK_ERROR_OUT_OF_DATE_KHR) {
-        gfx_window_resize();
-        return;
-    } else if (nextRes < 0) {
-        ASSERT(nextRes == VK_SUCCESS)
-    }
-    VkCommandBuffer cmdBuffer = g_vulkanBackend.graphicsCommandBuffers[g_vulkanBackend.currentBufferIndex];
-    vkResetCommandBuffer(cmdBuffer, 0);
-
-    begin_command_recording(cmdBuffer);
-    {
-        gfx_dynamic_render(cmdBuffer);
-    }
-    end_command_recording(cmdBuffer);
-
-    //TODO: build draw commands
-    gfx_render_frame();
-    gfx_present();
-    gfx_flush();
-}
 
 void gfx_create_semaphores() {
     VkSemaphoreCreateInfo semaphoreInfo = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
@@ -1277,7 +1256,6 @@ void gfx_texture_cleanup(GfxTexture &texture) {
     vkFreeMemory(g_vulkanBackend.device, texture.deviceMemory, nullptr);
 }
 
-
 void gfx_load_packages() {
     const char *pathUVGrid = "../assets/textures/UV_Grid/UV_Grid_test.dds";
     gfx_texture_create_immediate(g_vulkanBackend.immediateCommandBuffer, pathUVGrid, g_textures.uvGrid);
@@ -1323,15 +1301,43 @@ void gfx_create(void *windowHandle) {
     gfx_create_pipeline_cache();
     gfx_create_samplers();
     gfx_create_function_pointers();
-
+#if BEET_GFX_IMGUI
+    gfx_create_imgui(windowHandle);
+#endif //BEET_GFX_IMGUI
     gfx_load_packages();
     gfx_create_uniform_buffers();
+}
+
+void gfx_update(const double &deltaTime) {
+    gfx_update_uniform_buffers();
+    const VkResult nextRes = gfx_acquire_next_swap_chain_image();
+
+    if (nextRes == VK_ERROR_OUT_OF_DATE_KHR) {
+        gfx_window_resize();
+        return;
+    } else if (nextRes < 0) {
+        ASSERT(nextRes == VK_SUCCESS)
+    }
+    VkCommandBuffer cmdBuffer = g_vulkanBackend.graphicsCommandBuffers[g_vulkanBackend.currentBufferIndex];
+    vkResetCommandBuffer(cmdBuffer, 0);
+    begin_command_recording(cmdBuffer);
+    {
+        gfx_dynamic_render(cmdBuffer);
+    }
+    end_command_recording(cmdBuffer);
+    //TODO: build draw commands
+    gfx_render_frame();
+    gfx_present();
+    gfx_flush();
 }
 
 void gfx_cleanup() {
     gfx_cleanup_uniform_buffers();
     gfx_unload_packages();
 
+#if BEET_GFX_IMGUI
+    gfx_cleanup_imgui();
+#endif //BEET_GFX_IMGUI
     gfx_cleanup_samplers();
     gfx_cleanup_pipeline_cache();
     gfx_cleanup_depth_stencil_buffer();

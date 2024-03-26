@@ -1,8 +1,10 @@
+add_subdirectory(third)
+
 project(beet_gfx)
 add_library(beet_gfx
         inc/beet_gfx/gfx_interface.h
         inc/beet_gfx/gfx_vulkan_platform_defines.h
-        
+
         src/gfx_backend_vulkan.cpp
         src/gfx_vulkan_surface_win.cpp
         inc/beet_gfx/gfx_vulkan_surface.h
@@ -32,18 +34,23 @@ add_library(beet_gfx
         src/gfx_deprecated.cpp
         inc/beet_gfx/gfx_debug.h
         src/gfx_debug.cpp
+        inc/beet_gfx/gfx_imgui.h
+        src/gfx_imgui.cpp
 )
 
 target_include_directories(beet_gfx
         PUBLIC inc
         PRIVATE src
+        PUBLIC third/imgui/
 )
 
 find_package(Vulkan REQUIRED)
 target_link_libraries(beet_gfx
         beet_shared
         beet_math
+
         Vulkan::Vulkan
+        imgui
 )
 
 set_target_properties(beet_gfx PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
