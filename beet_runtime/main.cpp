@@ -3,16 +3,13 @@
 #include <beet_core/input.h>
 #include <beet_shared/log.h>
 #include <beet_gfx/gfx_interface.h>
-
 #include <beet_gfx/gfx_imgui.h>
+#if BEET_GFX_IMGUI
 #include <imgui.h>
+#endif //BEET_GFX_IMGUI
 
 #if BEET_GFX_IMGUI
 void imgui_update() {
-    //TODO: setup the rest of the imgui kb/mouse mappings.
-    ImGuiIO& io = ImGui::GetIO();
-    io.MouseDown[ImGuiMouseButton_Left] = input_mouse_down(MouseButton::Left);
-
     gfx_imgui_begin();
     {
         gfx_imgui_demo_window();
@@ -27,14 +24,17 @@ void imgui_update() {
         ImGui::Text("Mouse clicked: %s", ImGui::IsMouseDown(ImGuiMouseButton_Left) ? "Yes" : "No");
     }
 }
-#endif // BEET_GFX_IMGUI
+#endif //BEET_GFX_IMGUI
 
 int main() {
     window_create("beetroot engine - runtime", {1024, 769});
+#if BEET_GFX_IMGUI
+    window_set_procedure_callback_func(gfx_imgui_get_win32_proc_function_pointer());
+#endif //BEET_GFX_IMGUI
     time_create();
     input_create();
     gfx_create(window_get_handle());
-
+    
     log_info(MSG_RUNTIME, "hello beetroot engine\n");
     while (window_is_open()) {
         time_tick();

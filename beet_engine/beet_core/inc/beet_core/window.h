@@ -14,6 +14,9 @@ void window_set_cursor_lock_position(vec2i lockPos);
 bool window_is_cursor_over_window();
 void *window_get_handle();
 
+//CALLBACK: LRESULT (*)(HWND, UINT, WPARAM, LPARAM
+void window_set_procedure_callback_func(void *procCallback);
+
 //===init & shutdown=========
 void window_create(const char windowTitle[MAX_WINDOW_TITLE_SIZE], const vec2i &windowSize, const vec2i &windowPosition = {UINT32_MAX, UINT32_MAX});
 void window_cleanup();

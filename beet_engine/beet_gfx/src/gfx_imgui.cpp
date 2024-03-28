@@ -11,6 +11,7 @@
 #include <backends/imgui_impl_win32.h>
 
 extern VulkanBackend g_vulkanBackend;
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 VkDescriptorPool g_imguiPool = {VK_NULL_HANDLE};
 bool g_imguiFinishedRendering = {true};
@@ -109,3 +110,8 @@ void gfx_imgui_draw(VkCommandBuffer &cmdBuffer) {
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuffer, nullptr);
     g_imguiFinishedRendering = true;
 }
+
+void* gfx_imgui_get_win32_proc_function_pointer(){
+    return (void*)ImGui_ImplWin32_WndProcHandler;
+}
+

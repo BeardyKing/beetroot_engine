@@ -39,8 +39,13 @@ static struct WindowInfo {
     bool cursorOverWindow;
 } g_windowInfo = {};
 
+LRESULT (*g_windowProcCallback_Func)(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) = nullptr;
+
 //===internal functions======
 LRESULT CALLBACK window_procedure_callback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    if (g_windowProcCallback_Func != nullptr) {
+        g_windowProcCallback_Func(hwnd, uMsg, wParam, lParam);
+    }
     switch (uMsg) {
         case WM_DESTROY: {
             PostQuitMessage(0);
@@ -272,6 +277,11 @@ void window_set_cursor(CursorState state) {
 
 void *window_get_handle() {
     return g_windowInfo.handle;
+}
+
+void window_set_procedure_callback_func(void *procCallback) {
+    //Cursed casting but makes the API very convenient
+    g_windowProcCallback_Func = (LRESULT (*)(HWND, UINT, WPARAM, LPARAM)) (procCallback);
 }
 
 //===init & shutdown=========
