@@ -50,6 +50,9 @@ void build_spv_from_source() {
     {
         pipeline_build_shader_spv("indirectdraw/indirectdraw.frag", "indirectdraw.frag.spv");
         pipeline_build_shader_spv("indirectdraw/indirectdraw.vert", "indirectdraw.vert.spv");
+
+        pipeline_build_shader_spv("lit/lit.frag", "lit.frag.spv");
+        pipeline_build_shader_spv("lit/lit.vert", "lit.vert.spv");
     }
 }
 

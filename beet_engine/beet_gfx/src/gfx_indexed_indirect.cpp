@@ -14,13 +14,24 @@ extern VulkanBackend g_vulkanBackend;
 extern GlobMeshes g_meshes;
 extern GlobTextures g_textures;
 
+struct GfxIndexedIndirect{
+    VkDescriptorSetLayout descriptorSetLayout = {VK_NULL_HANDLE};
+    VkDescriptorPool descriptorPool = {VK_NULL_HANDLE};
+    VkPipelineLayout pipelineLayout = {VK_NULL_HANDLE};
+    VkPipeline pipeline = {VK_NULL_HANDLE};
+
+    uint32 usedDescriptorCount = 0;
+    static constexpr uint32_t MAX_DESCRIPTOR_COUNT = 1;
+    VkDescriptorSet descriptorSets[MAX_DESCRIPTOR_COUNT] = {};
+} g_gfxIndirect;
+
 void gfx_indexed_indirect_render(VkCommandBuffer &cmdBuffer) {
     VkDeviceSize offsets[1] = {0};
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_vulkanBackend.indirectPipelineLayout, 0, 1, &g_vulkanBackend.descriptorSet, 0, NULL);
+    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxIndirect.pipelineLayout, 0, 1, &g_gfxIndirect.descriptorSets[0], 0, NULL);
 
     //cubePipeline
     // [POI] Instanced multi draw rendering of the cubes
-    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_vulkanBackend.cubePipeline);
+    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxIndirect.pipeline);
     // Binding point 0 : Mesh vertex buffer
     // Binding point 1 : Instance data buffer
     vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &g_meshes.cube.vertBuffer, offsets);
@@ -36,9 +47,9 @@ void gfx_build_indexed_indirect_pipelines() {
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = 1,
-            .pSetLayouts = &g_vulkanBackend.descriptorSetLayout
+            .pSetLayouts = &g_gfxIndirect.descriptorSetLayout
     };
-    const VkResult pipelineLayoutRes = vkCreatePipelineLayout(g_vulkanBackend.device, &pipelineLayoutCreateInfo, nullptr, &g_vulkanBackend.indirectPipelineLayout);
+    const VkResult pipelineLayoutRes = vkCreatePipelineLayout(g_vulkanBackend.device, &pipelineLayoutCreateInfo, nullptr, &g_gfxIndirect.pipelineLayout);
     ASSERT(pipelineLayoutRes == VK_SUCCESS);
 
     const VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = gfx_pipeline_input_assembly_create(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
@@ -57,7 +68,7 @@ void gfx_build_indexed_indirect_pipelines() {
     VkPipelineShaderStageCreateInfo shaderStages[shaderStagesCount] = {};
 
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = gfx_graphics_pipeline_create(); // using VK_KHR_dynamic_rendering we can skip passing a render pass
-    pipelineCreateInfo.layout = g_vulkanBackend.indirectPipelineLayout;
+    pipelineCreateInfo.layout = g_gfxIndirect.pipelineLayout;
     pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
     pipelineCreateInfo.pRasterizationState = &rasterizationState;
     pipelineCreateInfo.pColorBlendState = &colorBlendState;
@@ -79,7 +90,7 @@ void gfx_build_indexed_indirect_pipelines() {
             gfx_vertex_input_attribute_desc(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxVertex, pos)),                                  // 0: Position
             gfx_vertex_input_attribute_desc(0, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxVertex, normal)),                               // 1: Normal
             gfx_vertex_input_attribute_desc(0, 2, VK_FORMAT_R32G32_SFLOAT, offsetof(GfxVertex, uv)),                                      // 2: Texture coordinates
-            gfx_vertex_input_attribute_desc(0, 3, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxVertex, normal)),                               // 3: Color
+            gfx_vertex_input_attribute_desc(0, 3, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxVertex, color)),                               // 3: Color
 
             gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 4, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxInstanceData, pos)), // 4: Position
             gfx_vertex_input_attribute_desc(BEET_INSTANCE_BUFFER_BIND_ID, 5, VK_FORMAT_R32G32B32_SFLOAT, offsetof(GfxInstanceData, rot)), // 5: Rotation
@@ -99,14 +110,14 @@ void gfx_build_indexed_indirect_pipelines() {
 
     shaderStages[0] = gfx_load_shader("../assets/shaders/indirectdraw.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
     shaderStages[1] = gfx_load_shader("../assets/shaders/indirectdraw.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-    const VkResult pipelineRes = (vkCreateGraphicsPipelines(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, 1, &pipelineCreateInfo, nullptr, &g_vulkanBackend.cubePipeline));
+    const VkResult pipelineRes = (vkCreateGraphicsPipelines(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, 1, &pipelineCreateInfo, nullptr, &g_gfxIndirect.pipeline));
     ASSERT_MSG(pipelineRes == VK_SUCCESS, "Err: failed to create graphics pipeline");
     vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[0].module, nullptr);
     vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[1].module, nullptr);
 }
 
 void gfx_cleanup_indexed_indirect_pipelines() {
-    vkDestroyPipeline(g_vulkanBackend.device, g_vulkanBackend.cubePipeline, nullptr);
+    vkDestroyPipeline(g_vulkanBackend.device, g_gfxIndirect.pipeline, nullptr);
 }
 
 
@@ -245,7 +256,7 @@ void gfx_build_indexed_indirect_descriptor_set_layout() {
             .poolSizeCount = poolSizeCount,
             .pPoolSizes = &poolSizes[0],
     };
-    const VkResult createPoolRes = (vkCreateDescriptorPool(g_vulkanBackend.device, &descriptorPoolInfo, nullptr, &g_vulkanBackend.descriptorPool));
+    const VkResult createPoolRes = (vkCreateDescriptorPool(g_vulkanBackend.device, &descriptorPoolInfo, nullptr, &g_gfxIndirect.descriptorPool));
     ASSERT(createPoolRes == VK_SUCCESS);
 
     //=== LAYOUT ===//
@@ -270,23 +281,23 @@ void gfx_build_indexed_indirect_descriptor_set_layout() {
             .bindingCount = layoutBindingsCount,
             .pBindings = &layoutBindings[0],
     };
-    const VkResult descriptorResult = vkCreateDescriptorSetLayout(g_vulkanBackend.device, &descriptorSetLayoutCreateInfo, nullptr, &g_vulkanBackend.descriptorSetLayout);
+    const VkResult descriptorResult = vkCreateDescriptorSetLayout(g_vulkanBackend.device, &descriptorSetLayoutCreateInfo, nullptr, &g_gfxIndirect.descriptorSetLayout);
     ASSERT(descriptorResult == VK_SUCCESS);
 
     //=== SET ======//
-    VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(g_vulkanBackend.descriptorPool, &g_vulkanBackend.descriptorSetLayout, 1);
-    const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &g_vulkanBackend.descriptorSet);
+    VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(g_gfxIndirect.descriptorPool, &g_gfxIndirect.descriptorSetLayout, 1);
+    const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &g_gfxIndirect.descriptorSets[0]);
     ASSERT(allocDescRes == VK_SUCCESS);
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
             // Binding 0: Vertex shader uniform buffer
             // Binding 1: uv grid image // TODO: Add a per package loaded texture array
-            gfx_descriptor_set_write(g_vulkanBackend.descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
-            gfx_descriptor_set_write(g_vulkanBackend.descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &g_textures.uvGrid.descriptor, 1)
+            gfx_descriptor_set_write(g_gfxIndirect.descriptorSets[0], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
+            gfx_descriptor_set_write(g_gfxIndirect.descriptorSets[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &g_textures.uvGrid.descriptor, 1)
     };
     vkUpdateDescriptorSets(g_vulkanBackend.device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }
 
 void gfx_cleanup_indexed_indirect_descriptor_set_layout() {
-    vkDestroyPipelineLayout(g_vulkanBackend.device, g_vulkanBackend.indirectPipelineLayout, nullptr);
-    vkDestroyDescriptorSetLayout(g_vulkanBackend.device, g_vulkanBackend.descriptorSetLayout, nullptr);
+    vkDestroyPipelineLayout(g_vulkanBackend.device, g_gfxIndirect.pipelineLayout, nullptr);
+    vkDestroyDescriptorSetLayout(g_vulkanBackend.device, g_gfxIndirect.descriptorSetLayout, nullptr);
 }

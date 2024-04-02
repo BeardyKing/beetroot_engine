@@ -27,6 +27,7 @@
 
 #include <fstream>
 #include <cstring>
+#include "beet_gfx/gfx_lit.h"
 
 static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_OTHER",
@@ -41,11 +42,6 @@ static struct UserArguments {
     bool vsync = {true};
 } g_userArguments = {};
 
-struct TargetVulkanFormats {
-    // TODO: this struct should only last a single "frame" would be a good candidate for the inevitable gfx backend arena allocator
-    VkSurfaceFormatKHR surfaceFormat = {};
-    VkFormat depthFormat = {};
-} g_vulkanTargetFormats = {};
 
 //TODO: replace with db arr of structs with id lookups
 static struct Objects {
@@ -56,6 +52,7 @@ static struct Objects {
 } g_dbEntities = {};
 
 VulkanBackend g_vulkanBackend = {};
+TargetVulkanFormats g_vulkanTargetFormats = {};
 GlobTextures g_textures = {};
 GlobMeshes g_meshes = {};
 
@@ -811,10 +808,8 @@ void gfx_barrier_insert_memory_barrier(
     vkCmdPipelineBarrier(cmdBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 }
 
-//vkCmdBeginRendering(cmdBuffer, &renderingInfo);
-//vkCmdEndRendering(cmdBuffer);
-
 void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
+
     //TODO: replace cmdIndexed variables with references.
     const uint32_t cmdIndex = g_vulkanBackend.currentBufferIndex;
     gfx_barrier_insert_memory_barrier(
@@ -893,6 +888,7 @@ void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
             const VkRect2D scissor = {0, 0, g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
             vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
+            gfx_lit_draw(cmdBuffer);
 #if BEET_GFX_IMGUI
             gfx_imgui_draw(cmdBuffer);
 #endif // BEET_GFX_IMGUI
@@ -959,6 +955,7 @@ VkFormat beet_image_format_to_vk(TextureFormat textureFormat) {
             return VK_FORMAT_BC7_UNORM_BLOCK;
         default: SANITY_CHECK();
     };
+    SANITY_CHECK();
     return VK_FORMAT_UNDEFINED;
 }
 
@@ -1226,7 +1223,7 @@ void gfx_texture_create_immediate(VkCommandBuffer &commandBuffer, const char *pa
     vkFreeMemory(g_vulkanBackend.device, stagingMemory, nullptr);
 
     VkImageViewCreateInfo view{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    view.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+    view.viewType = VK_IMAGE_VIEW_TYPE_2D;
     view.format = beet_image_format_to_vk(myImage.textureFormat);;
     view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     view.subresourceRange.baseMipLevel = 0;
@@ -1301,11 +1298,14 @@ void gfx_create(void *windowHandle) {
     gfx_create_pipeline_cache();
     gfx_create_samplers();
     gfx_create_function_pointers();
+
+    gfx_load_packages();
+    gfx_create_uniform_buffers();
+
 #if BEET_GFX_IMGUI
     gfx_create_imgui(windowHandle);
 #endif //BEET_GFX_IMGUI
-    gfx_load_packages();
-    gfx_create_uniform_buffers();
+    gfx_create_lit();
 }
 
 void gfx_update(const double &deltaTime) {
@@ -1335,6 +1335,7 @@ void gfx_cleanup() {
     gfx_cleanup_uniform_buffers();
     gfx_unload_packages();
 
+    gfx_cleanup_lit();
 #if BEET_GFX_IMGUI
     gfx_cleanup_imgui();
 #endif //BEET_GFX_IMGUI

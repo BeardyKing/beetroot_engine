@@ -36,6 +36,8 @@ add_library(beet_gfx
         src/gfx_debug.cpp
         inc/beet_gfx/gfx_imgui.h
         src/gfx_imgui.cpp
+        inc/beet_gfx/gfx_lit.h
+        src/gfx_lit.cpp
 )
 
 target_include_directories(beet_gfx

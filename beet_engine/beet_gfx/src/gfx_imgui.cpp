@@ -11,6 +11,7 @@
 #include <backends/imgui_impl_win32.h>
 
 extern VulkanBackend g_vulkanBackend;
+extern TargetVulkanFormats g_vulkanTargetFormats;
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 VkDescriptorPool g_imguiPool = {VK_NULL_HANDLE};
@@ -53,8 +54,8 @@ void gfx_create_imgui(void *windowHandle) {
     io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
     io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
 
-    const VkFormat surfaceFormat = gfx_utils_select_surface_format().format;
-    const VkFormat depthFormat = gfx_utils_find_depth_format(VK_IMAGE_TILING_OPTIMAL);
+//    const VkFormat surfaceFormat = gfx_utils_select_surface_format().format;
+//    const VkFormat depthFormat = gfx_utils_find_depth_format(VK_IMAGE_TILING_OPTIMAL);
 
     ImGui_ImplVulkan_InitInfo imguiInitInfo = {
             .Instance = g_vulkanBackend.instance,
@@ -69,9 +70,9 @@ void gfx_create_imgui(void *windowHandle) {
             .PipelineRenderingCreateInfo = {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
                     .colorAttachmentCount = 1,
-                    .pColorAttachmentFormats = &surfaceFormat,
-                    .depthAttachmentFormat = depthFormat,
-                    .stencilAttachmentFormat = depthFormat,
+                    .pColorAttachmentFormats = &g_vulkanTargetFormats.surfaceFormat.format,
+                    .depthAttachmentFormat = g_vulkanTargetFormats.depthFormat,
+                    .stencilAttachmentFormat = g_vulkanTargetFormats.depthFormat,
             },
     };
 

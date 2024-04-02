@@ -13,7 +13,7 @@ struct GfxVertex {
     vec3f pos;
     vec3f normal;
     vec2f uv;
-    vec4f color;
+    vec3f color;
 };
 
 struct GfxInstanceData {

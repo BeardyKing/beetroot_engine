@@ -54,6 +54,12 @@ struct UniformData {
     glm::mat4 view;
 };
 
+struct TargetVulkanFormats {
+    // TODO: this struct should only last a single "frame" would be a good candidate for the inevitable gfx backend arena allocator
+    VkSurfaceFormatKHR surfaceFormat = {};
+    VkFormat depthFormat = {};
+};
+
 struct VulkanBackend {
     VkInstance instance = {VK_NULL_HANDLE};
     VkPhysicalDevice physicalDevice = {VK_NULL_HANDLE};
@@ -86,7 +92,6 @@ struct VulkanBackend {
     VkPhysicalDeviceFeatures deviceFeatures = {};
     VkPhysicalDeviceMemoryProperties deviceMemoryProperties = {};
 
-    VkPipeline cubePipeline{VK_NULL_HANDLE};
 
     uint32_t objectCount = 0;
 
@@ -104,10 +109,7 @@ struct VulkanBackend {
     GfxBuffer uniformBuffer = {VK_NULL_HANDLE};
     //==============================
 
-    VkPipelineLayout indirectPipelineLayout = {VK_NULL_HANDLE};
-    VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
-    VkDescriptorSetLayout descriptorSetLayout = {VK_NULL_HANDLE};
-    VkDescriptorPool descriptorPool = {VK_NULL_HANDLE};
+
 
     VkCommandBuffer immediateCommandBuffer = {VK_NULL_HANDLE};
 
