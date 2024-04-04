@@ -72,3 +72,30 @@ VkFormat gfx_utils_find_depth_format(const VkImageTiling &desiredTilingFormat) {
     ASSERT_MSG(false, "Err: could not find supported depth format");
     return VK_FORMAT_UNDEFINED;
 }
+
+VkFormat gfx_utils_beet_image_format_to_vk(const TextureFormat textureFormat) {
+    switch (textureFormat) {
+        case TextureFormat::RGBA8:
+            return VK_FORMAT_R8G8B8A8_UNORM;
+        case TextureFormat::RGBA16:
+            return VK_FORMAT_R16G16B16A16_UNORM;
+
+        case TextureFormat::BC1RGBA:
+            return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+        case TextureFormat::BC2:
+            return VK_FORMAT_BC2_UNORM_BLOCK;
+        case TextureFormat::BC3:
+            return VK_FORMAT_BC3_UNORM_BLOCK;
+        case TextureFormat::BC4:
+            return VK_FORMAT_BC4_UNORM_BLOCK;
+        case TextureFormat::BC5:
+            return VK_FORMAT_BC5_UNORM_BLOCK;
+        case TextureFormat::BC6H:
+            return VK_FORMAT_BC6H_UFLOAT_BLOCK;
+        case TextureFormat::BC7:
+            return VK_FORMAT_BC7_UNORM_BLOCK;
+        default: SANITY_CHECK();
+    };
+    SANITY_CHECK();
+    return VK_FORMAT_UNDEFINED;
+}

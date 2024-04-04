@@ -81,7 +81,7 @@ void gfx_mesh_create_immediate(const RawMesh &rawMesh, GfxMesh &outMesh) {
     vkFreeMemory(g_vulkanBackend.device, indexStaging.memory, nullptr);
 }
 
-void gfx_cube_create_immediate(GfxMesh &outMesh) {
+void gfx_mesh_create_cube_immediate(GfxMesh &outMesh) {
     const uint32_t vertexCount = 24;
     static GfxVertex vertexData[vertexCount] = {
             //===POS================//===COLOUR=========//===UV======
@@ -135,4 +135,17 @@ void gfx_cube_create_immediate(GfxMesh &outMesh) {
     };
 
     gfx_mesh_create_immediate(rawMesh, outMesh);
+}
+
+void gfx_mesh_cleanup(GfxMesh &mesh) {
+    vkDestroyBuffer(g_vulkanBackend.device, mesh.vertBuffer, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, mesh.vertMemory, nullptr);
+    vkDestroyBuffer(g_vulkanBackend.device, mesh.indexBuffer, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, mesh.indexMemory, nullptr);
+    mesh = {};
+
+    //TODO:GFX We don't re-add this as a free slot in the texture pool i.e.
+    //we could address this pretty simply in a few ways.
+    //create free-list for each pool and next time we try and create a new texture to check if any free list spaces are free
+    //we move the last image loaded into the newly free position and fix up and dependency, this will break any cached references.
 }

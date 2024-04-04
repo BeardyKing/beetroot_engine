@@ -22,15 +22,9 @@ struct VulkanLit {
     VkDescriptorPool descriptorPool = {VK_NULL_HANDLE};
     VkPipelineLayout pipelineLayout = {VK_NULL_HANDLE};
     VkPipeline pipeline = {VK_NULL_HANDLE};
-
-    uint32 usedDescriptorCount = 0;
-    static constexpr uint32_t MAX_DESCRIPTOR_COUNT = 32;
-    VkDescriptorSet descriptorSets[MAX_DESCRIPTOR_COUNT] = {};
 } g_gfxLit;
 
 extern VulkanBackend g_vulkanBackend;
-extern GlobTextures g_textures;
-extern GlobMeshes g_meshes;
 extern TargetVulkanFormats g_vulkanTargetFormats;
 
 void gfx_create_lit_descriptor_set_layout();
@@ -62,26 +56,29 @@ void gfx_lit_draw(VkCommandBuffer &cmdBuffer) {
     proj[1][1] *= -1;
     mat4 viewProj = proj * view;
 
-    //=== TEMP ===
-    Transform transform = {};
-    transform.position.y = -2;
-    transform.position.z = -8;
-    //=== END: TEMP ===
+    const uint32_t litEntityCount = db_get_lit_entity_count();
+    for (uint32_t i = 0; i < litEntityCount; ++i) {
+        const LitEntity& entity = *db_get_lit_entity(i);
+        const LitMaterial& material = *db_get_lit_material(entity.materialIndex);
+        const VkDescriptorSet& descriptorSet = *db_get_descriptor_set(material.descriptorSetIndex);
+        const Transform& transform = *db_get_transform(entity.transformIndex);
+        const GfxMesh& mesh = *db_get_mesh(entity.meshIndex);
 
+        vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxLit.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxLit.pipeline);
 
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxLit.pipelineLayout, 0, 1, g_gfxLit.descriptorSets, 0, nullptr);
-    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxLit.pipeline);
+        const mat4 model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(mat4(1.0f), transform.scale);
+        // replace with UniformBufferLayout
+        const UniformBufferObject ubo = {viewProj * model};
+        vkCmdPushConstants(cmdBuffer, g_gfxLit.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformBufferObject), &ubo);
 
-    const mat4 model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(mat4(1.0f), transform.scale);
-    const UniformBufferObject ubo = {viewProj * model};
-    vkCmdPushConstants(cmdBuffer, g_gfxLit.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformBufferObject), &ubo);
+        const VkBuffer vertexBuffers[] = {mesh.vertBuffer};
+        const VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(cmdBuffer, 0, 1, vertexBuffers, offsets);
 
-    const VkBuffer vertexBuffers[] = {g_meshes.cube.vertBuffer};
-    const VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(cmdBuffer, 0, 1, vertexBuffers, offsets);
-
-    vkCmdBindIndexBuffer(cmdBuffer, g_meshes.cube.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(cmdBuffer, g_meshes.cube.indexCount, 1, 0, 0, 0);
+        vkCmdBindIndexBuffer(cmdBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(cmdBuffer, mesh.indexCount, 1, 0, 0, 0);
+    }
 }
 
 void gfx_create_lit_descriptor_set_layout() {
@@ -125,22 +122,22 @@ void gfx_create_lit_descriptor_set_layout() {
     };
     const VkResult descriptorResult = vkCreateDescriptorSetLayout(g_vulkanBackend.device, &descriptorSetLayoutCreateInfo, nullptr, &g_gfxLit.descriptorSetLayout);
     ASSERT(descriptorResult == VK_SUCCESS);
+}
 
-    //=== SET ======//
+void gfx_lit_update_material_descriptor(VkDescriptorSet &outDescriptorSet, const GfxTexture &albedoTexture) {
     VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(g_gfxLit.descriptorPool, &g_gfxLit.descriptorSetLayout, 1);
-    const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &g_gfxLit.descriptorSets[0]);
+    const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &outDescriptorSet);
     ASSERT(allocDescRes == VK_SUCCESS);
     // TODO:    Update this to a buffer of textures so we can modify the contents without needing to rebuild descriptors
     //          runtime packages will not need this as the content won't change.
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
             // Binding 0: Vertex shader uniform buffer
-            // Binding 1: uv grid image // TODO: Add a per package loaded texture array
-            gfx_descriptor_set_write(g_gfxLit.descriptorSets[0], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
-            gfx_descriptor_set_write(g_gfxLit.descriptorSets[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &g_textures.uvGrid.descriptor, 1)
+            // Binding 1: albedoTexture // TODO: Add a per package loaded texture array
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &albedoTexture.descriptor, 1)
     };
-    vkUpdateDescriptorSets(g_vulkanBackend.device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+    vkUpdateDescriptorSets(g_vulkanBackend.device, uint32_t(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }
-
 
 void gfx_create_lit_pipelines() {
     constexpr static uint32_t pushConstantRangeCount = 1;

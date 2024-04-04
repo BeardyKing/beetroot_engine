@@ -4,8 +4,6 @@
 #include <beet_shared/log.h>
 #include <beet_shared/shared_utils.h>
 #include <beet_shared/memory.h>
-#include <beet_shared/texture_formats.h>
-#include <beet_shared/dds_loader.h>
 #include <beet_shared/c_string.h>
 #include <beet_shared/beet_types.h>
 
@@ -14,20 +12,20 @@
 #include <beet_gfx/gfx_vulkan_surface.h>
 #include <beet_gfx/gfx_types.h>
 #include <beet_gfx/gfx_samplers.h>
-#include <beet_gfx/gfx_mesh.h>
 #include <beet_gfx/gfx_buffer.h>
 #include <beet_gfx/gfx_command.h>
 #include <beet_gfx/gfx_utils.h>
 #include <beet_gfx/gfx_function_pointers.h>
 #include <beet_gfx/gfx_debug.h>
 #include <beet_gfx/gfx_imgui.h>
+#include <beet_gfx/gfx_lit.h>
+#include <beet_gfx/db_asset.h>
 
 #include <beet_math/quat.h>
 #include <beet_math/utilities.h>
 
 #include <fstream>
 #include <cstring>
-#include "beet_gfx/gfx_lit.h"
 
 static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
         "VK_PHYSICAL_DEVICE_TYPE_OTHER",
@@ -42,19 +40,8 @@ static struct UserArguments {
     bool vsync = {true};
 } g_userArguments = {};
 
-
-//TODO: replace with db arr of structs with id lookups
-static struct Objects {
-    struct CamObj {
-        Camera cam;
-        Transform transform;
-    } camObj;
-} g_dbEntities = {};
-
 VulkanBackend g_vulkanBackend = {};
 TargetVulkanFormats g_vulkanTargetFormats = {};
-GlobTextures g_textures = {};
-GlobMeshes g_meshes = {};
 
 bool gfx_find_supported_extension(const char *extensionName) {
     for (uint32_t i = 0; i < g_vulkanBackend.extensionsCount; ++i) {
@@ -412,7 +399,6 @@ VkPresentModeKHR select_present_mode() {
     return selectedPresentMode;
 }
 
-
 VkCompositeAlphaFlagBitsKHR select_composite_alpha_format(const VkSurfaceCapabilitiesKHR &surfaceCapabilities) {
     VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     constexpr uint32_t compositeAlphaFlagsSize = 4;
@@ -763,8 +749,9 @@ void gfx_update_uniform_buffers() {
     };
 
     //TODO: UPDATE UBO with camera info i.e. view & proj.
-    const Camera &camera = g_dbEntities.camObj.cam;
-    const Transform &camTransform = g_dbEntities.camObj.transform;
+    const CameraEntity &camEntity = *db_get_camera_entity(0);
+    const Camera &camera = *db_get_camera(camEntity.cameraIndex);
+    const Transform &camTransform = *db_get_transform(camEntity.transformIndex);
 
     const vec3f camForward = glm::quat(camTransform.rotation) * WORLD_FORWARD;
     const vec3f lookTarget = camTransform.position + camForward;
@@ -909,7 +896,6 @@ void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
     );
 }
 
-
 void gfx_create_semaphores() {
     VkSemaphoreCreateInfo semaphoreInfo = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
     const VkResult presentRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr, &g_vulkanBackend.semaphores.presentDone);
@@ -930,338 +916,6 @@ void gfx_cleanup_semaphores() {
     vkDestroySemaphore(g_vulkanBackend.device, g_vulkanBackend.semaphores.presentDone, nullptr);
     vkDestroySemaphore(g_vulkanBackend.device, g_vulkanBackend.semaphores.renderDone, nullptr);
     g_vulkanBackend.submitInfo = {};
-}
-
-VkFormat beet_image_format_to_vk(TextureFormat textureFormat) {
-    switch (textureFormat) {
-        case TextureFormat::RGBA8:
-            return VK_FORMAT_R8G8B8A8_UNORM;
-        case TextureFormat::RGBA16:
-            return VK_FORMAT_R16G16B16A16_UNORM;
-
-        case TextureFormat::BC1RGBA:
-            return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
-        case TextureFormat::BC2:
-            return VK_FORMAT_BC2_UNORM_BLOCK;
-        case TextureFormat::BC3:
-            return VK_FORMAT_BC3_UNORM_BLOCK;
-        case TextureFormat::BC4:
-            return VK_FORMAT_BC4_UNORM_BLOCK;
-        case TextureFormat::BC5:
-            return VK_FORMAT_BC5_UNORM_BLOCK;
-        case TextureFormat::BC6H:
-            return VK_FORMAT_BC6H_UFLOAT_BLOCK;
-        case TextureFormat::BC7:
-            return VK_FORMAT_BC7_UNORM_BLOCK;
-        default: SANITY_CHECK();
-    };
-    SANITY_CHECK();
-    return VK_FORMAT_UNDEFINED;
-}
-
-void set_image_layout(
-        VkCommandBuffer cmdbuffer,
-        VkImage image,
-        VkImageLayout oldImageLayout,
-        VkImageLayout newImageLayout,
-        VkImageSubresourceRange subresourceRange,
-        VkPipelineStageFlags srcStageMask,
-        VkPipelineStageFlags dstStageMask) {
-    // Create an image barrier object
-    VkImageMemoryBarrier imageMemoryBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-    imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    imageMemoryBarrier.oldLayout = oldImageLayout;
-    imageMemoryBarrier.newLayout = newImageLayout;
-    imageMemoryBarrier.image = image;
-    imageMemoryBarrier.subresourceRange = subresourceRange;
-
-    // Source layouts (old)
-    // Source access mask controls actions that have to be finished on the old layout
-    // before it will be transitioned to the new layout
-    switch (oldImageLayout) {
-        case VK_IMAGE_LAYOUT_UNDEFINED:
-            // Image layout is undefined (or does not matter)
-            // Only valid as initial layout
-            // No flags required, listed only for completeness
-            imageMemoryBarrier.srcAccessMask = 0;
-            break;
-
-        case VK_IMAGE_LAYOUT_PREINITIALIZED:
-            // Image is preinitialized
-            // Only valid as initial layout for linear images, preserves memory contents
-            // Make sure host writes have been finished
-            imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-            // Image is a color attachment
-            // Make sure any writes to the color buffer have been finished
-            imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-            // Image is a depth/stencil attachment
-            // Make sure any writes to the depth/stencil buffer have been finished
-            imageMemoryBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-            // Image is a transfer source
-            // Make sure any reads from the image have been finished
-            imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-            // Image is a transfer destination
-            // Make sure any writes to the image have been finished
-            imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-            // Image is read by a shader
-            // Make sure any shader reads from the image have been finished
-            imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            break;
-        default:
-            // Other source layouts aren't handled (yet)
-            break;
-    }
-
-    // Target layouts (new)
-    // Destination access mask controls the dependency for the new image layout
-    switch (newImageLayout) {
-        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-            // Image will be used as a transfer destination
-            // Make sure any writes to the image have been finished
-            imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-            // Image will be used as a transfer source
-            // Make sure any reads from the image have been finished
-            imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-            // Image will be used as a color attachment
-            // Make sure any writes to the color buffer have been finished
-            imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-            // Image layout will be used as a depth/stencil attachment
-            // Make sure any writes to depth/stencil buffer have been finished
-            imageMemoryBarrier.dstAccessMask =
-                    imageMemoryBarrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-            // Image will be read in a shader (sampler, input attachment)
-            // Make sure any writes to the image have been finished
-            if (imageMemoryBarrier.srcAccessMask == 0) {
-                imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-            }
-            imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            break;
-        default:
-            // Other source layouts aren't handled (yet)
-            break;
-    }
-
-    // Put barrier inside setup command buffer
-    vkCmdPipelineBarrier(
-            cmdbuffer,
-            srcStageMask,
-            dstStageMask,
-            0,
-            0, nullptr,
-            0, nullptr,
-            1, &imageMemoryBarrier);
-}
-
-
-void gfx_texture_create_immediate(VkCommandBuffer &commandBuffer, const char *path, GfxTexture &outTexture) {
-    outTexture.imageSamplerType = TextureSamplerType::Linear;
-
-    RawImage myImage{};
-    load_dds_image(path, &myImage);
-    auto rawImageData = (unsigned char *) myImage.data;
-
-    const uint32_t sizeX = myImage.width;
-    const uint32_t sizeY = myImage.height;
-    const uint32 mipMapCount = myImage.mipMapCount;
-    const VkDeviceSize imageSize = myImage.dataSize;
-    const VkFormat format = beet_image_format_to_vk(myImage.textureFormat);
-
-    VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(g_vulkanBackend.physicalDevice, format, &formatProperties);
-
-    VkMemoryAllocateInfo memoryAllocateInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
-    VkMemoryRequirements memoryRequirements;
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingMemory;
-
-    VkBufferCreateInfo stagingBufInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    stagingBufInfo.size = imageSize;
-    stagingBufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    stagingBufInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    const VkResult createStageBuffRes = vkCreateBuffer(g_vulkanBackend.device, &stagingBufInfo, nullptr, &stagingBuffer);
-    ASSERT(createStageBuffRes == VK_SUCCESS);
-
-    vkGetBufferMemoryRequirements(g_vulkanBackend.device, stagingBuffer, &memoryRequirements);
-    memoryAllocateInfo.allocationSize = memoryRequirements.size;
-    memoryAllocateInfo.memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits,
-                                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    const VkResult memAllocResult = vkAllocateMemory(g_vulkanBackend.device, &memoryAllocateInfo, nullptr, &stagingMemory);
-    ASSERT(memAllocResult == VK_SUCCESS);
-
-    const VkResult memBindResult = vkBindBufferMemory(g_vulkanBackend.device, stagingBuffer, stagingMemory, 0);
-    ASSERT(memBindResult == VK_SUCCESS);
-
-    // map raw image data to staging buffer
-    uint8_t *data;
-    const VkResult mapResult(vkMapMemory(g_vulkanBackend.device, stagingMemory, 0, memoryRequirements.size, 0, (void **) &data));
-    ASSERT(mapResult == VK_SUCCESS)
-
-    memcpy(data, rawImageData, imageSize);
-    vkUnmapMemory(g_vulkanBackend.device, stagingMemory);
-
-    VkBufferImageCopy *bufferCopyRegions = (VkBufferImageCopy *) mem_zalloc(mipMapCount * sizeof(VkBufferImageCopy));
-    uint32_t offset = 0;
-    for (uint32_t i = 0; i < mipMapCount; i++) {
-        // set up a buffer image copy structure for the current mip level
-        VkBufferImageCopy bufferCopyRegion = {};
-        bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        bufferCopyRegion.imageSubresource.mipLevel = i;
-        bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
-        bufferCopyRegion.imageSubresource.layerCount = 1;
-        bufferCopyRegion.imageExtent.width = myImage.width >> i;
-        bufferCopyRegion.imageExtent.height = myImage.height >> i;
-        bufferCopyRegion.imageExtent.depth = 1;
-        bufferCopyRegion.bufferOffset = offset;
-        bufferCopyRegions[i] = bufferCopyRegion;
-        offset += myImage.mipDataSizes[i];
-    }
-
-    VkImageCreateInfo imageCreateInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
-    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageCreateInfo.extent.width = sizeX;
-    imageCreateInfo.extent.height = sizeY;
-    imageCreateInfo.extent.depth = 1;
-    imageCreateInfo.mipLevels = mipMapCount;
-    imageCreateInfo.arrayLayers = 1;
-    imageCreateInfo.format = format;
-    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageCreateInfo.flags = 0;
-
-    const VkResult createImageRes = vkCreateImage(g_vulkanBackend.device, &imageCreateInfo, nullptr, &outTexture.image);
-    ASSERT(createImageRes == VK_SUCCESS);
-
-    vkGetImageMemoryRequirements(g_vulkanBackend.device, outTexture.image, &memoryRequirements);
-
-    memoryAllocateInfo.allocationSize = memoryRequirements.size;
-    memoryAllocateInfo.memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    const VkResult memAllocRes = vkAllocateMemory(g_vulkanBackend.device, &memoryAllocateInfo, nullptr, &outTexture.deviceMemory);
-    ASSERT(memAllocRes == VK_SUCCESS);
-
-    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, outTexture.image, outTexture.deviceMemory, 0);
-    ASSERT(bindRes == VK_SUCCESS);
-
-    VkImageSubresourceRange subresourceRange = {};
-    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    subresourceRange.baseMipLevel = 0;
-    subresourceRange.levelCount = mipMapCount;
-    subresourceRange.layerCount = 1;
-
-    gfx_command_begin_immediate_recording();
-
-    set_image_layout(
-            commandBuffer,
-            g_textures.uvGrid.image,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            subresourceRange,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
-    );
-
-    // Copy mips from staging buffer
-    vkCmdCopyBufferToImage(
-            commandBuffer,
-            stagingBuffer,
-            g_textures.uvGrid.image,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            static_cast<uint32_t>(mipMapCount),
-            bufferCopyRegions
-    );
-
-    set_image_layout(
-            commandBuffer,
-            g_textures.uvGrid.image,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            subresourceRange,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
-    );
-
-    outTexture.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    gfx_command_end_immediate_recording();
-
-    vkDestroyBuffer(g_vulkanBackend.device, stagingBuffer, nullptr);
-    vkFreeMemory(g_vulkanBackend.device, stagingMemory, nullptr);
-
-    VkImageViewCreateInfo view{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    view.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    view.format = beet_image_format_to_vk(myImage.textureFormat);;
-    view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    view.subresourceRange.baseMipLevel = 0;
-    view.subresourceRange.baseArrayLayer = 0;
-    view.subresourceRange.layerCount = 1;
-    view.subresourceRange.levelCount = mipMapCount;
-    view.image = outTexture.image;
-
-    const VkResult imageViewRes = vkCreateImageView(g_vulkanBackend.device, &view, nullptr, &outTexture.view);
-    ASSERT(imageViewRes == VK_SUCCESS);
-
-    outTexture.descriptor.imageView = outTexture.view;
-    outTexture.descriptor.sampler = gfx_samplers()->samplers[outTexture.imageSamplerType];
-    outTexture.descriptor.imageLayout = outTexture.layout;
-}
-
-void gfx_mesh_cleanup(GfxMesh &mesh) {
-    vkDestroyBuffer(g_vulkanBackend.device, mesh.vertBuffer, nullptr);
-    vkFreeMemory(g_vulkanBackend.device, mesh.vertMemory, nullptr);
-    vkDestroyBuffer(g_vulkanBackend.device, mesh.indexBuffer, nullptr);
-    vkFreeMemory(g_vulkanBackend.device, mesh.indexMemory, nullptr);
-}
-
-void gfx_texture_cleanup(GfxTexture &texture) {
-    vkDestroyImageView(g_vulkanBackend.device, texture.view, nullptr);
-    vkDestroyImage(g_vulkanBackend.device, texture.image, nullptr);
-    vkFreeMemory(g_vulkanBackend.device, texture.deviceMemory, nullptr);
-}
-
-void gfx_load_packages() {
-    const char *pathUVGrid = "../assets/textures/UV_Grid/UV_Grid_test.dds";
-    gfx_texture_create_immediate(g_vulkanBackend.immediateCommandBuffer, pathUVGrid, g_textures.uvGrid);
-    gfx_cube_create_immediate(g_meshes.cube);
-};
-
-void gfx_unload_packages() {
-    gfx_texture_cleanup(g_textures.uvGrid);
-    gfx_mesh_cleanup(g_meshes.cube);
 }
 
 void gfx_create_uniform_buffers() {
@@ -1299,7 +953,6 @@ void gfx_create(void *windowHandle) {
     gfx_create_samplers();
     gfx_create_function_pointers();
 
-    gfx_load_packages();
     gfx_create_uniform_buffers();
 
 #if BEET_GFX_IMGUI
@@ -1333,7 +986,6 @@ void gfx_update(const double &deltaTime) {
 
 void gfx_cleanup() {
     gfx_cleanup_uniform_buffers();
-    gfx_unload_packages();
 
     gfx_cleanup_lit();
 #if BEET_GFX_IMGUI

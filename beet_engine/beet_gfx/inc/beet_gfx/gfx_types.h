@@ -132,12 +132,4 @@ struct GfxTexture {
     VkDescriptorImageInfo descriptor;
 };
 
-struct GlobTextures {
-    GfxTexture uvGrid;
-};
-
-struct GlobMeshes {
-    GfxMesh cube;
-};
-
 #endif //BEETROOT_GFX_TYPES_H

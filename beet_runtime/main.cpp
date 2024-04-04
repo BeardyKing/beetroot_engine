@@ -56,7 +56,7 @@ int main() {
 #endif //BEET_GFX_IMGUI
         gfx_update(time_delta());
     }
-
+    entities_cleanup();
     gfx_cleanup();
     input_cleanup();
     time_cleanup();

@@ -16,7 +16,7 @@ VkWriteDescriptorSet gfx_descriptor_set_write(VkDescriptorSet dstSet,
 VkWriteDescriptorSet gfx_descriptor_set_write(VkDescriptorSet dstSet,
                                               VkDescriptorType type,
                                               uint32_t binding,
-                                              VkDescriptorImageInfo *imageInfo,
+                                              const VkDescriptorImageInfo *imageInfo,
                                               uint32_t descriptorCount);
 
 
