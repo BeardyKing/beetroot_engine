@@ -7,7 +7,7 @@
 #include <beet_shared/texture_formats.h>
 #include <beet_shared/dds_loader.h>
 #include <beet_shared/c_string.h>
-#include <beet_shared/db_types.h>
+#include <beet_shared/beet_types.h>
 
 #include <beet_gfx/gfx_vulkan_platform_defines.h>
 #include <beet_gfx/gfx_interface.h>

@@ -21,13 +21,18 @@ add_library(beet_shared
         inc/beet_shared/os_time.h
         src/os_time_win.cpp
         src/os_time_linux.cpp
-        inc/beet_shared/db_types.h)
+        inc/beet_shared/beet_types.h
+)
 
 #====LIB TARGET DIR=======
 target_include_directories(beet_shared
         PUBLIC inc
         PRIVATE inc/beet_shared
         )
+
+target_link_libraries(beet_shared
+        beet_math
+)
 
 set_target_properties(beet_shared PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 

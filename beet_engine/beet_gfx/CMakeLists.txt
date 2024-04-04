@@ -9,7 +9,6 @@ add_library(beet_gfx
         src/gfx_vulkan_surface_win.cpp
         inc/beet_gfx/gfx_vulkan_surface.h
 
-        inc/beet_gfx/gfx_types.h
         inc/beet_gfx/gfx_samplers.h
         src/gfx_samplers.cpp
         inc/beet_gfx/gfx_mesh.h
@@ -38,6 +37,8 @@ add_library(beet_gfx
         src/gfx_imgui.cpp
         inc/beet_gfx/gfx_lit.h
         src/gfx_lit.cpp
+        inc/beet_gfx/db_asset.h
+        src/db_asset.cpp
 )
 
 target_include_directories(beet_gfx

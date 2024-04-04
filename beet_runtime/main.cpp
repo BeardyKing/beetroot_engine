@@ -1,11 +1,19 @@
 #include <beet_core/window.h>
 #include <beet_core/time.h>
 #include <beet_core/input.h>
+
 #include <beet_shared/log.h>
+
 #include <beet_gfx/gfx_interface.h>
 #include <beet_gfx/gfx_imgui.h>
+
+#include <runtime/entity_builder.h>
+#include <runtime/script_camera.h>
+
 #if BEET_GFX_IMGUI
+
 #include <imgui.h>
+
 #endif //BEET_GFX_IMGUI
 
 #if BEET_GFX_IMGUI
@@ -34,13 +42,15 @@ int main() {
     time_create();
     input_create();
     gfx_create(window_get_handle());
-    
+    entities_create();
+
     log_info(MSG_RUNTIME, "hello beetroot engine\n");
     while (window_is_open()) {
         time_tick();
         input_set_time(time_current());
         window_update();
         input_update();
+        script_update_camera();
 #if BEET_GFX_IMGUI
         imgui_update();
 #endif //BEET_GFX_IMGUI

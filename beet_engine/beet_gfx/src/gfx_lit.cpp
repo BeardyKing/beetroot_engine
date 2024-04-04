@@ -1,13 +1,17 @@
 #include <beet_gfx/gfx_lit.h>
 #include <beet_gfx/gfx_types.h>
+#include <beet_gfx/gfx_descriptors.h>
+#include <beet_gfx/gfx_shader.h>
+#include <beet_gfx/gfx_pipeline.h>
+#include <beet_gfx/db_asset.h>
+
+#include <beet_shared/assert.h>
+#include <beet_shared/beet_types.h>
+
+#include <beet_math/quat.h>
+#include <beet_math/utilities.h>
+
 #include <vulkan/vulkan_core.h>
-#include "beet_shared/assert.h"
-#include "beet_gfx/gfx_descriptors.h"
-#include "beet_gfx/gfx_shader.h"
-#include "beet_gfx/gfx_pipeline.h"
-#include "beet_shared/db_types.h"
-#include "beet_math/quat.h"
-#include "beet_math/utilities.h"
 
 struct UniformBufferObject {
     mat4 mvp;
@@ -45,18 +49,20 @@ void gfx_cleanup_lit() {
 }
 
 void gfx_lit_draw(VkCommandBuffer &cmdBuffer) {
-    //=== TEMP ===
-    Camera camera = {};
-    Transform camTransform = {.position = vec3f{0.0f, 0.0f, -1.0f}};
+    //TODO: cache this work off, only update it on camera change and allow the cached value to be used cross system.
+    const CameraEntity &camEntity = *db_get_camera_entity(0);
+    const Camera &camera = *db_get_camera(camEntity.cameraIndex);
+    const Transform &camTransform = *db_get_transform(camEntity.transformIndex);
 
     auto camForward = quat(camTransform.rotation) * WORLD_FORWARD;
     vec3f lookTarget = camTransform.position + camForward;
 
     mat4 view = lookAt(camTransform.position, lookTarget, WORLD_UP);
-    mat4 proj = perspective(as_radians(camera.fov), (float) 1024 / (float) 768, camera.zNear, camera.zFar);
+    mat4 proj = perspective(as_radians(camera.fov), (float) g_vulkanBackend.swapChain.width / (float) g_vulkanBackend.swapChain.height, camera.zNear, camera.zFar);
     proj[1][1] *= -1;
     mat4 viewProj = proj * view;
 
+    //=== TEMP ===
     Transform transform = {};
     transform.position.y = -2;
     transform.position.z = -8;

@@ -5,6 +5,14 @@ project(beet_runtime)
 #====EXE SOURCE===========
 add_executable(beet_runtime
         main.cpp
+        inc/runtime/entity_builder.h
+        inc/runtime/script_camera.h
+        src/script_camera.cpp
+        src/entity_builder.cpp
+)
+
+target_include_directories(beet_runtime
+        PUBLIC inc
 )
 
 #====PROPERTIES===========
