@@ -42,6 +42,7 @@ struct GfxMesh {
 };
 
 void gfx_mesh_create_cube_immediate(GfxMesh &outMesh);
+void gfx_mesh_create_octahedron_immediate(GfxMesh &outMesh);
 void gfx_mesh_create_immediate(const RawMesh &rawMesh, GfxMesh &outMesh);
 void gfx_mesh_cleanup(GfxMesh &mesh);
 

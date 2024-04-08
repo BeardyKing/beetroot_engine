@@ -17,7 +17,21 @@ void primary_camera_entity_create() {
 }
 
 void lit_entities_create() {
-    uint32_t defaultMeshID = {UINT32_MAX};
+    //===MESH=====================================================
+    uint32_t cubeID = {UINT32_MAX};
+    uint32_t octahedronID = {UINT32_MAX};
+    {
+        GfxMesh cubeMesh = {};
+        gfx_mesh_create_cube_immediate(cubeMesh);
+        cubeID = db_add_mesh(cubeMesh);
+
+        GfxMesh octahedronMesh = {};
+        gfx_mesh_create_octahedron_immediate(octahedronMesh);
+        octahedronID = db_add_mesh(octahedronMesh);
+    }
+    //============================================================
+
+    //===MATERIAL=================================================
     uint32_t defaultMaterialID = {UINT32_MAX};
     {
         GfxTexture uvTestTexture = {};
@@ -31,29 +45,33 @@ void lit_entities_create() {
                 .albedoIndex = db_add_texture(uvTestTexture),
         };
 
-        GfxMesh mesh = {};
-        gfx_mesh_create_cube_immediate(mesh);
-
-        defaultMeshID = db_add_mesh(mesh);
         defaultMaterialID = db_add_lit_material(material);
+    }
+    //============================================================
 
+    //===ENTITY_CUBE==============================================
+    {
         const Transform transform = {.position{2, 0, -8}};
         const LitEntity defaultCube = {
                 .transformIndex = db_add_transform(transform),
-                .meshIndex = defaultMeshID,
+                .meshIndex = cubeID,
                 .materialIndex = defaultMaterialID,
         };
         db_add_lit_entity(defaultCube);
     }
+    //============================================================
+
+    //===ENTITY_OCTAHEDRON========================================
     {
         const Transform transform = {.position = {-2, 1, -12}};
         const LitEntity defaultCube = {
                 .transformIndex = db_add_transform(transform),
-                .meshIndex = defaultMeshID,
+                .meshIndex = octahedronID,
                 .materialIndex = defaultMaterialID,
         };
         db_add_lit_entity(defaultCube);
     }
+    //============================================================
 }
 
 void entities_cleanup() {
