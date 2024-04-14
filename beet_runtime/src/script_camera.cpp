@@ -23,11 +23,16 @@ void script_update_camera() {
         window_set_cursor(CursorState::Normal);
     }
 
+    constexpr const float HALF_PI = 1.5707964;
+    constexpr const float INPUT_EPSILON = 0.125f;
+    constexpr const float ROTATION_CLAMP = HALF_PI - INPUT_EPSILON;
+
     if (input_mouse_down(MouseButton::Right)) {
         const vec2f delta = input_mouse_delta();
         const float mouseSpeed = 12.0f;
         transform->rotation.y += (-delta.x * (float) time_delta()) * mouseSpeed;
         transform->rotation.x += (-delta.y * (float) time_delta()) * mouseSpeed;
+        transform->rotation.x = clamp(transform->rotation.x, -ROTATION_CLAMP, ROTATION_CLAMP);
 
         vec3f moveDirection{};
         const vec3f camForward = quat(transform->rotation) * WORLD_FORWARD;

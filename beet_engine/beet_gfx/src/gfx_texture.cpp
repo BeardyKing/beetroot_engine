@@ -134,12 +134,23 @@ void set_image_layout(
             1, &imageMemoryBarrier);
 }
 
-void gfx_texture_create_immediate_dds(const char *path, GfxTexture &outTexture) {
-    outTexture.imageSamplerType = TextureSamplerType::Linear;
+void gfx_texture_create_immediate_dds(const char *path, GfxTexture &inOutTexture) {
+    if(inOutTexture.imageSamplerType == TextureSamplerType::Invalid){
+        inOutTexture.imageSamplerType = TextureSamplerType::LinearRepeat;
+    }
 
     RawImage myImage{};
     load_dds_image(path, &myImage);
     auto rawImageData = (unsigned char *) myImage.data;
+
+#if BEET_DEBUG
+    sprintf(inOutTexture.debug_name, "%s", path);
+    inOutTexture.debug_textureFormat = myImage.textureFormat;
+    inOutTexture.debug_mipMapCount = myImage.mipMapCount;
+    inOutTexture.debug_width = myImage.width;
+    inOutTexture.debug_height = myImage.height;
+    inOutTexture.debug_depth = myImage.depth;
+#endif
 
     const uint32_t sizeX = myImage.width;
     const uint32_t sizeY = myImage.height;
@@ -216,18 +227,18 @@ void gfx_texture_create_immediate_dds(const char *path, GfxTexture &outTexture) 
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.flags = 0;
 
-    const VkResult createImageRes = vkCreateImage(g_vulkanBackend.device, &imageCreateInfo, nullptr, &outTexture.image);
+    const VkResult createImageRes = vkCreateImage(g_vulkanBackend.device, &imageCreateInfo, nullptr, &inOutTexture.image);
     ASSERT(createImageRes == VK_SUCCESS);
 
-    vkGetImageMemoryRequirements(g_vulkanBackend.device, outTexture.image, &memoryRequirements);
+    vkGetImageMemoryRequirements(g_vulkanBackend.device, inOutTexture.image, &memoryRequirements);
 
     memoryAllocateInfo.allocationSize = memoryRequirements.size;
     memoryAllocateInfo.memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    const VkResult memAllocRes = vkAllocateMemory(g_vulkanBackend.device, &memoryAllocateInfo, nullptr, &outTexture.deviceMemory);
+    const VkResult memAllocRes = vkAllocateMemory(g_vulkanBackend.device, &memoryAllocateInfo, nullptr, &inOutTexture.deviceMemory);
     ASSERT(memAllocRes == VK_SUCCESS);
 
-    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, outTexture.image, outTexture.deviceMemory, 0);
+    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, inOutTexture.image, inOutTexture.deviceMemory, 0);
     ASSERT(bindRes == VK_SUCCESS);
 
     VkImageSubresourceRange subresourceRange = {};
@@ -240,7 +251,7 @@ void gfx_texture_create_immediate_dds(const char *path, GfxTexture &outTexture) 
 
     set_image_layout(
             g_vulkanBackend.immediateCommandBuffer,
-            outTexture.image,
+            inOutTexture.image,
             VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             subresourceRange,
@@ -252,7 +263,7 @@ void gfx_texture_create_immediate_dds(const char *path, GfxTexture &outTexture) 
     vkCmdCopyBufferToImage(
             g_vulkanBackend.immediateCommandBuffer,
             stagingBuffer,
-            outTexture.image,
+            inOutTexture.image,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             static_cast<uint32_t>(mipMapCount),
             bufferCopyRegions
@@ -260,7 +271,7 @@ void gfx_texture_create_immediate_dds(const char *path, GfxTexture &outTexture) 
 
     set_image_layout(
             g_vulkanBackend.immediateCommandBuffer,
-            outTexture.image,
+            inOutTexture.image,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             subresourceRange,
@@ -268,7 +279,7 @@ void gfx_texture_create_immediate_dds(const char *path, GfxTexture &outTexture) 
             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
     );
 
-    outTexture.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    inOutTexture.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     gfx_command_end_immediate_recording();
 
@@ -283,14 +294,14 @@ void gfx_texture_create_immediate_dds(const char *path, GfxTexture &outTexture) 
     view.subresourceRange.baseArrayLayer = 0;
     view.subresourceRange.layerCount = 1;
     view.subresourceRange.levelCount = mipMapCount;
-    view.image = outTexture.image;
+    view.image = inOutTexture.image;
 
-    const VkResult imageViewRes = vkCreateImageView(g_vulkanBackend.device, &view, nullptr, &outTexture.view);
+    const VkResult imageViewRes = vkCreateImageView(g_vulkanBackend.device, &view, nullptr, &inOutTexture.view);
     ASSERT(imageViewRes == VK_SUCCESS);
 
-    outTexture.descriptor.imageView = outTexture.view;
-    outTexture.descriptor.sampler = gfx_samplers()->samplers[outTexture.imageSamplerType];
-    outTexture.descriptor.imageLayout = outTexture.layout;
+    inOutTexture.descriptor.imageView = inOutTexture.view;
+    inOutTexture.descriptor.sampler = gfx_samplers()->samplers[inOutTexture.imageSamplerType];
+    inOutTexture.descriptor.imageLayout = inOutTexture.layout;
 }
 
 void gfx_texture_cleanup(GfxTexture &gfxTexture) {

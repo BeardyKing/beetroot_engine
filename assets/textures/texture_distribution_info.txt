@@ -15,7 +15,7 @@ oct_map_test
     Author:  Kingsley Hopking
 
 Herkulessäulen
-    File: herkulessaulen_1k
+    File: herkulessaulen_4k
     Dir: res/textures/sky/
     Format: .hdr
     Licence: CC0

@@ -3,15 +3,27 @@
 
 #include <vulkan/vulkan_core.h> // must go before any vulkan implementations
 
-#include <beet_gfx/gfx_vulkan_platform_defines.h>
 #include <beet_math/mat4.h>
 #include <beet_math/vec3.h>
 #include <beet_math/vec2.h>
 
+#include <beet_gfx/gfx_vulkan_platform_defines.h>
 #include <beet_gfx/gfx_buffer.h> // TODO: consider moving the struct into here instead.
 #include <beet_gfx/gfx_mesh.h> // TODO: consider moving the struct into here instead.
 
+#include <beet_shared/texture_formats.h>
+
 #include <vector>
+
+//===GPU TYPES==============================================
+//TODO: add infra to include this type in shader code.
+struct SceneUBO {
+    mat4 projection;
+    mat4 view;
+    vec3f position;
+    float unused_0;
+};
+//==========================================================
 
 struct SwapChainBuffers {
     VkImage image;
@@ -47,11 +59,6 @@ struct QueueFamilyIndices {
     uint32_t compute = {UINT32_MAX};
     uint32_t transfer = {UINT32_MAX};
     uint32_t present = {UINT32_MAX};
-};
-
-struct UniformData {
-    glm::mat4 projection;
-    glm::mat4 view;
 };
 
 struct TargetVulkanFormats {
@@ -130,6 +137,14 @@ struct GfxTexture {
     VkImageLayout layout;
     uint32_t imageSamplerType;
     VkDescriptorImageInfo descriptor;
+#if BEET_DEBUG
+    char debug_name[MAX_PATH];
+    TextureFormat debug_textureFormat;
+    uint32_t debug_mipMapCount;
+    uint32_t debug_width;
+    uint32_t debug_height;
+    uint32_t debug_depth;
+#endif
 };
 
 #endif //BEETROOT_GFX_TYPES_H

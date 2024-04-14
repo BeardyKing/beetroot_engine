@@ -12,8 +12,7 @@ struct LitEntity {
     uint32_t materialIndex;
 };
 
-struct FontEntity {
-    uint32_t uiTransformIndex;
+struct SkyEntity {
     uint32_t meshIndex;
     uint32_t materialIndex;
 };
@@ -52,6 +51,11 @@ struct LitMaterial {
     //float metallicScalar{1.0f};
     //float roughnessScalar{1.0f};
     //float occlusionScalar{1.0f};
+};
+
+struct SkyMaterial {
+    uint32_t descriptorSetIndex{0};
+    uint32_t octahedralMapIndex{0};
 };
 
 #endif //BEETROOT_BEET_TYPES_H

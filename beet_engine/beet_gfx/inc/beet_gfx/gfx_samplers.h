@@ -3,9 +3,11 @@
 
 #include <vulkan/vulkan_core.h>
 
-enum TextureSamplerType {
-    Linear = 0,
-    Point = 1,
+enum TextureSamplerType : int32_t {
+    Invalid = 0,
+    LinearRepeat = 1,
+    LinearMirror = 2,
+    PointRepeat = 3,
 
     COUNT,
 };

@@ -6,6 +6,8 @@
 #include <beet_gfx/db_asset.h>
 #include <beet_gfx/gfx_texture.h>
 #include <beet_gfx/gfx_lit.h>
+#include <beet_gfx/gfx_sky.h>
+#include <beet_gfx/gfx_samplers.h>
 
 
 void primary_camera_entity_create() {
@@ -31,21 +33,46 @@ void lit_entities_create() {
     }
     //============================================================
 
-    //===MATERIAL=================================================
-    uint32_t defaultMaterialID = {UINT32_MAX};
+    //===TEXTURE==================================================
+    uint32_t uvGridTextureID = {UINT32_MAX};
     {
         GfxTexture uvTestTexture = {};
         gfx_texture_create_immediate_dds("../res/textures/UV_Grid/UV_Grid_test.dds", uvTestTexture);
+        uvGridTextureID = db_add_texture(uvTestTexture);
+    }
+    uint32_t skyboxTextureID = {UINT32_MAX};
+    {
+        GfxTexture skyboxTexture = {.imageSamplerType = TextureSamplerType::LinearMirror};
+        gfx_texture_create_immediate_dds("../res/textures/sky/herkulessaulen_4k-octahedral.dds", skyboxTexture);
+        skyboxTextureID = db_add_texture(skyboxTexture);
+    }
+    //============================================================
 
+    //===MATERIAL=================================================
+    uint32_t cubeLitMaterialID = {UINT32_MAX};
+    {
         VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
-        gfx_lit_update_material_descriptor(descriptorSet, uvTestTexture);
+        gfx_lit_update_material_descriptor(descriptorSet, *db_get_texture(uvGridTextureID));
 
         const LitMaterial material = {
                 .descriptorSetIndex = db_add_descriptor_set(descriptorSet),
-                .albedoIndex = db_add_texture(uvTestTexture),
+                .albedoIndex = uvGridTextureID
         };
 
-        defaultMaterialID = db_add_lit_material(material);
+        cubeLitMaterialID = db_add_lit_material(material);
+    }
+
+    uint32_t octaSkyMaterialID = {UINT32_MAX};
+    {
+        VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
+        gfx_sky_update_material_descriptor(descriptorSet, *db_get_texture(skyboxTextureID));
+
+        const SkyMaterial material = {
+                .descriptorSetIndex = db_add_descriptor_set(descriptorSet),
+                .octahedralMapIndex = skyboxTextureID
+        };
+
+        octaSkyMaterialID = db_add_sky_material(material);
     }
     //============================================================
 
@@ -55,7 +82,7 @@ void lit_entities_create() {
         const LitEntity defaultCube = {
                 .transformIndex = db_add_transform(transform),
                 .meshIndex = cubeID,
-                .materialIndex = defaultMaterialID,
+                .materialIndex = cubeLitMaterialID,
         };
         db_add_lit_entity(defaultCube);
     }
@@ -63,13 +90,11 @@ void lit_entities_create() {
 
     //===ENTITY_OCTAHEDRON========================================
     {
-        const Transform transform = {.position = {-2, 1, -12}};
-        const LitEntity defaultCube = {
-                .transformIndex = db_add_transform(transform),
+        const SkyEntity defaultCube = {
                 .meshIndex = octahedronID,
-                .materialIndex = defaultMaterialID,
+                .materialIndex = octaSkyMaterialID,
         };
-        db_add_lit_entity(defaultCube);
+        db_add_sky_entity(defaultCube);
     }
     //============================================================
 }

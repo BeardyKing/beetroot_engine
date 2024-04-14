@@ -13,8 +13,8 @@
 
 #include <vulkan/vulkan_core.h>
 
-struct UniformBufferObject {
-    mat4 mvp;
+struct LitPushConstantBuffer {
+    mat4 model;
 };
 
 struct VulkanLit {
@@ -43,34 +43,20 @@ void gfx_cleanup_lit() {
 }
 
 void gfx_lit_draw(VkCommandBuffer &cmdBuffer) {
-    //TODO: cache this work off, only update it on camera change and allow the cached value to be used cross system.
-    const CameraEntity &camEntity = *db_get_camera_entity(0);
-    const Camera &camera = *db_get_camera(camEntity.cameraIndex);
-    const Transform &camTransform = *db_get_transform(camEntity.transformIndex);
-
-    auto camForward = quat(camTransform.rotation) * WORLD_FORWARD;
-    vec3f lookTarget = camTransform.position + camForward;
-
-    mat4 view = lookAt(camTransform.position, lookTarget, WORLD_UP);
-    mat4 proj = perspective(as_radians(camera.fov), (float) g_vulkanBackend.swapChain.width / (float) g_vulkanBackend.swapChain.height, camera.zNear, camera.zFar);
-    proj[1][1] *= -1;
-    mat4 viewProj = proj * view;
-
     const uint32_t litEntityCount = db_get_lit_entity_count();
     for (uint32_t i = 0; i < litEntityCount; ++i) {
-        const LitEntity& entity = *db_get_lit_entity(i);
-        const LitMaterial& material = *db_get_lit_material(entity.materialIndex);
-        const VkDescriptorSet& descriptorSet = *db_get_descriptor_set(material.descriptorSetIndex);
-        const Transform& transform = *db_get_transform(entity.transformIndex);
-        const GfxMesh& mesh = *db_get_mesh(entity.meshIndex);
+        const LitEntity &entity = *db_get_lit_entity(i);
+        const LitMaterial &material = *db_get_lit_material(entity.materialIndex);
+        const VkDescriptorSet &descriptorSet = *db_get_descriptor_set(material.descriptorSetIndex);
+        const Transform &transform = *db_get_transform(entity.transformIndex);
+        const GfxMesh &mesh = *db_get_mesh(entity.meshIndex);
 
         vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxLit.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
         vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxLit.pipeline);
 
         const mat4 model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(mat4(1.0f), transform.scale);
-        // replace with UniformBufferLayout
-        const UniformBufferObject ubo = {viewProj * model};
-        vkCmdPushConstants(cmdBuffer, g_gfxLit.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformBufferObject), &ubo);
+        const LitPushConstantBuffer pushConstantBuffer = {model};
+        vkCmdPushConstants(cmdBuffer, g_gfxLit.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(LitPushConstantBuffer), &pushConstantBuffer);
 
         const VkBuffer vertexBuffers[] = {mesh.vertBuffer};
         const VkDeviceSize offsets[] = {0};
@@ -144,7 +130,7 @@ void gfx_create_lit_pipelines() {
     VkPushConstantRange pushConstantRange{
             .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
             .offset = 0,
-            .size = sizeof(UniformBufferObject),
+            .size = sizeof(LitPushConstantBuffer),
     };
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{

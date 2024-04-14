@@ -457,6 +457,7 @@ void load_dds_image(const char *path, RawImage *outRawImage) {
             sumOfMipData += outNumBytes;
         }
     }
+    asser
 
     const void *imageStartPos = (unsigned char *) header + sizeof(HeaderDDS) + sizeof(HeaderDDSDXT10);
     outRawImage->textureFormat = internal_dxgi_to_beet_texture_format(format);

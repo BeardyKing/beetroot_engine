@@ -41,6 +41,8 @@ add_library(beet_gfx
         src/db_asset.cpp
         inc/beet_gfx/gfx_texture.h
         src/gfx_texture.cpp
+        inc/beet_gfx/gfx_sky.h
+        src/gfx_sky.cpp
 )
 
 target_include_directories(beet_gfx

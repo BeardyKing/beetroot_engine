@@ -138,6 +138,24 @@ LitMaterial *db_get_lit_material(uint32_t index) {
 }
 //==========================================================================
 
+//===SKY_MATERIAL===========================================================
+static SkyMaterial s_dbSkyMaterials[MAX_DB_SKY_MATERIALS] = {0};
+static uint32_t s_dbSkyMaterialsCount{0};
+
+uint32_t db_add_sky_material(const SkyMaterial &skyMaterial) {
+    ASSERT(s_dbSkyMaterialsCount < MAX_DB_LIT_MATERIALS);
+    uint32_t currentLitMaterialsIndex = s_dbSkyMaterialsCount;
+    s_dbSkyMaterials[currentLitMaterialsIndex] = skyMaterial;
+    s_dbSkyMaterialsCount++;
+    return currentLitMaterialsIndex;
+}
+
+SkyMaterial *db_get_sky_material(uint32_t index) {
+    ASSERT(index < MAX_DB_LIT_MATERIALS);
+    return &s_dbSkyMaterials[index];
+}
+//==========================================================================
+
 //===LIT_ENTITIES===========================================================
 static LitEntity s_dbLitEntities[MAX_DB_LIT_ENTITIES] = {0};
 static uint32_t s_dbLitEntitiesCount{0};
@@ -156,6 +174,28 @@ uint32_t db_add_lit_entity(const LitEntity &litEntity) {
 LitEntity *db_get_lit_entity(uint32_t index) {
     ASSERT(index < MAX_DB_LIT_ENTITIES);
     return &s_dbLitEntities[index];
+}
+//==========================================================================
+
+//===SKY_ENTITIES===========================================================
+static SkyEntity s_dbSkyEntities[MAX_DB_SKY_ENTITIES] = {0};
+static uint32_t s_dbSkyEntitiesCount{0};
+
+uint32_t db_get_sky_entity_count() {
+    return s_dbSkyEntitiesCount;
+}
+
+uint32_t db_add_sky_entity(const SkyEntity &skyEntity) {
+    ASSERT(s_dbSkyEntitiesCount < MAX_DB_LIT_ENTITIES);
+    uint32_t currentLitEntityIndex = s_dbSkyEntitiesCount;
+    s_dbSkyEntities[currentLitEntityIndex] = skyEntity;
+    s_dbSkyEntitiesCount++;
+    return currentLitEntityIndex;
+}
+
+SkyEntity *db_get_sky_entity(uint32_t index) {
+    ASSERT(index < MAX_DB_LIT_ENTITIES);
+    return &s_dbSkyEntities[index];
 }
 //==========================================================================
 

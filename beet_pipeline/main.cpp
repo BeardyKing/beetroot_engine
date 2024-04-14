@@ -53,6 +53,9 @@ void build_spv_from_source() {
 
         pipeline_build_shader_spv("lit/lit.frag", "lit.frag.spv");
         pipeline_build_shader_spv("lit/lit.vert", "lit.vert.spv");
+
+        pipeline_build_shader_spv("sky/sky.frag", "sky.frag.spv");
+        pipeline_build_shader_spv("sky/sky.vert", "sky.vert.spv");
     }
 }
 

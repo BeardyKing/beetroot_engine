@@ -59,12 +59,26 @@ uint32_t db_add_lit_material(const LitMaterial &litMaterial);
 LitMaterial *db_get_lit_material(uint32_t index);
 //==========================================================================
 
+//===LIT_SKY===========================================================
+#define MAX_DB_SKY_MATERIALS 1
+uint32_t db_add_sky_material(const SkyMaterial &skyMaterial);
+SkyMaterial *db_get_sky_material(uint32_t index);
+//==========================================================================
+
 //===LIT_ENTITIES===========================================================
 #define MAX_DB_LIT_ENTITIES 64
 
 uint32_t db_get_lit_entity_count();
 uint32_t db_add_lit_entity(const LitEntity &litEntity);
 LitEntity *db_get_lit_entity(uint32_t index);
+//==========================================================================
+
+//===LIT_ENTITIES===========================================================
+#define MAX_DB_SKY_ENTITIES 64
+
+uint32_t db_get_sky_entity_count();
+uint32_t db_add_sky_entity(const SkyEntity &skyEntity);
+SkyEntity *db_get_sky_entity(uint32_t index);
 //==========================================================================
 
 #endif //BEETROOT_DB_ASSET_H

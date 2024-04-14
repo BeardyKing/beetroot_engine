@@ -19,6 +19,7 @@
 #include <beet_gfx/gfx_debug.h>
 #include <beet_gfx/gfx_imgui.h>
 #include <beet_gfx/gfx_lit.h>
+#include <beet_gfx/gfx_sky.h>
 #include <beet_gfx/db_asset.h>
 
 #include <beet_math/quat.h>
@@ -743,11 +744,6 @@ void gfx_window_resize() {
 }
 
 void gfx_update_uniform_buffers() {
-    struct UniformBufferLayout {
-        glm::mat4 projection;
-        glm::mat4 view;
-    };
-
     //TODO: UPDATE UBO with camera info i.e. view & proj.
     const CameraEntity &camEntity = *db_get_camera_entity(0);
     const Camera &camera = *db_get_camera(camEntity.cameraIndex);
@@ -762,11 +758,13 @@ void gfx_update_uniform_buffers() {
     proj[1][1] *= -1; // flip view proj, need to switch to the vulkan glm define to fix this.
     mat4 viewProj = proj * view;
 
-    const UniformBufferLayout uniformBuffData{
+    const SceneUBO uniformBuffData{
             .projection = proj,
             .view = view,
+            .position = camTransform.position,
+            .unused_0 = {},
     };
-    memcpy(g_vulkanBackend.uniformBuffer.mappedData, &uniformBuffData, sizeof(uniformBuffData));
+    memcpy(g_vulkanBackend.uniformBuffer.mappedData, &uniformBuffData, sizeof(SceneUBO));
 }
 
 
@@ -875,6 +873,7 @@ void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
             const VkRect2D scissor = {0, 0, g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
             vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
+            gfx_sky_draw(cmdBuffer);
             gfx_lit_draw(cmdBuffer);
 #if BEET_GFX_IMGUI
             gfx_imgui_draw(cmdBuffer);
@@ -923,7 +922,7 @@ void gfx_create_uniform_buffers() {
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             g_vulkanBackend.uniformBuffer,
-            sizeof(UniformData),
+            sizeof(SceneUBO),
             nullptr
     );
     ASSERT(uniformResult == VK_SUCCESS);
@@ -958,6 +957,7 @@ void gfx_create(void *windowHandle) {
 #if BEET_GFX_IMGUI
     gfx_create_imgui(windowHandle);
 #endif //BEET_GFX_IMGUI
+    gfx_create_sky();
     gfx_create_lit();
 }
 
@@ -988,6 +988,7 @@ void gfx_cleanup() {
     gfx_cleanup_uniform_buffers();
 
     gfx_cleanup_lit();
+    gfx_cleanup_sky();
 #if BEET_GFX_IMGUI
     gfx_cleanup_imgui();
 #endif //BEET_GFX_IMGUI

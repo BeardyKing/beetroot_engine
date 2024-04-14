@@ -30,7 +30,27 @@ void gfx_build_samplers() {
         samplerInfo.mipLodBias = 0.0f;
         samplerInfo.minLod = 0.0f;
         samplerInfo.maxLod = BEET_MAX_MIP_COUNT;
-        VkResult linearResult = vkCreateSampler(g_vulkanBackend.device, &samplerInfo, nullptr, &g_textureSamplers.samplers[TextureSamplerType::Linear]);
+        VkResult linearResult = vkCreateSampler(g_vulkanBackend.device, &samplerInfo, nullptr, &g_textureSamplers.samplers[TextureSamplerType::LinearRepeat]);
+        ASSERT_MSG(linearResult == VK_SUCCESS, "Err: failed to create linear sampler");
+    }
+    {
+        VkSamplerCreateInfo samplerInfo = {VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+        samplerInfo.anisotropyEnable = VK_TRUE;
+        samplerInfo.maxAnisotropy = 16;
+        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        samplerInfo.unnormalizedCoordinates = VK_FALSE;
+        samplerInfo.compareEnable = VK_FALSE;
+        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerInfo.mipLodBias = 0.0f;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = BEET_MAX_MIP_COUNT;
+        VkResult linearResult = vkCreateSampler(g_vulkanBackend.device, &samplerInfo, nullptr, &g_textureSamplers.samplers[TextureSamplerType::LinearMirror]);
         ASSERT_MSG(linearResult == VK_SUCCESS, "Err: failed to create linear sampler");
     }
     {
@@ -50,17 +70,20 @@ void gfx_build_samplers() {
         samplerInfo.mipLodBias = 0.0f;
         samplerInfo.minLod = 0.0f;
         samplerInfo.maxLod = BEET_MAX_MIP_COUNT;
-        VkResult pointResult = vkCreateSampler(g_vulkanBackend.device, &samplerInfo, nullptr, &g_textureSamplers.samplers[TextureSamplerType::Point]);
+        VkResult pointResult = vkCreateSampler(g_vulkanBackend.device, &samplerInfo, nullptr, &g_textureSamplers.samplers[TextureSamplerType::PointRepeat]);
         ASSERT_MSG(pointResult == VK_SUCCESS, "Err: failed to create linear sampler");
     }
 }
 
 void cleanup_samplers() {
-    vkDestroySampler(g_vulkanBackend.device, g_textureSamplers.samplers[TextureSamplerType::Linear], nullptr);
-    g_textureSamplers.samplers[TextureSamplerType::Linear] = VK_NULL_HANDLE;
+    vkDestroySampler(g_vulkanBackend.device, g_textureSamplers.samplers[TextureSamplerType::LinearRepeat], nullptr);
+    g_textureSamplers.samplers[TextureSamplerType::LinearRepeat] = VK_NULL_HANDLE;
 
-    vkDestroySampler(g_vulkanBackend.device, g_textureSamplers.samplers[TextureSamplerType::Point], nullptr);
-    g_textureSamplers.samplers[TextureSamplerType::Point] = VK_NULL_HANDLE;
+    vkDestroySampler(g_vulkanBackend.device, g_textureSamplers.samplers[TextureSamplerType::LinearMirror], nullptr);
+    g_textureSamplers.samplers[TextureSamplerType::LinearMirror] = VK_NULL_HANDLE;
+
+    vkDestroySampler(g_vulkanBackend.device, g_textureSamplers.samplers[TextureSamplerType::PointRepeat], nullptr);
+    g_textureSamplers.samplers[TextureSamplerType::PointRepeat] = VK_NULL_HANDLE;
 }
 
 void gfx_create_samplers() {
