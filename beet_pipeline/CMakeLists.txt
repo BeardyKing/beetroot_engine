@@ -30,6 +30,7 @@ add_subdirectory(third/ispc_texture_compressor_cmake)
 
 target_link_libraries(beet_pipeline
         beet_shared
+        beet_converter
         ispc_texture_compressor
         c_gltf
         fmt::fmt

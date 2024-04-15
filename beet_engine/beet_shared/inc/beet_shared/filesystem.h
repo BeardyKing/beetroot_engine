@@ -12,4 +12,6 @@ bool fs_rmdir(const char *path);
 
 bool fs_file_exists(const char *path);
 
+size_t fs_file_size(const char *path);
+
 #endif //BEETROOT_FILESYSTEM_H

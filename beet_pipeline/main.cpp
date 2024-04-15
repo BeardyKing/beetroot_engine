@@ -8,8 +8,7 @@
 #include <beet_pipeline/pipeline_commandlines.h>
 #include <beet_shared/assert.h>
 #include <beet_pipeline/shader_compile.h>
-#include "beet_pipeline/pipeline_defines.h"
-#include "beet_shared/filesystem.h"
+#include <beet_converter/converter_interface.h>
 
 // investigate https://github.com/floooh/sokol-samples/blob/master/sapp/cgltf-sapp.c
 // gltf_parse_images() / gltf_parse()
@@ -45,17 +44,15 @@ void gltf_parsing_tests() {
 }
 
 void build_spv_from_source() {
-    fs_mkdir_recursive(CLIENT_RUNTIME_SHADER_DIR);
-    pipeline_shader_log();
     {
-        pipeline_build_shader_spv("indirectdraw/indirectdraw.frag", "indirectdraw.frag.spv");
-        pipeline_build_shader_spv("indirectdraw/indirectdraw.vert", "indirectdraw.vert.spv");
+        ASSERT(convert_shader_spv("shaders/indirectdraw/indirectdraw.frag"));
+        ASSERT(convert_shader_spv("shaders/indirectdraw/indirectdraw.vert"));
 
-        pipeline_build_shader_spv("lit/lit.frag", "lit.frag.spv");
-        pipeline_build_shader_spv("lit/lit.vert", "lit.vert.spv");
+        ASSERT(convert_shader_spv("shaders/lit/lit.frag"));
+        ASSERT(convert_shader_spv("shaders/lit/lit.vert"));
 
-        pipeline_build_shader_spv("sky/sky.frag", "sky.frag.spv");
-        pipeline_build_shader_spv("sky/sky.vert", "sky.vert.spv");
+        ASSERT(convert_shader_spv("shaders/sky/sky.frag"));
+        ASSERT(convert_shader_spv("shaders/sky/sky.vert"));
     }
 }
 
@@ -65,6 +62,8 @@ int main(int argc, char **argv) {
         commandline_show_commands();
         return 0;
     }
+    converter_init(BEET_CMAKE_PIPELINE_ASSETS_DIR, BEET_CMAKE_RUNTIME_ASSETS_DIR);
+    converter_option_set_ignore_cache(commandline_get_arg(CLArgs::ignoreConvertCache).enabled);
 
     build_spv_from_source();
 }

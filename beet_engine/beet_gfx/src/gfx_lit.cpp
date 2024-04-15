@@ -205,8 +205,8 @@ void gfx_create_lit_pipelines() {
     };
     pipelineCreateInfo.pVertexInputState = &inputState;
 
-    shaderStages[0] = gfx_load_shader("../assets/shaders/lit.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-    shaderStages[1] = gfx_load_shader("../assets/shaders/lit.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+    shaderStages[0] = gfx_load_shader("../assets/shaders/lit/lit.vert", VK_SHADER_STAGE_VERTEX_BIT);
+    shaderStages[1] = gfx_load_shader("../assets/shaders/lit/lit.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
     const VkResult pipelineRes = (vkCreateGraphicsPipelines(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, 1, &pipelineCreateInfo, nullptr, &g_gfxLit.pipeline));
     ASSERT_MSG(pipelineRes == VK_SUCCESS, "Err: failed to create graphics pipeline");
     vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[0].module, nullptr);

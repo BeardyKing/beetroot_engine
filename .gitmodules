@@ -13,3 +13,12 @@
 [submodule "beet_engine/beet_gfx/third/imgui"]
 	path = beet_engine/beet_gfx/third/imgui
 	url = https://github.com/ocornut/imgui.git
+[submodule "beet_engine/beet_converter/third/glslang"]
+	path = beet_engine/beet_converter/third/glslang
+	url = https://github.com/KhronosGroup/glslang.git
+[submodule "beet_engine/beet_converter/third/SPIRV-Headers"]
+	path = beet_engine/beet_converter/third/SPIRV-Headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers.git
+[submodule "beet_engine/beet_converter/third/SPIRV-Tools"]
+	path = beet_engine/beet_converter/third/SPIRV-Tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools.git

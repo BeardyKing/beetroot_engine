@@ -8,6 +8,8 @@ const char *log_channel_name_lookup(const MSG_CHANNEL &channel) {
             return "[server]";
         case MSG_PIPELINE:
             return "[pipeline]";
+        case MSG_CONVERTER:
+            return "[converter]";
 
         case MSG_GFX:
             return "[gfx]";

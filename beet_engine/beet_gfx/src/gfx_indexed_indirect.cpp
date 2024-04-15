@@ -111,8 +111,8 @@ void gfx_build_indexed_indirect_pipelines() {
     };
     pipelineCreateInfo.pVertexInputState = &inputState;
 
-    shaderStages[0] = gfx_load_shader("../assets/shaders/indirectdraw.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-    shaderStages[1] = gfx_load_shader("../assets/shaders/indirectdraw.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+    shaderStages[0] = gfx_load_shader("../assets/shaders/indirectdraw/indirectdraw.vert", VK_SHADER_STAGE_VERTEX_BIT);
+    shaderStages[1] = gfx_load_shader("../assets/shaders/indirectdraw/indirectdraw.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
     const VkResult pipelineRes = (vkCreateGraphicsPipelines(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, 1, &pipelineCreateInfo, nullptr, &g_gfxIndirect.pipeline));
     ASSERT_MSG(pipelineRes == VK_SUCCESS, "Err: failed to create graphics pipeline");
     vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[0].module, nullptr);

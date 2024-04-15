@@ -19,10 +19,11 @@ enum MSG_CHANNEL : uint32_t {
     MSG_RUNTIME = 1u << 1u,
     MSG_SERVER = 1u << 2u,
     MSG_PIPELINE = 1u << 3u,
+    MSG_CONVERTER = 1u << 4u,
 
-    MSG_GFX = 1u << 4u,
-    MSG_MATH = 1u << 5u,
-    MSG_DDS = 1u << 6u,
+    MSG_GFX = 1u << 5u,
+    MSG_MATH = 1u << 6u,
+    MSG_DDS = 1u << 7u,
 
     MSG_DBG = 1u << 31u,
     MSG_ALL = UINT32_MAX,

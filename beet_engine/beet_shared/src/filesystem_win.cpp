@@ -23,6 +23,12 @@ bool fs_file_exists(const char *path) {
     return (stat(path, &buffer) == 0);
 }
 
+size_t fs_file_size(const char* path){
+    struct stat buffer{};
+    stat(path, &buffer);
+    return buffer.st_size;
+}
+
 bool fs_mkdir_recursive_internal(const char path[FS_MAX_PATH_SIZE]) {
     constexpr size_t cpySize = sizeof(char) * FS_MAX_PATH_SIZE;
     char currPath[FS_MAX_PATH_SIZE] = {};
