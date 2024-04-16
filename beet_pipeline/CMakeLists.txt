@@ -51,13 +51,13 @@ target_compile_definitions(beet_pipeline PUBLIC GLSL_VALIDATOR_EXE_PATH="${GLSL_
 
 ##===PROPERTIES===========//
 set_target_properties(beet_pipeline PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
-set_target_properties(beet_pipeline PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/dist/pipeline/bin")
+set_target_properties(beet_pipeline PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/dist/pipeline")
 set_target_properties(beet_pipeline PROPERTIES OUTPUT_NAME beet_pipeline)
 
 ##===DEBUG================//
 target_compile_definitions(beet_pipeline PUBLIC BEET_PIPELINE=1)
-target_compile_definitions(beet_pipeline PUBLIC "BEET_CMAKE_PIPELINE_ASSETS_DIR=\"${BEET_CMAKE_ROOT_DIR}/assets/\"")
-target_compile_definitions(beet_pipeline PUBLIC "BEET_CMAKE_RUNTIME_ASSETS_DIR=\"${CMAKE_BINARY_DIR}/dist/runtime/assets/\"")
+target_compile_definitions(beet_pipeline PUBLIC "BEET_CMAKE_PIPELINE_ASSETS_DIR=\"${BEET_CMAKE_ROOT_DIR}/\"")
+target_compile_definitions(beet_pipeline PUBLIC "BEET_CMAKE_RUNTIME_ASSETS_DIR=\"${CMAKE_BINARY_DIR}/dist/runtime/\"")
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(beet_pipeline PUBLIC BEET_DEBUG=1)

@@ -45,14 +45,14 @@ void gltf_parsing_tests() {
 
 void build_spv_from_source() {
     {
-        ASSERT(convert_shader_spv("shaders/indirectdraw/indirectdraw.frag"));
-        ASSERT(convert_shader_spv("shaders/indirectdraw/indirectdraw.vert"));
+        ASSERT(convert_shader_spv("assets/shaders/indirectdraw/indirectdraw.frag"));
+        ASSERT(convert_shader_spv("assets/shaders/indirectdraw/indirectdraw.vert"));
 
-        ASSERT(convert_shader_spv("shaders/lit/lit.frag"));
-        ASSERT(convert_shader_spv("shaders/lit/lit.vert"));
+        ASSERT(convert_shader_spv("assets/shaders/lit/lit.frag"));
+        ASSERT(convert_shader_spv("assets/shaders/lit/lit.vert"));
 
-        ASSERT(convert_shader_spv("shaders/sky/sky.frag"));
-        ASSERT(convert_shader_spv("shaders/sky/sky.vert"));
+        ASSERT(convert_shader_spv("assets/shaders/sky/sky.frag"));
+        ASSERT(convert_shader_spv("assets/shaders/sky/sky.vert"));
     }
 }
 

@@ -37,13 +37,13 @@ void lit_entities_create() {
     uint32_t uvGridTextureID = {UINT32_MAX};
     {
         GfxTexture uvTestTexture = {};
-        gfx_texture_create_immediate_dds("../res/textures/UV_Grid/UV_Grid_test.dds", uvTestTexture);
+        gfx_texture_create_immediate_dds("assets/textures/UV_Grid/UV_Grid_test.dds", uvTestTexture);
         uvGridTextureID = db_add_texture(uvTestTexture);
     }
     uint32_t skyboxTextureID = {UINT32_MAX};
     {
         GfxTexture skyboxTexture = {.imageSamplerType = TextureSamplerType::LinearMirror};
-        gfx_texture_create_immediate_dds("../res/textures/sky/herkulessaulen_4k-octahedral.dds", skyboxTexture);
+        gfx_texture_create_immediate_dds("assets/textures/sky/herkulessaulen_4k-octahedral.dds", skyboxTexture);
         skyboxTextureID = db_add_texture(skyboxTexture);
     }
     //============================================================
