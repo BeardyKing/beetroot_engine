@@ -21,6 +21,7 @@
 #include <beet_gfx/gfx_lit.h>
 #include <beet_gfx/gfx_sky.h>
 #include <beet_gfx/db_asset.h>
+#include <beet_gfx/gfx_converter.h>
 
 #include <beet_math/quat.h>
 #include <beet_math/utilities.h>
@@ -104,21 +105,26 @@ void gfx_create_instance() {
         ASSERT_MSG(result, "Err: failed find support for validation layer [%s]", beetVulkanValidations[i]);
     }
 
-    VkApplicationInfo appInfo = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
-    appInfo.pApplicationName = "VK_BEETROOT_ENGINE";
-    appInfo.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
-    appInfo.pEngineName = "VK_BEETROOT_ENGINE";
-    appInfo.engineVersion = VK_MAKE_VERSION(0, 1, 0);
-    appInfo.apiVersion = BEET_MAX_VK_API_VERSION;
+    VkApplicationInfo applicationInfo = {
+            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            .pNext = nullptr,
+            .pApplicationName = "VK_BEETROOT_ENGINE",
+            .applicationVersion = VK_MAKE_VERSION(0, 1, 0),
+            .pEngineName = "VK_BEETROOT_ENGINE",
+            .engineVersion = VK_MAKE_VERSION(0, 1, 0),
+            .apiVersion = BEET_MAX_VK_API_VERSION,
+    };
 
-    VkInstanceCreateInfo instInfo = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
-    instInfo.pApplicationInfo = &appInfo;
-    instInfo.enabledExtensionCount = BEET_VK_INSTANCE_EXTENSION_COUNT;
-    instInfo.ppEnabledExtensionNames = BEET_VK_INSTANCE_EXTENSIONS;
-    instInfo.enabledLayerCount = BEET_VK_VALIDATION_COUNT;
-    instInfo.ppEnabledLayerNames = beetVulkanValidations;
+    VkInstanceCreateInfo instanceInfo = {
+            .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            .pApplicationInfo = &applicationInfo,
+            .enabledLayerCount = BEET_VK_VALIDATION_COUNT,
+            .ppEnabledLayerNames = beetVulkanValidations,
+            .enabledExtensionCount = BEET_VK_INSTANCE_EXTENSION_COUNT,
+            .ppEnabledExtensionNames = BEET_VK_INSTANCE_EXTENSIONS,
+    };
 
-    const auto result = vkCreateInstance(&instInfo, nullptr, &g_vulkanBackend.instance);
+    const auto result = vkCreateInstance(&instanceInfo, nullptr, &g_vulkanBackend.instance);
     ASSERT_MSG(result == VK_SUCCESS, "Err: failed to create vulkan instance");
 }
 
@@ -937,6 +943,10 @@ void gfx_cleanup_uniform_buffers() {
 }
 
 void gfx_create(void *windowHandle) {
+#if BEET_CONVERT_ON_DEMAND
+    gfx_converter_init(BEET_CMAKE_PIPELINE_ASSETS_DIR, BEET_CMAKE_RUNTIME_ASSETS_DIR);
+#endif //BEET_CONVERT_ON_DEMAND
+
     gfx_create_instance();
     gfx_create_debug_callbacks();
     gfx_create_physical_device();

@@ -1,5 +1,6 @@
 #include <beet_gfx/gfx_shader.h>
 #include <beet_gfx/gfx_types.h>
+#include <beet_gfx/gfx_converter.h>
 
 #include <beet_shared/assert.h>
 
@@ -34,6 +35,10 @@ VkShaderModule gfx_load_shader_binary(const char *path) {
 }
 
 VkPipelineShaderStageCreateInfo gfx_load_shader(const char *path, VkShaderStageFlagBits stage) {
+#if BEET_CONVERT_ON_DEMAND
+    gfx_convert_shader_spv(path);
+#endif //BEET_CONVERT_ON_DEMAND
+
     VkPipelineShaderStageCreateInfo shaderStage = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = stage,

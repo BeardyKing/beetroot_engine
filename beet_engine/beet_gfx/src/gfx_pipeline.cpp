@@ -7,6 +7,7 @@ VkPipelineInputAssemblyStateCreateInfo gfx_pipeline_input_assembly_create(
 
     return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+            .pNext = nullptr,
             .flags = flags,
             .topology = topology,
             .primitiveRestartEnable = primitiveRestartEnable,
@@ -21,6 +22,7 @@ VkPipelineRasterizationStateCreateInfo gfx_pipeline_rasterization_create(
 
     return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+            .pNext = nullptr,
             .flags = flags,
             .depthClampEnable = VK_FALSE,
             .polygonMode = polygonMode,
@@ -45,6 +47,7 @@ VkPipelineColorBlendStateCreateInfo gfx_pipeline_color_blend_state_create(
 
     return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+            .pNext = nullptr,
             .attachmentCount = attachmentCount,
             .pAttachments = pAttachments,
     };
@@ -57,6 +60,7 @@ VkPipelineDepthStencilStateCreateInfo gfx_pipeline_depth_stencil_state_create(
 
     return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+            .pNext = nullptr,
             .depthTestEnable = depthTestEnable,
             .depthWriteEnable = depthWriteEnable,
             .depthCompareOp = depthCompareOp,
@@ -73,6 +77,7 @@ VkPipelineViewportStateCreateInfo gfx_pipeline_viewport_state_create(
 
     return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+            .pNext = nullptr,
             .flags = flags,
             .viewportCount = viewportCount,
             .scissorCount = scissorCount,
@@ -85,6 +90,7 @@ VkPipelineMultisampleStateCreateInfo gfx_pipeline_multisample_state_create(
 
     return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+            .pNext = nullptr,
             .flags = flags,
             .rasterizationSamples = rasterizationSamples,
     };
@@ -97,6 +103,7 @@ VkPipelineDynamicStateCreateInfo gfx_pipeline_dynamic_state_create(
 
     return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+            .pNext = nullptr,
             .flags = flags,
             .dynamicStateCount = dynamicStateCount,
             .pDynamicStates = pDynamicStates,
@@ -106,6 +113,7 @@ VkPipelineDynamicStateCreateInfo gfx_pipeline_dynamic_state_create(
 VkGraphicsPipelineCreateInfo gfx_graphics_pipeline_create() {
     return {
             .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+            .pNext = nullptr,
             .basePipelineHandle = VK_NULL_HANDLE,
             .basePipelineIndex = -1,
     };
@@ -118,6 +126,7 @@ VkGraphicsPipelineCreateInfo gfx_graphics_pipeline_create(
 
     return {
             .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+            .pNext = nullptr,
             .flags = flags,
             .layout = layout,
             .renderPass = renderPass,

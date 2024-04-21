@@ -43,6 +43,8 @@ add_library(beet_gfx
         src/gfx_texture.cpp
         inc/beet_gfx/gfx_sky.h
         src/gfx_sky.cpp
+        inc/beet_gfx/gfx_converter.h
+        src/gfx_converter.cpp
 )
 
 target_include_directories(beet_gfx
@@ -55,6 +57,7 @@ find_package(Vulkan REQUIRED)
 target_link_libraries(beet_gfx
         beet_shared
         beet_math
+        beet_converter
 
         Vulkan::Vulkan
         imgui
@@ -62,8 +65,10 @@ target_link_libraries(beet_gfx
 
 set_target_properties(beet_gfx PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 
+target_compile_definitions(beet_gfx PUBLIC "BEET_CMAKE_PIPELINE_ASSETS_DIR=\"${BEET_CMAKE_ROOT_DIR}/\"")
+target_compile_definitions(beet_gfx PUBLIC "BEET_CMAKE_RUNTIME_ASSETS_DIR=\"${CMAKE_BINARY_DIR}/dist/runtime/\"")
+
 if (CMAKE_BUILD_TYPE MATCHES Debug)
-    target_compile_definitions(beet_gfx PUBLIC BEET_DEBUG=1)
     target_compile_definitions(beet_gfx PUBLIC _DEBUG=1)
 else ()
     target_compile_definitions(beet_gfx PUBLIC NDEBUG=1)

@@ -170,17 +170,16 @@ void gfx_create_sky_pipelines() {
     pipelineCreateInfo.pDynamicState = &dynamicState;
     pipelineCreateInfo.stageCount = shaderStagesCount;
     pipelineCreateInfo.pStages = &shaderStages[0];
-    {
-        // setup dynamic rendering
-        VkPipelineRenderingCreateInfoKHR pipelineRenderingCreateInfo{
-                .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
-                .colorAttachmentCount = 1,
-                .pColorAttachmentFormats = &g_vulkanTargetFormats.surfaceFormat.format,
-                .depthAttachmentFormat = g_vulkanTargetFormats.depthFormat,
-                .stencilAttachmentFormat = g_vulkanTargetFormats.depthFormat,
-        };
-        pipelineCreateInfo.pNext = &pipelineRenderingCreateInfo;
-    }
+    // setup dynamic rendering
+    VkPipelineRenderingCreateInfoKHR pipelineRenderingCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
+            .colorAttachmentCount = 1,
+            .pColorAttachmentFormats = &g_vulkanTargetFormats.surfaceFormat.format,
+            .depthAttachmentFormat = g_vulkanTargetFormats.depthFormat,
+            .stencilAttachmentFormat = g_vulkanTargetFormats.depthFormat,
+    };
+    pipelineCreateInfo.pNext = &pipelineRenderingCreateInfo;
+
 
     const uint32_t bindingDescriptionsSize = 1;
     VkVertexInputBindingDescription bindingDescriptions[bindingDescriptionsSize] = {
