@@ -5,6 +5,7 @@
 
 #include <sys/stat.h>
 
+//===API================================================================================================================
 bool pipeline_cache_should_convert(const std::string &toPath, const std::string &fromPath) {
     if (commandline_get_arg(CLArgs::ignoreConvertCache).enabled) {
         return true;
@@ -22,3 +23,4 @@ bool pipeline_cache_should_convert(const std::string &toPath, const std::string 
     }
     return true;
 }
+//======================================================================================================================

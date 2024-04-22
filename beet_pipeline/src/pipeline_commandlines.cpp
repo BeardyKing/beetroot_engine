@@ -6,8 +6,11 @@
 
 #include <cstring>
 
-CLArg s_commandLines[(size_t) CLArgs::COUNT] = {};
+//===INTERNAL_STRUCTS===================================================================================================
+static CLArg s_commandLines[(size_t) CLArgs::COUNT] = {};
+//======================================================================================================================
 
+//===API================================================================================================================
 void commandline_set_args(const int32_t argc, char **argv) {
     for (uint32_t i = 0; i < argc; ++i) {
         if (argv[i][0] != '-') {
@@ -21,15 +24,6 @@ void commandline_set_args(const int32_t argc, char **argv) {
     }
 }
 
-void commandline_init(const int32_t argc, char **argv) {
-    {
-        s_commandLines[(size_t) CLArgs::help] = {.name = "-help", .enabled = false};
-        s_commandLines[(size_t) CLArgs::ignoreConvertCache] = {.name = "-ignoreConvertCache", .enabled = false};
-    }
-
-    commandline_set_args(argc, argv);
-}
-
 CLArg commandline_get_arg(CLArgs clarg) {
     return s_commandLines[(size_t) clarg];
 }
@@ -40,5 +34,18 @@ void commandline_show_commands() {
         log_debug(MSG_PIPELINE, "\t[%u] \"%s\" = %u\n", i, s_commandLines[i].name, s_commandLines[i].enabled)
     }
 };
+//======================================================================================================================
+
+
+//===INIT===============================================================================================================
+void commandline_init(const int32_t argc, char **argv) {
+    {
+        s_commandLines[(size_t) CLArgs::help] = {.name = "-help", .enabled = false};
+        s_commandLines[(size_t) CLArgs::ignoreConvertCache] = {.name = "-ignoreConvertCache", .enabled = false};
+    }
+
+    commandline_set_args(argc, argv);
+}
+//======================================================================================================================
 
 #endif //BEETROOT_PIPELINE_COMMANDLINES_CPP

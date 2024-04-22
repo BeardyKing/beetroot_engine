@@ -9,6 +9,7 @@
 #include <beet_math/vec3.h>
 #include <beet_math/vec4.h>
 
+//===PUBLIC_STRUCTS=====================================================================================================
 struct GfxVertex {
     vec3f pos;
     vec3f normal;
@@ -40,10 +41,13 @@ struct GfxMesh {
     VkBuffer indexBuffer;
     VkDeviceMemory indexMemory;
 };
+//======================================================================================================================
 
+//===API================================================================================================================
 void gfx_mesh_create_cube_immediate(GfxMesh &outMesh);
 void gfx_mesh_create_octahedron_immediate(GfxMesh &outMesh);
 void gfx_mesh_create_immediate(const RawMesh &rawMesh, GfxMesh &outMesh);
 void gfx_mesh_cleanup(GfxMesh &mesh);
+//======================================================================================================================
 
 #endif //BEETROOT_GFX_MESH_H

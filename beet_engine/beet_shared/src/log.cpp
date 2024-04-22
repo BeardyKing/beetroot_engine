@@ -1,5 +1,6 @@
 #include <beet_shared/log.h>
 
+//===API================================================================================================================
 const char *log_channel_name_lookup(const MSG_CHANNEL &channel) {
     switch (channel) {
         case MSG_RUNTIME:
@@ -29,3 +30,4 @@ const char *log_channel_name_lookup(const MSG_CHANNEL &channel) {
     }
     return "[unknown]";
 }
+//======================================================================================================================

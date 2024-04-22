@@ -3,6 +3,7 @@
 
 #include <vulkan/vulkan.h>
 
+//===API================================================================================================================
 VkPipelineInputAssemblyStateCreateInfo gfx_pipeline_input_assembly_create(VkPrimitiveTopology topology,
                                                                           VkPipelineInputAssemblyStateCreateFlags flags,
                                                                           VkBool32 primitiveRestartEnable);
@@ -49,5 +50,6 @@ VkVertexInputAttributeDescription gfx_vertex_input_attribute_desc(uint32_t bindi
                                                                   uint32_t location,
                                                                   VkFormat format,
                                                                   uint32_t offset);
+//======================================================================================================================
 
 #endif //BEETROOT_GFX_PIPELINE_H

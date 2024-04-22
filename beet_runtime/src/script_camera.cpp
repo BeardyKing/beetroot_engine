@@ -8,8 +8,9 @@
 #include <beet_math/vec3.h>
 
 #include <beet_shared/beet_types.h>
-#include "beet_gfx/db_asset.h"
+#include <beet_gfx/db_asset.h>
 
+//===API================================================================================================================
 void script_update_camera() {
     const CameraEntity *camEntity = db_get_camera_entity(0);
     Transform *transform = db_get_transform(camEntity->transformIndex);
@@ -68,3 +69,4 @@ void script_update_camera() {
         transform->position += moveDirection * ((float) time_delta() * moveSpeed);
     }
 }
+//======================================================================================================================

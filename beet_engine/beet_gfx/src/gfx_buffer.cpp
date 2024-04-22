@@ -1,17 +1,17 @@
 #include <beet_gfx/gfx_buffer.h>
 #include <beet_gfx/gfx_types.h>
-#include <beet_gfx/gfx_pipeline.h>
-#include <beet_gfx/gfx_mesh.h>
-#include <beet_gfx/gfx_shader.h>
-#include <beet_gfx/gfx_descriptors.h>
 #include <beet_gfx/gfx_utils.h>
+#include <beet_gfx/gfx_command.h>
 
 #include <beet_shared/assert.h>
 
 #include <vulkan/vulkan_core.h>
 
+//===INTERNAL_STRUCTS===================================================================================================
 extern VulkanBackend g_vulkanBackend;
+//======================================================================================================================
 
+//===API================================================================================================================
 VkResult gfx_buffer_create(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFlags &memoryPropertyFlags, GfxBuffer &outBuffer, const VkDeviceSize size, void *inData) {
     VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferCreateInfo.usage = usageFlags;
@@ -116,3 +116,20 @@ gfx_buffer_create(const VkBufferUsageFlags &usageFlags, const VkMemoryPropertyFl
     const VkResult bindRes = vkBindBufferMemory(g_vulkanBackend.device, outBuffer, memory, 0);
     return bindRes;
 }
+
+void gfx_buffer_copy_immediate(GfxBuffer &src, GfxBuffer &dst, VkQueue queue, VkBufferCopy *copyRegion) {
+    ASSERT(dst.size <= src.size);
+    ASSERT(src.buffer);
+    gfx_command_begin_immediate_recording();
+    {
+        VkBufferCopy bufferCopy{};
+        if (copyRegion == nullptr) {
+            bufferCopy.size = src.size;
+        } else {
+            bufferCopy = *copyRegion;
+        }
+        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, src.buffer, dst.buffer, 1, &bufferCopy);
+    }
+    gfx_command_end_immediate_recording();
+}
+//======================================================================================================================

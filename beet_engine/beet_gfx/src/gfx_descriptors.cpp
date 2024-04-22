@@ -1,6 +1,6 @@
 #include <beet_gfx/gfx_descriptors.h>
 
-
+//===API================================================================================================================
 VkDescriptorSetAllocateInfo gfx_descriptor_set_alloc_info(VkDescriptorPool descriptorPool,
                                                           const VkDescriptorSetLayout *pSetLayouts,
                                                           uint32_t descriptorSetCount) {
@@ -42,3 +42,4 @@ VkWriteDescriptorSet gfx_descriptor_set_write(VkDescriptorSet dstSet,
             .pImageInfo = imageInfo,
     };
 }
+//======================================================================================================================

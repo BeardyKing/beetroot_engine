@@ -1,5 +1,6 @@
 #include <beet_gfx/gfx_pipeline.h>
 
+//===API================================================================================================================
 VkPipelineInputAssemblyStateCreateInfo gfx_pipeline_input_assembly_create(
         const VkPrimitiveTopology topology,
         const VkPipelineInputAssemblyStateCreateFlags flags,
@@ -162,3 +163,4 @@ VkVertexInputAttributeDescription gfx_vertex_input_attribute_desc(
             .offset = offset,
     };
 }
+//======================================================================================================================

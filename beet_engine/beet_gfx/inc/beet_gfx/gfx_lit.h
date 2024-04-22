@@ -6,6 +6,7 @@
 
 void gfx_create_lit();
 void gfx_cleanup_lit();
+bool gfx_rebuild_lit_pipeline();
 
 void gfx_lit_draw(VkCommandBuffer &cmdBuffer);
 

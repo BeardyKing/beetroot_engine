@@ -1,6 +1,7 @@
 #include <beet_shared/c_string.h>
 #include <cstring>
 
+//===API================================================================================================================
 bool c_str_empty(const char *inStr) {
     return (inStr == nullptr) || (inStr[0] == '\0');
 }
@@ -31,4 +32,5 @@ const char *c_str_search_reverse(const char *src, const char *subStr) {
 
     return c_str_n_search_reverse(src, srcLen, subStr, subStrLen);
 }
+//======================================================================================================================
 

@@ -4,7 +4,7 @@
 
 #include <beet_core/time.h>
 
-//===internal structs========
+//===INTERNAL_STRUCTS===================================================================================================
 static struct Time {
     double timeOnStartUp;
     double lastTime;
@@ -14,32 +14,34 @@ static struct Time {
     double frequency;
     uint32_t frameCount;
     double deltaTime;
-} g_time = {};
+} s_time = {};
+//======================================================================================================================
 
-//===internal functions======
-//===api=====================
+//===API================================================================================================================
 double time_delta() {
-    return g_time.deltaTime;
+    return s_time.deltaTime;
 }
 
 double time_current() {
-    return g_time.currentTime - g_time.timeOnStartUp;
+    return s_time.currentTime - s_time.timeOnStartUp;
 }
 
 uint32_t time_frame_count() {
-    return g_time.frameCount;
+    return s_time.frameCount;
 }
 
 void time_tick() {
 }
+//======================================================================================================================
 
-//===init & shutdown=========
+//===INIT_&_SHUTDOWN====================================================================================================
 void time_create() {
 
 }
 
 void time_cleanup() {
-    g_time = {0};
+    s_time = {0};
 }
+//======================================================================================================================
 
 #endif

@@ -9,8 +9,8 @@
 #include <beet_gfx/gfx_sky.h>
 #include <beet_gfx/gfx_samplers.h>
 
-
-void primary_camera_entity_create() {
+//===INTERNAL_FUNCTIONS=================================================================================================
+static void primary_camera_entity_create() {
     const CameraEntity cameraEntity{
             .transformIndex = db_add_transform({.position{0, 0, -1}}),
             .cameraIndex = db_add_camera({.fov = 65}),
@@ -18,7 +18,7 @@ void primary_camera_entity_create() {
     db_add_camera_entity(cameraEntity);
 }
 
-void lit_entities_create() {
+static void lit_entities_create() {
     //===MESH=====================================================
     uint32_t cubeID = {UINT32_MAX};
     uint32_t octahedronID = {UINT32_MAX};
@@ -98,7 +98,9 @@ void lit_entities_create() {
     }
     //============================================================
 }
+//======================================================================================================================
 
+//===INIT_&_SHUTDOWN====================================================================================================
 void entities_cleanup() {
     // if we are shutting down we can ignore all entities created in `primary_camera_entity_create`
     // but as a follow-up I should add some way to reset / free up various entities in the db
@@ -117,3 +119,4 @@ void entities_create() {
     primary_camera_entity_create();
     lit_entities_create();
 }
+//======================================================================================================================

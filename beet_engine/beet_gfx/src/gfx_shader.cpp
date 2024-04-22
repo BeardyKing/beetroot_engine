@@ -3,20 +3,24 @@
 #include <beet_gfx/gfx_converter.h>
 
 #include <beet_shared/assert.h>
+#include <beet_shared/memory.h>
 
 #include <vulkan/vulkan_core.h>
 
 #include <fstream>
 
+//===INTERNAL_STRUCTS===================================================================================================
 extern VulkanBackend g_vulkanBackend;
+//======================================================================================================================
 
+//===API================================================================================================================
 VkShaderModule gfx_load_shader_binary(const char *path) {
     //TODO Refactor this to using a new binary FS api that uses fstat as we shouldn't use tellg on a binary.
     std::ifstream is(path, std::ios::binary | std::ios::in | std::ios::ate);
     ASSERT_MSG(is.is_open(), "Err: Failed to open shader %s", path);
     size_t size = is.tellg();
     is.seekg(0, std::ios::beg);
-    char *shaderCode = (char *) malloc(sizeof(char) * size);
+    char *shaderCode = (char *) mem_zalloc(sizeof(char) * size);
     is.read(shaderCode, size);
     is.close();
     ASSERT(size > 0);
@@ -30,7 +34,7 @@ VkShaderModule gfx_load_shader_binary(const char *path) {
     const VkResult moduleResult = vkCreateShaderModule(g_vulkanBackend.device, &moduleCreateInfo, nullptr, &shaderModule);
     ASSERT(moduleResult == VK_SUCCESS);
 
-    free(shaderCode);
+    mem_free(shaderCode);
     return shaderModule;
 }
 
@@ -48,3 +52,4 @@ VkPipelineShaderStageCreateInfo gfx_load_shader(const char *path, VkShaderStageF
     assert(shaderStage.module != VK_NULL_HANDLE);
     return shaderStage;
 }
+//======================================================================================================================

@@ -4,8 +4,11 @@
 #include <beet_gfx/gfx_command.h>
 #include <beet_gfx/gfx_types.h>
 
+//===INTERNAL_STRUCTS===================================================================================================
 extern VulkanBackend g_vulkanBackend;
+//======================================================================================================================
 
+//===API================================================================================================================
 void gfx_mesh_create_immediate(const RawMesh &rawMesh, GfxMesh &outMesh) {
     ASSERT((rawMesh.vertexCount > 0) && (rawMesh.indexCount > 0));
 
@@ -202,3 +205,4 @@ void gfx_mesh_cleanup(GfxMesh &mesh) {
     //create free-list for each pool and next time we try and create a new texture to check if any free list spaces are free
     //we move the last image loaded into the newly free position and fix up and dependency, this will break any cached references.
 }
+//======================================================================================================================

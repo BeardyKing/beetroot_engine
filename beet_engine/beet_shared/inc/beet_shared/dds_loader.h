@@ -9,6 +9,8 @@
 // https://learn.microsoft.com/en-us/windows/win32/api/dxgiformat/ne-dxgiformat-dxgi_format
 // https://learn.microsoft.com/en-us/windows/uwp/gaming/complete-code-for-ddstextureloader
 
-void load_dds_image(const char *path, RawImage *outRawImage);
+//===API================================================================================================================
+void load_dds_image_alloc(const char *path, RawImage *outRawImage);
+//======================================================================================================================
 
 #endif //BEETROOT_DDS_LOADER_H

@@ -10,14 +10,17 @@
 #include <glslang/Include/glslang_c_interface.h>
 #include <glslang/Public/resource_limits_c.h>
 
+//===INTERNAL_STRUCTS===================================================================================================
 extern ConverterFileLocations g_converterDirs;
 
 struct SpirVBinary {
     uint32_t *words;
     size_t size;
 };
+//======================================================================================================================
 
-SpirVBinary compile_shader_to_SPIRV_vulkan_alloc(glslang_stage_t stage, const char *shaderSource, const char *fileName) {
+//===INTERNAL_FUNCTIONS=================================================================================================
+static SpirVBinary compile_shader_to_SPIRV_vulkan_alloc(glslang_stage_t stage, const char *shaderSource, const char *fileName) {
     const glslang_input_t input = {
             .language = GLSLANG_SOURCE_GLSL,
             .stage = stage,
@@ -70,7 +73,7 @@ SpirVBinary compile_shader_to_SPIRV_vulkan_alloc(glslang_stage_t stage, const ch
     glslang_program_SPIRV_generate(program, stage);
 
     outBinary.size = glslang_program_SPIRV_get_size(program);
-    outBinary.words = (uint32_t *) malloc(outBinary.size * sizeof(uint32_t));
+    outBinary.words = (uint32_t *) mem_zalloc(outBinary.size * sizeof(uint32_t));
     glslang_program_SPIRV_get(program, outBinary.words);
 
     const char *spirv_messages = glslang_program_SPIRV_get_messages(program);
@@ -84,7 +87,7 @@ SpirVBinary compile_shader_to_SPIRV_vulkan_alloc(glslang_stage_t stage, const ch
     return outBinary;
 }
 
-glslang_stage_t glsl_stage_from_path(const char *inPath) {
+static glslang_stage_t glsl_stage_from_path(const char *inPath) {
     const char *fileExtension = c_str_search_reverse(inPath, ".");
     if (c_str_equal(fileExtension, ".vert")) {
         return GLSLANG_STAGE_VERTEX;
@@ -97,7 +100,9 @@ glslang_stage_t glsl_stage_from_path(const char *inPath) {
     SANITY_CHECK();
     return GLSLANG_STAGE_COUNT; // invalid
 }
+//======================================================================================================================
 
+//===API================================================================================================================
 bool convert_shader_spv(const char *localAssetDir) {
     char inPath[256] = {};
     sprintf(inPath, "%s%s", g_converterDirs.rawAssetDir.c_str(), localAssetDir);
@@ -121,18 +126,20 @@ bool convert_shader_spv(const char *localAssetDir) {
 
         const glslang_stage_t stage = glsl_stage_from_path(localAssetDir);
         glslang_initialize_process();
-        SpirVBinary spvCode = compile_shader_to_SPIRV_vulkan_alloc(stage, shader, localAssetDir);
+        SpirVBinary spvCode = {.words = nullptr, .size = 0};
+        spvCode = compile_shader_to_SPIRV_vulkan_alloc(stage, shader, localAssetDir);
         glslang_finalize_process();
-        free(shader);
+        mem_free(shader);
         if (spvCode.words) {
             fs_mkdir_recursive(outPath);
             fp = fopen(outPath, "wb");
             fwrite((char *) spvCode.words, spvCode.size * sizeof(*spvCode.words), 1, fp);
             fclose(fp);
             fp = nullptr;
-            free(spvCode.words);
+            mem_free(spvCode.words);
             return true;
         }
     }
     return false;
 }
+//======================================================================================================================

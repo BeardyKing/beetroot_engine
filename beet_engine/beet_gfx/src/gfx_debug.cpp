@@ -7,6 +7,7 @@
 
 #include <vulkan/vulkan_core.h>
 
+//===INTERNAL_STRUCTS===================================================================================================
 static constexpr VkDebugUtilsMessageSeverityFlagsEXT BEET_VK_DEBUG_UTILS_MESSAGE_SEVERITY =
         VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
         VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
@@ -25,8 +26,10 @@ extern PFN_vkSetDebugUtilsObjectNameEXT g_vkSetDebugUtilsObjectNameEXT_Func;
 
 static struct VulkanDebug {
     VkDebugUtilsMessengerEXT debugUtilsMessenger = {VK_NULL_HANDLE};
-} g_vulkanDebug = {};
+} s_vulkanDebug = {};
+//======================================================================================================================
 
+//===INTERNAL_FUNCTIONS=================================================================================================
 static VkBool32 VKAPI_PTR validation_message_callback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageWarningLevel,
         VkDebugUtilsMessageTypeFlagsEXT /*messageType*/,
@@ -57,11 +60,13 @@ static VkBool32 VKAPI_PTR validation_message_callback(
     }
     return VK_FALSE;
 }
+//======================================================================================================================
 
+//===INIT_&_SHUTDOWN====================================================================================================
 void gfx_cleanup_debug_callbacks() {
-    ASSERT_MSG(g_vulkanDebug.debugUtilsMessenger != VK_NULL_HANDLE, "Err: debug utils messenger has already been destroyed");
-    g_vkDestroyDebugUtilsMessengerEXT_Func(g_vulkanBackend.instance, g_vulkanDebug.debugUtilsMessenger, nullptr);
-    g_vulkanDebug.debugUtilsMessenger = VK_NULL_HANDLE;
+    ASSERT_MSG(s_vulkanDebug.debugUtilsMessenger != VK_NULL_HANDLE, "Err: debug utils messenger has already been destroyed");
+    g_vkDestroyDebugUtilsMessengerEXT_Func(g_vulkanBackend.instance, s_vulkanDebug.debugUtilsMessenger, nullptr);
+    s_vulkanDebug.debugUtilsMessenger = VK_NULL_HANDLE;
 }
 
 void gfx_create_debug_callbacks() {
@@ -72,5 +77,6 @@ void gfx_create_debug_callbacks() {
             .messageType = BEET_VK_DEBUG_UTILS_MESSAGE_TYPE,
             .pfnUserCallback = validation_message_callback,
     };
-    g_vkCreateDebugUtilsMessengerEXT_Func(g_vulkanBackend.instance, &messengerCreateInfo, nullptr, &g_vulkanDebug.debugUtilsMessenger);
+    g_vkCreateDebugUtilsMessengerEXT_Func(g_vulkanBackend.instance, &messengerCreateInfo, nullptr, &s_vulkanDebug.debugUtilsMessenger);
 }
+//======================================================================================================================

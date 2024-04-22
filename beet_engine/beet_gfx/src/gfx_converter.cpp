@@ -4,6 +4,7 @@
 #include <beet_shared/log.h>
 
 #if BEET_CONVERT_ON_DEMAND
+//===API================================================================================================================
 void gfx_converter_init(const char *rawAssetDir, const char *targetAssetDir) {
 
     const bool initResult = converter_init(rawAssetDir, targetAssetDir);
@@ -24,4 +25,5 @@ bool gfx_convert_shader_spv(const char *localAssetPath) {
     ASSERT_MSG(compileResult, "Err: gfx failed to compile shader %s \n", localAssetPath);
     return compileResult;
 }
+//======================================================================================================================
 #endif //BEET_CONVERT_ON_DEMAND

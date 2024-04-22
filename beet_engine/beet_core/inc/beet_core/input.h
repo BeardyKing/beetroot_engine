@@ -4,7 +4,7 @@
 #include <beet_core/input_types.h>
 #include <beet_math/vec2.h>
 
-//===api=====================
+//===API================================================================================================================
 void input_update();
 
 void input_set_time(double time);
@@ -25,10 +25,6 @@ float input_mouse_down_time(MouseButton button);
 float input_mouse_scroll_delta_raw();
 float input_mouse_scroll_delta();
 
-//===init & shutdown=========
-void input_create();
-void input_cleanup();
-
 void input_key_down_callback(int32_t asciiKeyCode);
 void input_key_up_callback(int32_t asciiKeyCode);
 
@@ -38,5 +34,11 @@ void input_mouse_up_callback(int32_t keyCode);
 void input_mouse_move_callback(int32_t x, int32_t y);
 void input_mouse_scroll_callback(int32_t y);
 void input_mouse_windowed_position_callback(int32_t x, int32_t y);
+//======================================================================================================================
+
+//===INIT_&_SHUTDOWN====================================================================================================
+void input_create();
+void input_cleanup();
+//======================================================================================================================
 
 #endif //BEETROOT_INPUT_H

@@ -14,11 +14,12 @@
 
 #include <vulkan/vulkan_core.h>
 
+//===INTERNAL_STRUCTS===================================================================================================
 struct SkyPushConstantBuffer {
     mat4 model;
 };
 
-struct VulkanLit {
+static struct VulkanLit {
     VkDescriptorSetLayout descriptorSetLayout = {VK_NULL_HANDLE};
     VkDescriptorPool descriptorPool = {VK_NULL_HANDLE};
     VkPipelineLayout pipelineLayout = {VK_NULL_HANDLE};
@@ -27,47 +28,10 @@ struct VulkanLit {
 
 extern VulkanBackend g_vulkanBackend;
 extern TargetVulkanFormats g_vulkanTargetFormats;
+//======================================================================================================================
 
-void gfx_create_sky_descriptor_set_layout();
-void gfx_create_sky_pipelines();
-
-void gfx_create_sky() {
-    gfx_create_sky_descriptor_set_layout();
-    gfx_create_sky_pipelines();
-}
-
-void gfx_cleanup_sky() {
-    vkDestroyDescriptorSetLayout(g_vulkanBackend.device, g_gfxSky.descriptorSetLayout, nullptr);
-    vkDestroyDescriptorPool(g_vulkanBackend.device, g_gfxSky.descriptorPool, nullptr);
-    vkDestroyPipeline(g_vulkanBackend.device, g_gfxSky.pipeline, nullptr);
-    vkDestroyPipelineLayout(g_vulkanBackend.device, g_gfxSky.pipelineLayout, nullptr);
-}
-
-void gfx_sky_draw(VkCommandBuffer &cmdBuffer) {
-    const uint32_t skyEntityCount = db_get_sky_entity_count();
-    for (uint32_t i = 0; i < skyEntityCount; ++i) {
-        const SkyEntity &entity = *db_get_sky_entity(i);
-        const SkyMaterial &material = *db_get_sky_material(entity.materialIndex);
-        const VkDescriptorSet &descriptorSet = *db_get_descriptor_set(material.descriptorSetIndex);
-        const GfxMesh &mesh = *db_get_mesh(entity.meshIndex);
-
-        vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxSky.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxSky.pipeline);
-
-        const mat4 model = glm::identity<mat4>(); // TODO: remove push constants from sky and add identity matrix to shader.
-        const SkyPushConstantBuffer pushConstantBuffer = {model};
-        vkCmdPushConstants(cmdBuffer, g_gfxSky.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SkyPushConstantBuffer), &pushConstantBuffer);
-
-        const VkBuffer vertexBuffers[] = {mesh.vertBuffer};
-        const VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(cmdBuffer, 0, 1, vertexBuffers, offsets);
-
-        vkCmdBindIndexBuffer(cmdBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(cmdBuffer, mesh.indexCount, 1, 0, 0, 0);
-    }
-}
-
-void gfx_create_sky_descriptor_set_layout() {
+//===INTERNAL_FUNCTIONS=================================================================================================
+static void gfx_create_sky_descriptor_set_layout() {
     //=== POOL =====//
     constexpr uint32_t poolSizeCount = 2;
     VkDescriptorPoolSize poolSizes[poolSizeCount] = {
@@ -125,7 +89,7 @@ void gfx_sky_update_material_descriptor(VkDescriptorSet &outDescriptorSet, const
     vkUpdateDescriptorSets(g_vulkanBackend.device, uint32_t(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }
 
-void gfx_create_sky_pipelines() {
+static void gfx_create_sky_pipeline_layout() {
     constexpr static uint32_t pushConstantRangeCount = 1;
     VkPushConstantRange pushConstantRange{
             .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
@@ -142,7 +106,9 @@ void gfx_create_sky_pipelines() {
     };
     const VkResult pipelineLayoutRes = vkCreatePipelineLayout(g_vulkanBackend.device, &pipelineLayoutCreateInfo, nullptr, &g_gfxSky.pipelineLayout);
     ASSERT(pipelineLayoutRes == VK_SUCCESS);
+}
 
+static bool gfx_create_sky_pipelines(VkPipeline &outSkyPipeline) {
     const VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = gfx_pipeline_input_assembly_create(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
     const VkPipelineRasterizationStateCreateInfo rasterizationState = gfx_pipeline_rasterization_create(VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_BIT,
                                                                                                         VK_FRONT_FACE_COUNTER_CLOCKWISE);
@@ -206,8 +172,63 @@ void gfx_create_sky_pipelines() {
 
     shaderStages[0] = gfx_load_shader("assets/shaders/sky/sky.vert", VK_SHADER_STAGE_VERTEX_BIT);
     shaderStages[1] = gfx_load_shader("assets/shaders/sky/sky.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
-    const VkResult pipelineRes = (vkCreateGraphicsPipelines(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, 1, &pipelineCreateInfo, nullptr, &g_gfxSky.pipeline));
+    const VkResult pipelineRes = (vkCreateGraphicsPipelines(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, 1, &pipelineCreateInfo, nullptr, &outSkyPipeline));
     ASSERT_MSG(pipelineRes == VK_SUCCESS, "Err: failed to create graphics pipeline");
     vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[0].module, nullptr);
     vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[1].module, nullptr);
+    return (pipelineRes == VK_SUCCESS);
 }
+//======================================================================================================================
+
+//===API================================================================================================================
+bool gfx_rebuild_sky_pipeline(){
+    VkPipeline newPipeline = {};
+    if (gfx_create_sky_pipelines(newPipeline)) {
+        vkDeviceWaitIdle(g_vulkanBackend.device);
+        vkDestroyPipeline(g_vulkanBackend.device, g_gfxSky.pipeline, nullptr);
+        g_gfxSky.pipeline = newPipeline;
+        return true;
+    }
+    return false;
+}
+
+void gfx_sky_draw(VkCommandBuffer &cmdBuffer) {
+    const uint32_t skyEntityCount = db_get_sky_entity_count();
+    for (uint32_t i = 0; i < skyEntityCount; ++i) {
+        const SkyEntity &entity = *db_get_sky_entity(i);
+        const SkyMaterial &material = *db_get_sky_material(entity.materialIndex);
+        const VkDescriptorSet &descriptorSet = *db_get_descriptor_set(material.descriptorSetIndex);
+        const GfxMesh &mesh = *db_get_mesh(entity.meshIndex);
+
+        vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxSky.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxSky.pipeline);
+
+        const mat4 model = glm::identity<mat4>(); // TODO: remove push constants from sky and add identity matrix to shader.
+        const SkyPushConstantBuffer pushConstantBuffer = {model};
+        vkCmdPushConstants(cmdBuffer, g_gfxSky.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SkyPushConstantBuffer), &pushConstantBuffer);
+
+        const VkBuffer vertexBuffers[] = {mesh.vertBuffer};
+        const VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(cmdBuffer, 0, 1, vertexBuffers, offsets);
+
+        vkCmdBindIndexBuffer(cmdBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(cmdBuffer, mesh.indexCount, 1, 0, 0, 0);
+    }
+}
+//======================================================================================================================
+
+//===INIT_&_SHUTDOWN====================================================================================================
+void gfx_create_sky() {
+    gfx_create_sky_descriptor_set_layout();
+    gfx_create_sky_pipeline_layout();
+    const bool pipelineResult = gfx_create_sky_pipelines(g_gfxSky.pipeline);
+    ASSERT(pipelineResult);
+}
+
+void gfx_cleanup_sky() {
+    vkDestroyDescriptorSetLayout(g_vulkanBackend.device, g_gfxSky.descriptorSetLayout, nullptr);
+    vkDestroyDescriptorPool(g_vulkanBackend.device, g_gfxSky.descriptorPool, nullptr);
+    vkDestroyPipeline(g_vulkanBackend.device, g_gfxSky.pipeline, nullptr);
+    vkDestroyPipelineLayout(g_vulkanBackend.device, g_gfxSky.pipelineLayout, nullptr);
+}
+//======================================================================================================================

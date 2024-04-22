@@ -13,6 +13,8 @@
 #if BEET_GFX_IMGUI
 
 #include <imgui.h>
+#include <beet_gfx/gfx_lit.h>
+#include <beet_gfx/gfx_sky.h>
 
 #endif //BEET_GFX_IMGUI
 
@@ -30,6 +32,18 @@ void imgui_update() {
         ImGui::Text("Is screen focused? %s", isFocused ? "Yes" : "No");
         ImGui::Text("Position: %f, %f", mousePositionRelative.x, mousePositionRelative.y);
         ImGui::Text("Mouse clicked: %s", ImGui::IsMouseDown(ImGuiMouseButton_Left) ? "Yes" : "No");
+
+    }
+    {
+        ImGui::Begin("Shader Utils");
+        if (ImGui::Button("Reload: Lit")) {
+            gfx_rebuild_lit_pipeline();
+        }
+        if (ImGui::Button("Reload: Sky")) {
+            gfx_rebuild_sky_pipeline();
+        }
+
+        ImGui::End();
     }
 }
 #endif //BEET_GFX_IMGUI

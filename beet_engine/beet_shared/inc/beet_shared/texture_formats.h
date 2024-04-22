@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+//===PUBLIC_STRUCTS=====================================================================================================
 #define BEET_MAX_MIP_COUNT 16
 
 //supported engine formats
@@ -31,5 +32,6 @@ struct RawImage {
     uint32_t mipDataSizes[BEET_MAX_MIP_COUNT];
     void *data;
 };
+//======================================================================================================================
 
 #endif //BEETROOT_TEXTURE_FORMATS_H

@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <direct.h>
 
+//===API================================================================================================================
 bool fs_mkdir(const char *path) {
     return (_mkdir(path) == 0);
 }
@@ -53,6 +54,7 @@ bool fs_mkdir_recursive(const char path[FS_MAX_PATH_SIZE]) {
     }
     return fs_mkdir_recursive_internal(path);
 }
+//======================================================================================================================
 
 #endif
 

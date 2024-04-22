@@ -1,7 +1,7 @@
 #ifndef BEETROOT_INPUT_TYPES_H
 #define BEETROOT_INPUT_TYPES_H
 
-//===input types=============
+//===INPUT_TYPES========================================================================================================
 enum class CursorState {
     Unknown = -1,
     Normal = 0,
@@ -146,5 +146,6 @@ enum class KeyCode {
     Menu = 348,
     Last
 };
+//======================================================================================================================
 
 #endif //BEETROOT_INPUT_TYPES_H

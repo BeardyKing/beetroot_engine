@@ -6,7 +6,7 @@
 
 constexpr uint32_t MAX_WINDOW_TITLE_SIZE = 64;
 
-//===api=====================
+//===API================================================================================================================
 bool window_is_open();
 void window_update();
 void window_set_cursor(CursorState state);
@@ -16,9 +16,11 @@ void *window_get_handle();
 
 //CALLBACK: LRESULT (*)(HWND, UINT, WPARAM, LPARAM
 void window_set_procedure_callback_func(void *procCallback);
+//======================================================================================================================
 
-//===init & shutdown=========
+//===INIT_&_SHUTDOWN====================================================================================================
 void window_create(const char windowTitle[MAX_WINDOW_TITLE_SIZE], const vec2i &windowSize, const vec2i &windowPosition = {UINT32_MAX, UINT32_MAX});
 void window_cleanup();
+//======================================================================================================================
 
 #endif //BEETROOT_WINDOW_H

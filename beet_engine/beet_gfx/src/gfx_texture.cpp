@@ -11,9 +11,12 @@
 
 #include <vulkan/vulkan_core.h>
 
+//===INTERNAL_STRUCTS===================================================================================================
 extern VulkanBackend g_vulkanBackend;
+//======================================================================================================================
 
-void set_image_layout(
+//===INTERNAL_FUNCTIONS=================================================================================================
+static void set_image_layout(
         VkCommandBuffer cmdbuffer,
         VkImage image,
         VkImageLayout oldImageLayout,
@@ -133,14 +136,16 @@ void set_image_layout(
             0, nullptr,
             1, &imageMemoryBarrier);
 }
+//======================================================================================================================
 
+//===API================================================================================================================
 void gfx_texture_create_immediate_dds(const char *path, GfxTexture &inOutTexture) {
     if(inOutTexture.imageSamplerType == TextureSamplerType::Invalid){
         inOutTexture.imageSamplerType = TextureSamplerType::LinearRepeat;
     }
 
     RawImage myImage{};
-    load_dds_image(path, &myImage);
+    load_dds_image_alloc(path, &myImage);
     auto rawImageData = (unsigned char *) myImage.data;
 
 #if BEET_DEBUG
@@ -302,6 +307,7 @@ void gfx_texture_create_immediate_dds(const char *path, GfxTexture &inOutTexture
     inOutTexture.descriptor.imageView = inOutTexture.view;
     inOutTexture.descriptor.sampler = gfx_samplers()->samplers[inOutTexture.imageSamplerType];
     inOutTexture.descriptor.imageLayout = inOutTexture.layout;
+    mem_free(myImage.data);
 }
 
 void gfx_texture_cleanup(GfxTexture &gfxTexture) {
@@ -315,3 +321,4 @@ void gfx_texture_cleanup(GfxTexture &gfxTexture) {
     //create free-list for each pool and next time we try and create a new texture to check if any free list spaces are free
     //we move the last image loaded into the newly free position and fix up and dependency, this will break any cached references.
 }
+//======================================================================================================================

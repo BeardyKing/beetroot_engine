@@ -18,10 +18,11 @@
 #define BEET_VK_SURFACE_EXTENSION VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
 #endif
 
-//===targets================
+//===TARGETS============================================================================================================
 constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+//======================================================================================================================
 
-//===extensions==============
+//===EXTENSIONS=========================================================================================================
 static constexpr int32_t BEET_VK_INSTANCE_EXTENSION_COUNT = 4;
 static constexpr const char *BEET_VK_INSTANCE_EXTENSIONS[BEET_VK_INSTANCE_EXTENSION_COUNT]{
         VK_KHR_SURFACE_EXTENSION_NAME,
@@ -40,22 +41,25 @@ static constexpr const char* BEET_VK_REQUIRED_DEVICE_EXTENSIONS[6]{
         VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
         VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
 };
+//======================================================================================================================
 
-//==debug====================
+//===DEBUG==============================================================================================================
 #if BEET_DEBUG
 // TODO: Move to command line argument
 static constexpr int32_t BEET_DEBUG_VK_FORCE_GPU_SELECTION = -1; // ignore [-1] force select [0..UINT32_MAX]
 #endif
+//======================================================================================================================
 
-//===validation==============
+//===VALIDATION=========================================================================================================
 static constexpr char BEET_VK_LAYER_VALIDATION[] = "VK_LAYER_KHRONOS_validation";
 
 static constexpr int32_t BEET_VK_VALIDATION_COUNT = 1;
 static constexpr const char *beetVulkanValidations[BEET_VK_VALIDATION_COUNT]{
         BEET_VK_LAYER_VALIDATION,
 };
+//======================================================================================================================
 
-//===api version=============
+//===API_VERSION========================================================================================================
 // to be used for runtime version checking.
 static constexpr uint32_t BEET_VK_API_VERSION_1_3 VK_MAKE_API_VERSION(0, 1, 3, 0);
 static constexpr uint32_t BEET_VK_API_VERSION_1_2 VK_MAKE_API_VERSION(0, 1, 2, 0);
@@ -101,5 +105,6 @@ static_assert(BEET_VK_API_VERSION_1_0 == VK_API_VERSION_1_0);
 #else
 SANITY_CHECK()
 #endif
+//======================================================================================================================
 
 #endif //BEETROOT_GFX_VULKAN_PLATFORM_DEFINES_H

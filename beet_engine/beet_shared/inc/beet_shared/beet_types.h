@@ -6,6 +6,7 @@
 #include <beet_math/vec2.h>
 #include <cstdint>
 
+//===PUBLIC_STRUCTS=====================================================================================================
 struct LitEntity {
     uint32_t transformIndex;
     uint32_t meshIndex;
@@ -57,5 +58,6 @@ struct SkyMaterial {
     uint32_t descriptorSetIndex{0};
     uint32_t octahedralMapIndex{0};
 };
+//======================================================================================================================
 
 #endif //BEETROOT_BEET_TYPES_H

@@ -3,10 +3,13 @@
 
 #include <vulkan/vulkan_core.h>
 
+//===INTERNAL_STRUCTS===================================================================================================
 extern VulkanBackend g_vulkanBackend;
 extern PFN_vkCmdBeginRenderingKHR g_vkCmdBeginRenderingKHR_Func;
 extern PFN_vkCmdEndRenderingKHR g_vkCmdEndRenderingKHR_Func;
+//======================================================================================================================
 
+//===API================================================================================================================
 void gfx_command_begin_immediate_recording() {
     VkCommandBufferBeginInfo cmdBufBeginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     cmdBufBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -32,3 +35,4 @@ void gfx_command_begin_rendering(VkCommandBuffer &cmdBuffer, const VkRenderingIn
 void gfx_command_end_rendering(VkCommandBuffer &cmdBuffer) {
     g_vkCmdEndRenderingKHR_Func(cmdBuffer);
 }
+//======================================================================================================================

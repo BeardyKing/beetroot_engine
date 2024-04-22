@@ -8,6 +8,7 @@
 #include <fstream>
 #include <cstring>
 
+//===INTERNAL_STRUCTS===================================================================================================
 struct PixelFormatDDS {
     uint32_t dwSize;                // dwSize:          Structure size
     uint32_t dwFlags;               // dwFlags:         Values which indicate what type of data is in the surface.
@@ -169,15 +170,17 @@ enum class TextureFormatDXGI : uint32_t {
     DXGI_FORMAT_SAMPLER_FEEDBACK_MIP_REGION_USED_OPAQUE,
     DXGI_FORMAT_FORCE_UINT = 0xffffffff
 };
+//======================================================================================================================
 
-constexpr uint32_t constexpr_make_four_cc(const char index0, const char index1, const char index2, const char index3) {
+//===INTERNAL_FUNCTIONS=================================================================================================
+static constexpr uint32_t constexpr_make_four_cc(const char index0, const char index1, const char index2, const char index3) {
     return ((uint32_t) (uint8_t) (index0) |
             ((uint32_t) (uint8_t) (index1) << 8) |
             ((uint32_t) (uint8_t) (index2) << 16) |
             ((uint32_t) (uint8_t) (index3) << 24));
 }
 
-TextureFormat internal_dxgi_to_beet_texture_format(const TextureFormatDXGI textureFormat) {
+static TextureFormat internal_dxgi_to_beet_texture_format(const TextureFormatDXGI textureFormat) {
     switch (textureFormat) {
         case TextureFormatDXGI::DXGI_FORMAT_R8G8B8A8_UNORM:
             return TextureFormat::RGBA8;
@@ -412,8 +415,10 @@ static void get_image_info(
         *outNumRows = numRows;
     }
 }
+//======================================================================================================================
 
-void load_dds_image(const char *path, RawImage *outRawImage) {
+//===API================================================================================================================
+void load_dds_image_alloc(const char *path, RawImage *outRawImage) {
     log_verbose(MSG_DDS, "loading dds image : %s \n", path);
 
     std::ifstream file{path, std::ios::ate | std::ios::binary};
@@ -471,3 +476,4 @@ void load_dds_image(const char *path, RawImage *outRawImage) {
 
     mem_free(rawFileData);
 }
+//======================================================================================================================

@@ -10,11 +10,12 @@
 #include <beet_shared/assert.h>
 #include <beet_shared/beet_types.h>
 
+//===INTERNAL_STRUCTS===================================================================================================
 constexpr uint32_t BEET_INSTANCE_BUFFER_BIND_ID = 1;
-
+#define OBJECT_INSTANCE_COUNT 1
 extern VulkanBackend g_vulkanBackend;
 
-struct GfxIndexedIndirect {
+static struct GfxIndexedIndirect {
     VkDescriptorSetLayout descriptorSetLayout = {VK_NULL_HANDLE};
     VkDescriptorPool descriptorPool = {VK_NULL_HANDLE};
     VkPipelineLayout pipelineLayout = {VK_NULL_HANDLE};
@@ -23,18 +24,37 @@ struct GfxIndexedIndirect {
     uint32 usedDescriptorCount = 0;
     static constexpr uint32_t MAX_DESCRIPTOR_COUNT = 1;
     VkDescriptorSet descriptorSets[MAX_DESCRIPTOR_COUNT] = {};
-} g_gfxIndirect;
+} s_gfxIndirect;
+//======================================================================================================================
 
+//===INTERNAL_STRUCTS===================================================================================================
+static void gfx_indexed_indirect_update_material_descriptor(VkDescriptorSet &outDescriptorSet, const GfxTexture &albedoTexture) {
+    VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(s_gfxIndirect.descriptorPool, &s_gfxIndirect.descriptorSetLayout, 1);
+    const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &outDescriptorSet);
+    ASSERT(allocDescRes == VK_SUCCESS);
+    // TODO:    Update this to a buffer of textures so we can modify the contents without needing to rebuild descriptors
+    //          runtime packages will not need this as the content won't change.
+    std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
+            // Binding 0: Vertex shader uniform buffer
+            // Binding 1: albedoTexture // TODO: Add a per package loaded texture array
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &albedoTexture.descriptor, 1)
+    };
+    vkUpdateDescriptorSets(g_vulkanBackend.device, uint32_t(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+}
+//======================================================================================================================
+
+//===API================================================================================================================
 void gfx_indexed_indirect_render(VkCommandBuffer &cmdBuffer) {
     const LitEntity &entity = *db_get_lit_entity(0);
     const GfxMesh &mesh = *db_get_mesh(entity.meshIndex);
 
     VkDeviceSize offsets[1] = {0};
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxIndirect.pipelineLayout, 0, 1, &g_gfxIndirect.descriptorSets[0], 0, NULL);
+    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, s_gfxIndirect.pipelineLayout, 0, 1, &s_gfxIndirect.descriptorSets[0], 0, NULL);
 
     //cubePipeline
     // [POI] Instanced multi draw rendering of the cubes
-    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxIndirect.pipeline);
+    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, s_gfxIndirect.pipeline);
     // Binding point 0 : Mesh vertex buffer
     // Binding point 1 : Instance data buffer
     vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &mesh.vertBuffer, offsets);
@@ -46,13 +66,12 @@ void gfx_indexed_indirect_render(VkCommandBuffer &cmdBuffer) {
 }
 
 void gfx_build_indexed_indirect_pipelines() {
-
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = 1,
-            .pSetLayouts = &g_gfxIndirect.descriptorSetLayout
+            .pSetLayouts = &s_gfxIndirect.descriptorSetLayout
     };
-    const VkResult pipelineLayoutRes = vkCreatePipelineLayout(g_vulkanBackend.device, &pipelineLayoutCreateInfo, nullptr, &g_gfxIndirect.pipelineLayout);
+    const VkResult pipelineLayoutRes = vkCreatePipelineLayout(g_vulkanBackend.device, &pipelineLayoutCreateInfo, nullptr, &s_gfxIndirect.pipelineLayout);
     ASSERT(pipelineLayoutRes == VK_SUCCESS);
 
     const VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = gfx_pipeline_input_assembly_create(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
@@ -71,7 +90,7 @@ void gfx_build_indexed_indirect_pipelines() {
     VkPipelineShaderStageCreateInfo shaderStages[shaderStagesCount] = {};
 
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = gfx_graphics_pipeline_create(); // using VK_KHR_dynamic_rendering we can skip passing a render pass
-    pipelineCreateInfo.layout = g_gfxIndirect.pipelineLayout;
+    pipelineCreateInfo.layout = s_gfxIndirect.pipelineLayout;
     pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
     pipelineCreateInfo.pRasterizationState = &rasterizationState;
     pipelineCreateInfo.pColorBlendState = &colorBlendState;
@@ -113,19 +132,15 @@ void gfx_build_indexed_indirect_pipelines() {
 
     shaderStages[0] = gfx_load_shader("assets/shaders/indirectdraw/indirectdraw.vert", VK_SHADER_STAGE_VERTEX_BIT);
     shaderStages[1] = gfx_load_shader("assets/shaders/indirectdraw/indirectdraw.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
-    const VkResult pipelineRes = (vkCreateGraphicsPipelines(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, 1, &pipelineCreateInfo, nullptr, &g_gfxIndirect.pipeline));
+    const VkResult pipelineRes = (vkCreateGraphicsPipelines(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, 1, &pipelineCreateInfo, nullptr, &s_gfxIndirect.pipeline));
     ASSERT_MSG(pipelineRes == VK_SUCCESS, "Err: failed to create graphics pipeline");
     vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[0].module, nullptr);
     vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[1].module, nullptr);
 }
 
 void gfx_cleanup_indexed_indirect_pipelines() {
-    vkDestroyPipeline(g_vulkanBackend.device, g_gfxIndirect.pipeline, nullptr);
+    vkDestroyPipeline(g_vulkanBackend.device, s_gfxIndirect.pipeline, nullptr);
 }
-
-
-#define OBJECT_INSTANCE_COUNT 1
-
 
 void gfx_build_indexed_indirect_commands() {
     auto &indirectCommands = g_vulkanBackend.indirectCommands;
@@ -193,21 +208,7 @@ void gfx_cleanup_indexed_indirect_commands() {
     vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.indirectCommandsBuffer.memory, nullptr);
 }
 
-void gfx_buffer_copy_immediate(GfxBuffer &src, GfxBuffer &dst, VkQueue queue, VkBufferCopy *copyRegion) {
-    ASSERT(dst.size <= src.size);
-    ASSERT(src.buffer);
-    gfx_command_begin_immediate_recording();
-    {
-        VkBufferCopy bufferCopy{};
-        if (copyRegion == nullptr) {
-            bufferCopy.size = src.size;
-        } else {
-            bufferCopy = *copyRegion;
-        }
-        vkCmdCopyBuffer(g_vulkanBackend.immediateCommandBuffer, src.buffer, dst.buffer, 1, &bufferCopy);
-    }
-    gfx_command_end_immediate_recording();
-}
+
 
 void gfx_build_indexed_indirect_instance_data() {
     constexpr uint32_t objectCount = 1;
@@ -261,7 +262,7 @@ void gfx_build_indexed_indirect_descriptor_set_layout() {
             .poolSizeCount = poolSizeCount,
             .pPoolSizes = &poolSizes[0],
     };
-    const VkResult createPoolRes = (vkCreateDescriptorPool(g_vulkanBackend.device, &descriptorPoolInfo, nullptr, &g_gfxIndirect.descriptorPool));
+    const VkResult createPoolRes = (vkCreateDescriptorPool(g_vulkanBackend.device, &descriptorPoolInfo, nullptr, &s_gfxIndirect.descriptorPool));
     ASSERT(createPoolRes == VK_SUCCESS);
 
     //=== LAYOUT ===//
@@ -286,26 +287,13 @@ void gfx_build_indexed_indirect_descriptor_set_layout() {
             .bindingCount = layoutBindingsCount,
             .pBindings = &layoutBindings[0],
     };
-    const VkResult descriptorResult = vkCreateDescriptorSetLayout(g_vulkanBackend.device, &descriptorSetLayoutCreateInfo, nullptr, &g_gfxIndirect.descriptorSetLayout);
+    const VkResult descriptorResult = vkCreateDescriptorSetLayout(g_vulkanBackend.device, &descriptorSetLayoutCreateInfo, nullptr, &s_gfxIndirect.descriptorSetLayout);
     ASSERT(descriptorResult == VK_SUCCESS);
 }
 
-void gfx_indexed_indirect_update_material_descriptor(VkDescriptorSet &outDescriptorSet, const GfxTexture &albedoTexture) {
-    VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(g_gfxIndirect.descriptorPool, &g_gfxIndirect.descriptorSetLayout, 1);
-    const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &outDescriptorSet);
-    ASSERT(allocDescRes == VK_SUCCESS);
-    // TODO:    Update this to a buffer of textures so we can modify the contents without needing to rebuild descriptors
-    //          runtime packages will not need this as the content won't change.
-    std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
-            // Binding 0: Vertex shader uniform buffer
-            // Binding 1: albedoTexture // TODO: Add a per package loaded texture array
-            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
-            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &albedoTexture.descriptor, 1)
-    };
-    vkUpdateDescriptorSets(g_vulkanBackend.device, uint32_t(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
-}
-
 void gfx_cleanup_indexed_indirect_descriptor_set_layout() {
-    vkDestroyPipelineLayout(g_vulkanBackend.device, g_gfxIndirect.pipelineLayout, nullptr);
-    vkDestroyDescriptorSetLayout(g_vulkanBackend.device, g_gfxIndirect.descriptorSetLayout, nullptr);
+    vkDestroyPipelineLayout(g_vulkanBackend.device, s_gfxIndirect.pipelineLayout, nullptr);
+    vkDestroyDescriptorSetLayout(g_vulkanBackend.device, s_gfxIndirect.descriptorSetLayout, nullptr);
 }
+//======================================================================================================================
+

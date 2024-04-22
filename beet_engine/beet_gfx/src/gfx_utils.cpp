@@ -6,8 +6,11 @@
 
 #include <vulkan/vulkan.h>
 
+//===INTERNAL_STRUCTS===================================================================================================
 extern VulkanBackend g_vulkanBackend;
+//======================================================================================================================
 
+//===API================================================================================================================
 uint32_t gfx_utils_get_memory_type(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties) {
     for (uint32_t i = 0; i < g_vulkanBackend.deviceMemoryProperties.memoryTypeCount; i++) {
         if ((memoryTypeBits & 1) == 1) {
@@ -99,3 +102,4 @@ VkFormat gfx_utils_beet_image_format_to_vk(const TextureFormat textureFormat) {
     SANITY_CHECK();
     return VK_FORMAT_UNDEFINED;
 }
+//======================================================================================================================

@@ -5,6 +5,7 @@
 #include <chrono>
 #include <beet_shared/os_time.h>
 
+//===INTERNAL_STRUCTS===================================================================================================
 enum MSG_LEVEL : uint8_t {
     MSG_VERBOSE = 0u,
     MSG_INFO = 1u,
@@ -29,13 +30,13 @@ enum MSG_CHANNEL : uint32_t {
     MSG_ALL = UINT32_MAX,
 };
 
-
 #define MSG_MIN_WARNING_LEVEL MSG_VERBOSE
 #define MSG_ACTIVE_CHANNELS ((MSG_ALL) & ~MSG_DBG)
 //#define MSG_ACTIVE_CHANNELS MSG_DBG
+//======================================================================================================================
 
+//===API================================================================================================================
 #if BEET_DEBUG
-
 const char *log_channel_name_lookup(const MSG_CHANNEL &channel);
 
 #define log_verbose(channel, ...){                              \
@@ -96,5 +97,6 @@ const char *log_channel_name_lookup(const MSG_CHANNEL &channel);
 
 #define beet_log(level, channel, levelName, ...){}
 #endif
+//======================================================================================================================
 
 #endif //BEETROOT_LOG_H

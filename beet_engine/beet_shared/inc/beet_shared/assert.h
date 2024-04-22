@@ -2,7 +2,7 @@
 #define BEETROOT_ASSERT_H
 
 #include <cstdio>
-
+//===API================================================================================================================
 #if defined(__linux__) || defined(__APPLE__)
 #include <csignal>
 #define DEBUG_BREAK() raise(SIGTRAP)
@@ -37,5 +37,5 @@
     LOG_ERROR("Sanity check failed ;~;");   \
     DEBUG_BREAK();                          \
 }
-
+//======================================================================================================================
 #endif //BEETROOT_ASSERT_H

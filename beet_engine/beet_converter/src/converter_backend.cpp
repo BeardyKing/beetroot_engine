@@ -6,9 +6,12 @@
 
 #include <string>
 
+//===INTERNAL_STRUCTS===================================================================================================
 ConverterFileLocations g_converterDirs;
 ConverterOptions g_converterOptions;
+//======================================================================================================================
 
+//===API================================================================================================================
 bool converter_init(const char *rawAssetDir, const char *targetAssetDir) {
     g_converterDirs.rawAssetDir = rawAssetDir;
     g_converterDirs.targetAssetDir = targetAssetDir;
@@ -26,4 +29,4 @@ void converter_option_set_ignore_cache(const bool ignoreCacheOption) {
         log_info(MSG_CONVERTER, "Option set - ignoring converter cache.\n");
     }
 }
-
+//======================================================================================================================

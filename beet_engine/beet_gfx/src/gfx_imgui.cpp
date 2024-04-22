@@ -1,6 +1,5 @@
 #include <beet_gfx/gfx_imgui.h>
 #include <beet_gfx/gfx_types.h>
-#include <beet_gfx/gfx_utils.h>
 
 #include <beet_shared/assert.h>
 
@@ -10,13 +9,46 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_win32.h>
 
+//===INTERNAL_STRUCTS===================================================================================================
 extern VulkanBackend g_vulkanBackend;
 extern TargetVulkanFormats g_vulkanTargetFormats;
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 VkDescriptorPool g_imguiPool = {VK_NULL_HANDLE};
 bool g_imguiFinishedRendering = {true};
+//======================================================================================================================
 
+//===API================================================================================================================
+void gfx_imgui_begin() {
+    if (g_imguiFinishedRendering) {
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+        g_imguiFinishedRendering = false;
+    }
+}
+
+void gfx_imgui_end() {
+    ImGui::EndFrame();
+    g_imguiFinishedRendering = true;
+}
+
+void gfx_imgui_demo_window() {
+    ImGui::ShowDemoWindow();
+}
+
+void gfx_imgui_draw(VkCommandBuffer &cmdBuffer) {
+    ImGui::Render();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuffer, nullptr);
+    g_imguiFinishedRendering = true;
+}
+
+void* gfx_imgui_get_win32_proc_function_pointer(){
+    return (void*)ImGui_ImplWin32_WndProcHandler;
+}
+//======================================================================================================================
+
+//===INIT_&_SHUTDOWN====================================================================================================
 void gfx_create_imgui(void *windowHandle) {
     constexpr uint32_t poolSize = 11;
     const VkDescriptorPoolSize descriptorPoolSizes[poolSize] = {
@@ -87,32 +119,4 @@ void gfx_cleanup_imgui() {
     ImGui::DestroyContext(nullptr);
     vkDestroyDescriptorPool(g_vulkanBackend.device, g_imguiPool, nullptr);
 }
-
-void gfx_imgui_begin() {
-    if (g_imguiFinishedRendering) {
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplWin32_NewFrame();
-        ImGui::NewFrame();
-        g_imguiFinishedRendering = false;
-    }
-}
-
-void gfx_imgui_end() {
-    ImGui::EndFrame();
-    g_imguiFinishedRendering = true;
-}
-
-void gfx_imgui_demo_window() {
-    ImGui::ShowDemoWindow();
-}
-
-void gfx_imgui_draw(VkCommandBuffer &cmdBuffer) {
-    ImGui::Render();
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuffer, nullptr);
-    g_imguiFinishedRendering = true;
-}
-
-void* gfx_imgui_get_win32_proc_function_pointer(){
-    return (void*)ImGui_ImplWin32_WndProcHandler;
-}
-
+//======================================================================================================================

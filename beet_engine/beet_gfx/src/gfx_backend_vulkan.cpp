@@ -45,7 +45,8 @@ static struct UserArguments {
 VulkanBackend g_vulkanBackend = {};
 TargetVulkanFormats g_vulkanTargetFormats = {};
 
-bool gfx_find_supported_extension(const char *extensionName) {
+//===INTERNAL_FUNCTIONS=================================================================================================
+static bool gfx_find_supported_extension(const char *extensionName) {
     for (uint32_t i = 0; i < g_vulkanBackend.extensionsCount; ++i) {
         if (c_str_equal(g_vulkanBackend.supportedExtensions[i].extensionName, extensionName)) {
             return true;
@@ -54,7 +55,7 @@ bool gfx_find_supported_extension(const char *extensionName) {
     return false;
 }
 
-bool gfx_find_supported_validation(const char *layerName) {
+static bool gfx_find_supported_validation(const char *layerName) {
     for (uint32_t i = 0; i < g_vulkanBackend.validationLayersCount; ++i) {
         if (c_str_equal(g_vulkanBackend.supportedValidationLayers[i].layerName, layerName)) {
             return true;
@@ -63,7 +64,7 @@ bool gfx_find_supported_validation(const char *layerName) {
     return false;
 }
 
-void gfx_cleanup_instance() {
+static void gfx_cleanup_instance() {
     ASSERT_MSG(g_vulkanBackend.instance != VK_NULL_HANDLE, "Err: VkInstance has already been destroyed");
     vkDestroyInstance(g_vulkanBackend.instance, nullptr);
     g_vulkanBackend.instance = VK_NULL_HANDLE;
@@ -72,7 +73,7 @@ void gfx_cleanup_instance() {
     mem_free(g_vulkanBackend.supportedValidationLayers);
 }
 
-void gfx_create_instance() {
+static void gfx_create_instance() {
     vkEnumerateInstanceExtensionProperties(nullptr, &g_vulkanBackend.extensionsCount, nullptr);
     ASSERT(g_vulkanBackend.supportedExtensions == nullptr);
     g_vulkanBackend.supportedExtensions = (VkExtensionProperties *) mem_zalloc(sizeof(VkExtensionProperties) * g_vulkanBackend.extensionsCount);
@@ -128,12 +129,12 @@ void gfx_create_instance() {
     ASSERT_MSG(result == VK_SUCCESS, "Err: failed to create vulkan instance");
 }
 
-void gfx_cleanup_physical_device() {
+static void gfx_cleanup_physical_device() {
     ASSERT_MSG(g_vulkanBackend.physicalDevice != VK_NULL_HANDLE, "Err: VkPhysicalDevice has already been invalidated");
     g_vulkanBackend.physicalDevice = VK_NULL_HANDLE;
 }
 
-void gfx_create_physical_device() {
+static void gfx_create_physical_device() {
     uint32_t deviceCount = 0;
 
     vkEnumeratePhysicalDevices(g_vulkanBackend.instance, &deviceCount, nullptr);
@@ -182,14 +183,14 @@ void gfx_create_physical_device() {
     mem_free(physicalDevices);
 }
 
-void gfx_cleanup_surface() {
+static void gfx_cleanup_surface() {
     // gfx_create_surface(...) exists in gfx_vulkan_surface.h / gfx_vulkan_surface_windows.cpp
     ASSERT_MSG(g_vulkanBackend.swapChain.surface != VK_NULL_HANDLE, "Err: VkSurface has already been destroyed");
     vkDestroySurfaceKHR(g_vulkanBackend.instance, g_vulkanBackend.swapChain.surface, nullptr);
     g_vulkanBackend.swapChain.surface = VK_NULL_HANDLE;
 }
 
-void gfx_cleanup_queues() {
+static void gfx_cleanup_queues() {
     ASSERT_MSG(g_vulkanBackend.device != VK_NULL_HANDLE, "Err: device has already been destroyed");
     vkDestroyDevice(g_vulkanBackend.device, nullptr);
     g_vulkanBackend.device = VK_NULL_HANDLE;
@@ -200,7 +201,7 @@ void gfx_cleanup_queues() {
 //    TODO: COMPUTE QUEUE
 }
 
-void gfx_create_queues() {
+static void gfx_create_queues() {
     uint32_t devicePropertyCount = 0;
     vkEnumerateDeviceExtensionProperties(g_vulkanBackend.physicalDevice, nullptr, &devicePropertyCount, nullptr);
     VkExtensionProperties *selectedPhysicalDeviceExtensions = (VkExtensionProperties *) mem_zalloc(sizeof(VkExtensionProperties) * devicePropertyCount);
@@ -369,12 +370,12 @@ void gfx_create_queues() {
     mem_free(selectedPhysicalDeviceExtensions);
 }
 
-void gfx_cleanup_command_pool() {
+static void gfx_cleanup_command_pool() {
     vkDestroyCommandPool(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, nullptr);
     g_vulkanBackend.graphicsCommandPool = VK_NULL_HANDLE;
 }
 
-void gfx_create_command_pool() {
+static void gfx_create_command_pool() {
     VkCommandPoolCreateInfo commandPoolInfo = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
     commandPoolInfo.queueFamilyIndex = g_vulkanBackend.queueFamilyIndices.graphics;
     commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -383,7 +384,7 @@ void gfx_create_command_pool() {
     ASSERT_MSG(cmdPoolResult == VK_SUCCESS, "Err: failed to create graphics command pool");
 }
 
-VkPresentModeKHR select_present_mode() {
+static VkPresentModeKHR select_present_mode() {
     uint32_t presentModeCount = {0};
     const VkResult presentRes = vkGetPhysicalDeviceSurfacePresentModesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &presentModeCount, nullptr);
     ASSERT_MSG(presentRes == VK_SUCCESS, "Err: failed to get physical device surface present modes");
@@ -424,7 +425,7 @@ VkCompositeAlphaFlagBitsKHR select_composite_alpha_format(const VkSurfaceCapabil
     return compositeAlpha;
 }
 
-void gfx_create_swap_chain() {
+static void gfx_create_swap_chain() {
     const VkSwapchainKHR oldSwapChain = g_vulkanBackend.swapChain.swapChain;
 
     VkSurfaceCapabilitiesKHR surfaceCapabilities = {0};
@@ -530,7 +531,7 @@ void gfx_create_swap_chain() {
     }
 }
 
-void gfx_cleanup_swap_chain() {
+static void gfx_cleanup_swap_chain() {
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
         vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.swapChain.buffers[i].view, nullptr);
     }
@@ -546,7 +547,7 @@ void gfx_cleanup_swap_chain() {
     g_vulkanBackend.swapChain.buffers = nullptr;
 }
 
-void gfx_create_command_buffers() {
+static void gfx_create_command_buffers() {
     // === GRAPHICS ===
     ASSERT(g_vulkanBackend.graphicsCommandBuffers == nullptr);
     g_vulkanBackend.graphicsCommandBuffers = (VkCommandBuffer *) mem_zalloc(sizeof(VkCommandBuffer) * g_vulkanBackend.swapChain.imageCount);
@@ -566,7 +567,7 @@ void gfx_create_command_buffers() {
     ASSERT_MSG(cmdImmediateBufferResult == VK_SUCCESS, "Err: failed to create immediate command buffer");
 }
 
-void gfx_cleanup_command_buffers() {
+static void gfx_cleanup_command_buffers() {
     // === GRAPHICS ===
     vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, g_vulkanBackend.swapChain.imageCount, g_vulkanBackend.graphicsCommandBuffers);
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
@@ -581,7 +582,7 @@ void gfx_cleanup_command_buffers() {
     g_vulkanBackend.immediateCommandBuffer = VK_NULL_HANDLE;
 }
 
-void gfx_create_fences() {
+static void gfx_create_fences() {
     const VkFenceCreateInfo fenceCreateInfo = {
             VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
             nullptr,
@@ -596,7 +597,7 @@ void gfx_create_fences() {
     }
 }
 
-void gfx_cleanup_fences() {
+static void gfx_cleanup_fences() {
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
         vkDestroyFence(g_vulkanBackend.device, g_vulkanBackend.graphicsFenceWait[i], nullptr);
         g_vulkanBackend.graphicsFenceWait[i] = VK_NULL_HANDLE;
@@ -605,7 +606,7 @@ void gfx_cleanup_fences() {
     g_vulkanBackend.graphicsFenceWait = nullptr;
 }
 
-void gfx_create_depth_stencil_buffer() {
+static void gfx_create_depth_stencil_buffer() {
     g_vulkanTargetFormats.depthFormat = gfx_utils_find_depth_format(VK_IMAGE_TILING_OPTIMAL);
 
     VkImageCreateInfo depthImageInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
@@ -655,40 +656,39 @@ void gfx_create_depth_stencil_buffer() {
     ASSERT_MSG(createRes == VK_SUCCESS, "Err: failed to create depth image view");
 }
 
-void gfx_cleanup_depth_stencil_buffer() {
+static void gfx_cleanup_depth_stencil_buffer() {
     vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.depthStencil.view, nullptr);
     vkDestroyImage(g_vulkanBackend.device, g_vulkanBackend.depthStencil.image, nullptr);
     vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencil.deviceMemory, nullptr);
 }
 
-
-void gfx_create_pipeline_cache() {
+static void gfx_create_pipeline_cache() {
     VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
     pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
     const VkResult cacheRes = vkCreatePipelineCache(g_vulkanBackend.device, &pipelineCacheCreateInfo, nullptr, &g_vulkanBackend.pipelineCache);
     ASSERT_MSG(cacheRes == VK_SUCCESS, "Err: failed to create pipeline cache")
 }
 
-void gfx_cleanup_pipeline_cache() {
+static void gfx_cleanup_pipeline_cache() {
     ASSERT_MSG(g_vulkanBackend.pipelineCache != VK_NULL_HANDLE, "Err: pipeline cache has already been destroyed");
     vkDestroyPipelineCache(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, nullptr);
     g_vulkanBackend.pipelineCache = VK_NULL_HANDLE;
 }
 
-void gfx_flush() {
+static void gfx_flush() {
     if (g_vulkanBackend.device != VK_NULL_HANDLE) {
         vkDeviceWaitIdle(g_vulkanBackend.device);
     }
 }
 
-void gfx_render_frame() {
+static void gfx_render_frame() {
     g_vulkanBackend.submitInfo.commandBufferCount = 1;
     g_vulkanBackend.submitInfo.pCommandBuffers = &g_vulkanBackend.graphicsCommandBuffers[g_vulkanBackend.currentBufferIndex];
     const VkResult submitRes = vkQueueSubmit(g_vulkanBackend.queue, 1, &g_vulkanBackend.submitInfo, VK_NULL_HANDLE);
     ASSERT(submitRes == VK_SUCCESS);
 }
 
-VkResult gfx_acquire_next_swap_chain_image() {
+static VkResult gfx_acquire_next_swap_chain_image() {
     return vkAcquireNextImageKHR(
             g_vulkanBackend.device,
             g_vulkanBackend.swapChain.swapChain,
@@ -699,7 +699,7 @@ VkResult gfx_acquire_next_swap_chain_image() {
     );
 }
 
-VkResult gfx_present() {
+static VkResult gfx_present() {
     VkPresentInfoKHR presentInfo = {};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.pNext = NULL;
@@ -715,7 +715,7 @@ VkResult gfx_present() {
     return vkQueuePresentKHR(g_vulkanBackend.queue, &presentInfo);
 }
 
-void begin_command_recording(const VkCommandBuffer &cmdBuffer) {
+static void begin_command_recording(const VkCommandBuffer &cmdBuffer) {
     VkCommandBufferBeginInfo cmdBeginInfo = {};
     cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     cmdBeginInfo.pNext = nullptr;
@@ -726,17 +726,17 @@ void begin_command_recording(const VkCommandBuffer &cmdBuffer) {
     ASSERT_MSG(result == VK_SUCCESS, "Err: Vulkan failed to begin command buffer recording");
 }
 
-void end_command_recording(const VkCommandBuffer &cmdBuffer) {
+static void end_command_recording(const VkCommandBuffer &cmdBuffer) {
     vkEndCommandBuffer(cmdBuffer);
 }
 
-bool query_has_valid_extent_size() {
+static bool query_has_valid_extent_size() {
     VkSurfaceCapabilitiesKHR surfaceCapabilities{};
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceCapabilities);
     return surfaceCapabilities.currentExtent.width != 0 || surfaceCapabilities.currentExtent.height != 0;
 }
 
-void gfx_window_resize() {
+static void gfx_window_resize() {
     if (!query_has_valid_extent_size()) {
         return;
     }
@@ -749,7 +749,7 @@ void gfx_window_resize() {
     gfx_create_depth_stencil_buffer();
 }
 
-void gfx_update_uniform_buffers() {
+static void gfx_update_uniform_buffers() {
     //TODO: UPDATE UBO with camera info i.e. view & proj.
     const CameraEntity &camEntity = *db_get_camera_entity(0);
     const Camera &camera = *db_get_camera(camEntity.cameraIndex);
@@ -773,8 +773,7 @@ void gfx_update_uniform_buffers() {
     memcpy(g_vulkanBackend.uniformBuffer.mappedData, &uniformBuffData, sizeof(SceneUBO));
 }
 
-
-void gfx_barrier_insert_memory_barrier(
+static void gfx_barrier_insert_memory_barrier(
         VkCommandBuffer &cmdBuffer,
         const VkImage &image,
         const VkAccessFlags srcAccessMask,
@@ -799,8 +798,7 @@ void gfx_barrier_insert_memory_barrier(
     vkCmdPipelineBarrier(cmdBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 }
 
-void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
-
+static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
     //TODO: replace cmdIndexed variables with references.
     const uint32_t cmdIndex = g_vulkanBackend.currentBufferIndex;
     gfx_barrier_insert_memory_barrier(
@@ -901,7 +899,7 @@ void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
     );
 }
 
-void gfx_create_semaphores() {
+static void gfx_create_semaphores() {
     VkSemaphoreCreateInfo semaphoreInfo = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
     const VkResult presentRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr, &g_vulkanBackend.semaphores.presentDone);
     ASSERT_MSG(presentRes == VK_SUCCESS, "Err: failed to create present semaphore");
@@ -917,13 +915,13 @@ void gfx_create_semaphores() {
     g_vulkanBackend.submitInfo.pSignalSemaphores = &g_vulkanBackend.semaphores.renderDone;
 }
 
-void gfx_cleanup_semaphores() {
+static void gfx_cleanup_semaphores() {
     vkDestroySemaphore(g_vulkanBackend.device, g_vulkanBackend.semaphores.presentDone, nullptr);
     vkDestroySemaphore(g_vulkanBackend.device, g_vulkanBackend.semaphores.renderDone, nullptr);
     g_vulkanBackend.submitInfo = {};
 }
 
-void gfx_create_uniform_buffers() {
+static void gfx_create_uniform_buffers() {
     const VkResult uniformResult = gfx_buffer_create(
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -937,11 +935,13 @@ void gfx_create_uniform_buffers() {
     ASSERT(mapResult == VK_SUCCESS);
 }
 
-void gfx_cleanup_uniform_buffers() {
+static void gfx_cleanup_uniform_buffers() {
     vkDestroyBuffer(g_vulkanBackend.device, g_vulkanBackend.uniformBuffer.buffer, nullptr);
     vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.uniformBuffer.memory, nullptr);
 }
+//======================================================================================================================
 
+//===INIT_&_SHUTDOWN====================================================================================================
 void gfx_create(void *windowHandle) {
 #if BEET_CONVERT_ON_DEMAND
     gfx_converter_init(BEET_CMAKE_PIPELINE_ASSETS_DIR, BEET_CMAKE_RUNTIME_ASSETS_DIR);
@@ -971,29 +971,6 @@ void gfx_create(void *windowHandle) {
     gfx_create_lit();
 }
 
-void gfx_update(const double &deltaTime) {
-    gfx_update_uniform_buffers();
-    const VkResult nextRes = gfx_acquire_next_swap_chain_image();
-
-    if (nextRes == VK_ERROR_OUT_OF_DATE_KHR) {
-        gfx_window_resize();
-        return;
-    } else if (nextRes < 0) {
-        ASSERT(nextRes == VK_SUCCESS)
-    }
-    VkCommandBuffer cmdBuffer = g_vulkanBackend.graphicsCommandBuffers[g_vulkanBackend.currentBufferIndex];
-    vkResetCommandBuffer(cmdBuffer, 0);
-    begin_command_recording(cmdBuffer);
-    {
-        gfx_dynamic_render(cmdBuffer);
-    }
-    end_command_recording(cmdBuffer);
-    //TODO: build draw commands
-    gfx_render_frame();
-    gfx_present();
-    gfx_flush();
-}
-
 void gfx_cleanup() {
     gfx_cleanup_uniform_buffers();
 
@@ -1017,3 +994,29 @@ void gfx_cleanup() {
     gfx_cleanup_instance();
     gfx_cleanup_function_pointers();
 }
+//======================================================================================================================
+
+//===API================================================================================================================
+void gfx_update(const double &deltaTime) {
+    gfx_update_uniform_buffers();
+    const VkResult nextRes = gfx_acquire_next_swap_chain_image();
+
+    if (nextRes == VK_ERROR_OUT_OF_DATE_KHR) {
+        gfx_window_resize();
+        return;
+    } else if (nextRes < 0) {
+        ASSERT(nextRes == VK_SUCCESS)
+    }
+    VkCommandBuffer cmdBuffer = g_vulkanBackend.graphicsCommandBuffers[g_vulkanBackend.currentBufferIndex];
+    vkResetCommandBuffer(cmdBuffer, 0);
+    begin_command_recording(cmdBuffer);
+    {
+        gfx_dynamic_render(cmdBuffer);
+    }
+    end_command_recording(cmdBuffer);
+    //TODO: build draw commands
+    gfx_render_frame();
+    gfx_present();
+    gfx_flush();
+}
+//======================================================================================================================

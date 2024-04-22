@@ -4,8 +4,11 @@
 
 #include <sys/stat.h>
 
+//===INTERNAL_STRUCTS===================================================================================================
 extern ConverterOptions g_converterOptions;
+//======================================================================================================================
 
+//===API================================================================================================================
 bool converter_cache_check_needs_convert(const char *toPath, const char *fromPath) {
     if (g_converterOptions.ignoreConvertCache) {
         return true;
@@ -22,3 +25,4 @@ bool converter_cache_check_needs_convert(const char *toPath, const char *fromPat
     }
     return true;
 }
+//======================================================================================================================

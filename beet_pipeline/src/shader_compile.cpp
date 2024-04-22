@@ -7,6 +7,7 @@
 
 #include <fmt/format.h>
 
+//===API================================================================================================================
 void pipeline_build_shader_spv(const std::string &readPath, const std::string &writePath) {
     const std::string inPath = fmt::format("{}{}", PIPELINE_SHADER_DIR, readPath);
     const std::string outPath = fmt::format("{}{}", CLIENT_RUNTIME_SHADER_DIR, writePath);
@@ -25,3 +26,4 @@ void pipeline_shader_log() {
     log_info(MSG_PIPELINE, "===========================\n")
     log_info(MSG_PIPELINE, "\n")
 }
+//======================================================================================================================
