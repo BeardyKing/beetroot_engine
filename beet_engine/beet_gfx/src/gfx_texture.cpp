@@ -307,7 +307,9 @@ void gfx_texture_create_immediate_dds(const char *path, GfxTexture &inOutTexture
     inOutTexture.descriptor.imageView = inOutTexture.view;
     inOutTexture.descriptor.sampler = gfx_samplers()->samplers[inOutTexture.imageSamplerType];
     inOutTexture.descriptor.imageLayout = inOutTexture.layout;
+    
     mem_free(myImage.data);
+    mem_free(bufferCopyRegions);
 }
 
 void gfx_texture_cleanup(GfxTexture &gfxTexture) {

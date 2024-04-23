@@ -15,6 +15,7 @@
 #include <imgui.h>
 #include <beet_gfx/gfx_lit.h>
 #include <beet_gfx/gfx_sky.h>
+#include <beet_shared/memory.h>
 
 #endif //BEET_GFX_IMGUI
 
@@ -75,4 +76,8 @@ int main() {
     input_cleanup();
     time_cleanup();
     window_cleanup();
+#if BEET_MEMORY_DEBUG
+    mem_dump_memory_info();
+    mem_validate_empty();
+#endif //BEET_MEMORY_DEBUG
 }
