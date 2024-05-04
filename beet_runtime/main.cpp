@@ -13,6 +13,7 @@
 #if BEET_GFX_IMGUI
 
 #include <runtime/widget_manager.h>
+
 #endif //BEET_GFX_IMGUI
 
 #if BEET_GFX_IMGUI
