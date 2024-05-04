@@ -13,20 +13,31 @@
 static void primary_camera_entity_create() {
     const CameraEntity cameraEntity{
             .transformIndex = db_add_transform({.position{0, 0, -1}}),
-            .cameraIndex = db_add_camera({.fov = 65}),
+            .cameraIndex = db_add_camera({.fov = 65, .zFar = 6000}),
     };
     db_add_camera_entity(cameraEntity);
 }
 
 static void lit_entities_create() {
     //===MESH=====================================================
+#if IN_DEV_RUNTIME_GLTF_LOADING
+    std::vector<uint32_t> dbGltfMeshIds = {};
+    std::vector<GfxMesh> gltfMeshes = gfx_mesh_load_gltf();
+    dbGltfMeshIds.reserve(gltfMeshes.size());
+    for (int i = 0; i < gltfMeshes.size(); ++i) {
+        dbGltfMeshIds.emplace_back(db_add_mesh(gltfMeshes[i]));
+    }
+#endif //IN_DEV_RUNTIME_GLTF_LOADING
+
     uint32_t cubeID = {UINT32_MAX};
-    uint32_t octahedronID = {UINT32_MAX};
     {
         GfxMesh cubeMesh = {};
         gfx_mesh_create_cube_immediate(cubeMesh);
         cubeID = db_add_mesh(cubeMesh);
+    }
 
+    uint32_t octahedronID = {UINT32_MAX};
+    {
         GfxMesh octahedronMesh = {};
         gfx_mesh_create_octahedron_immediate(octahedronMesh);
         octahedronID = db_add_mesh(octahedronMesh);
@@ -76,7 +87,7 @@ static void lit_entities_create() {
     }
     //============================================================
 
-    //===ENTITY_CUBE==============================================
+    //===ENTITY_MESH==============================================
     {
         const Transform transform = {.position{2, 0, -8}};
         const LitEntity defaultCube = {
@@ -87,6 +98,22 @@ static void lit_entities_create() {
         db_add_lit_entity(defaultCube);
     }
     //============================================================
+
+#if IN_DEV_RUNTIME_GLTF_LOADING
+    //===ENTITY_MESH==============================================
+    {
+        for (int i = 0; i < gltfMeshes.size(); ++i) {
+            const Transform transform = {.position{2, 0, -8}, .scale{1.f}};
+            const LitEntity defaultCube = {
+                    .transformIndex = db_add_transform(transform),
+                    .meshIndex = dbGltfMeshIds[i],
+                    .materialIndex = cubeLitMaterialID,
+            };
+            db_add_lit_entity(defaultCube);
+        }
+    }
+    //============================================================
+#endif //IN_DEV_RUNTIME_GLTF_LOADING
 
     //===ENTITY_OCTAHEDRON========================================
     {

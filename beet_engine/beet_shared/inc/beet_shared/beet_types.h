@@ -6,11 +6,16 @@
 #include <beet_math/vec2.h>
 #include <cstdint>
 
+constexpr uint8_t DEBUG_NAME_MAX = 128;
+
 //===PUBLIC_STRUCTS=====================================================================================================
 struct LitEntity {
     uint32_t transformIndex;
     uint32_t meshIndex;
     uint32_t materialIndex;
+#if BEET_DEBUG
+    char debug_name[DEBUG_NAME_MAX] = {"unnamed\0"};
+#endif //BEET_DEBUG
 };
 
 struct SkyEntity {
@@ -21,6 +26,9 @@ struct SkyEntity {
 struct CameraEntity {
     uint32_t transformIndex;
     uint32_t cameraIndex;
+#if BEET_DEBUG
+    char debug_name[DEBUG_NAME_MAX] = {"default camera\0"};
+#endif //BEET_DEBUG
 };
 
 struct Transform {

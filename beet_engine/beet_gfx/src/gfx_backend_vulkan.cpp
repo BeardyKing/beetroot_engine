@@ -395,7 +395,7 @@ static VkPresentModeKHR select_present_mode() {
     ASSERT_MSG(populateRes == VK_SUCCESS, "Err: failed to populate present modes array");
 
     VkPresentModeKHR selectedPresentMode = {VK_PRESENT_MODE_FIFO_KHR};
-    VkPresentModeKHR preferredMode = g_userArguments.vsync ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+    VkPresentModeKHR preferredMode = g_userArguments.vsync ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR;
     for (uint32_t i = 0; i < presentModeCount; ++i) {
         if (presentModes[i] == preferredMode) {
             selectedPresentMode = presentModes[i];

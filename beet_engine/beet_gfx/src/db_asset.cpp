@@ -26,6 +26,10 @@ Camera *db_get_camera(uint32_t index) {
 static CameraEntity s_dbCameraEntities[MAX_DB_CAMERA_ENTITIES] = {0};
 static uint32_t s_dbCameraEntitiesCount = {0};
 
+uint32_t db_get_camera_entity_count() {
+    return s_dbCameraEntitiesCount;
+}
+
 uint32_t db_add_camera_entity(const CameraEntity &camera) {
     ASSERT(s_dbCameraEntitiesCount < MAX_DB_CAMERA_ENTITIES);
     uint32_t currentCameraEntityIndex = s_dbCameraEntitiesCount;

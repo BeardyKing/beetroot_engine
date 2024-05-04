@@ -9,6 +9,10 @@
 #include <beet_math/vec3.h>
 #include <beet_math/vec4.h>
 
+#include <vector>
+
+#define IN_DEV_RUNTIME_GLTF_LOADING 0
+
 //===PUBLIC_STRUCTS=====================================================================================================
 struct GfxVertex {
     vec3f pos;
@@ -46,6 +50,9 @@ struct GfxMesh {
 //===API================================================================================================================
 void gfx_mesh_create_cube_immediate(GfxMesh &outMesh);
 void gfx_mesh_create_octahedron_immediate(GfxMesh &outMesh);
+#if IN_DEV_RUNTIME_GLTF_LOADING
+std::vector<GfxMesh> gfx_mesh_load_gltf();
+#endif //IN_DEV_RUNTIME_GLTF_LOADING
 void gfx_mesh_create_immediate(const RawMesh &rawMesh, GfxMesh &outMesh);
 void gfx_mesh_cleanup(GfxMesh &mesh);
 //======================================================================================================================

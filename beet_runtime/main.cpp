@@ -12,39 +12,14 @@
 
 #if BEET_GFX_IMGUI
 
-#include <imgui.h>
-#include <beet_gfx/gfx_lit.h>
-#include <beet_gfx/gfx_sky.h>
-#include <beet_shared/memory.h>
-
+#include <runtime/widget_manager.h>
 #endif //BEET_GFX_IMGUI
 
 #if BEET_GFX_IMGUI
 void imgui_update() {
     gfx_imgui_begin();
     {
-        gfx_imgui_demo_window();
-        bool isHovered = ImGui::IsItemHovered();
-        bool isFocused = ImGui::IsItemFocused();
-        ImVec2 mousePositionAbsolute = ImGui::GetMousePos();
-        ImVec2 screenPositionAbsolute = ImGui::GetItemRectMin();
-        ImVec2 mousePositionRelative = ImVec2(mousePositionAbsolute.x - screenPositionAbsolute.x, mousePositionAbsolute.y - screenPositionAbsolute.y);
-        ImGui::Text("Is mouse over screen? %s", isHovered ? "Yes" : "No");
-        ImGui::Text("Is screen focused? %s", isFocused ? "Yes" : "No");
-        ImGui::Text("Position: %f, %f", mousePositionRelative.x, mousePositionRelative.y);
-        ImGui::Text("Mouse clicked: %s", ImGui::IsMouseDown(ImGuiMouseButton_Left) ? "Yes" : "No");
-
-    }
-    {
-        ImGui::Begin("Shader Utils");
-        if (ImGui::Button("Reload: Lit")) {
-            gfx_rebuild_lit_pipeline();
-        }
-        if (ImGui::Button("Reload: Sky")) {
-            gfx_rebuild_sky_pipeline();
-        }
-
-        ImGui::End();
+        widget_manager_update();
     }
 }
 #endif //BEET_GFX_IMGUI

@@ -31,8 +31,8 @@ void script_update_camera() {
     if (input_mouse_down(MouseButton::Right)) {
         const vec2f delta = input_mouse_delta();
         const float mouseSpeed = 12.0f;
-        transform->rotation.y += (-delta.x * (float) time_delta()) * mouseSpeed;
-        transform->rotation.x += (-delta.y * (float) time_delta()) * mouseSpeed;
+        transform->rotation.y += (-delta.x * mouseSpeed) * (float) time_delta();
+        transform->rotation.x += (-delta.y * mouseSpeed) * (float) time_delta();
         transform->rotation.x = clamp(transform->rotation.x, -ROTATION_CLAMP, ROTATION_CLAMP);
 
         vec3f moveDirection{};
@@ -40,7 +40,7 @@ void script_update_camera() {
         const vec3f camRight = quat(transform->rotation) * WORLD_RIGHT;
 
         float moveSpeed = 5.0f;
-        const float speedUpScalar = 4.0f;
+        const float speedUpScalar = 80.0f;
         const float speedDownScalar = 0.1f;
         if (input_key_down(KeyCode::W)) {
             moveDirection += camForward;
@@ -66,7 +66,7 @@ void script_update_camera() {
         if (input_key_down(KeyCode::Control)) {
             moveSpeed *= speedDownScalar;
         }
-        transform->position += moveDirection * ((float) time_delta() * moveSpeed);
+        transform->position += (moveDirection * moveSpeed) * (float) time_delta();
     }
 }
 //======================================================================================================================

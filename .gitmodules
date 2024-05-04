@@ -13,6 +13,7 @@
 [submodule "beet_engine/beet_gfx/third/imgui"]
 	path = beet_engine/beet_gfx/third/imgui
 	url = https://github.com/ocornut/imgui.git
+	branch = docking
 [submodule "beet_engine/beet_converter/third/glslang"]
 	path = beet_engine/beet_converter/third/glslang
 	url = https://github.com/KhronosGroup/glslang.git

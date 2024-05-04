@@ -9,6 +9,12 @@ add_executable(beet_runtime
         inc/runtime/script_camera.h
         src/script_camera.cpp
         src/entity_builder.cpp
+        inc/runtime/widget_db.h
+        src/widget_db.cpp
+        inc/runtime/widget_manager.h
+        src/widget_manager.cpp
+        inc/runtime/widget_hotloader.h
+        src/widget_hotloader.cpp
 )
 
 target_include_directories(beet_runtime

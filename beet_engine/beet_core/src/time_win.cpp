@@ -39,7 +39,7 @@ void time_tick() {
     s_time.frameCount += 1;
     s_time.lastTime = s_time.currentTime;
     s_time.currentTime = (double) timeNow.QuadPart / s_time.frequency;
-    s_time.deltaTime = (s_time.currentTime - s_time.lastTime);
+    s_time.deltaTime = (s_time.currentTime - s_time.lastTime) * (s_time.timeScale / 1000.0);
 }
 //======================================================================================================================
 

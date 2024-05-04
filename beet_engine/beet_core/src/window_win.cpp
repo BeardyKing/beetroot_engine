@@ -212,7 +212,7 @@ static void check_cursor_over_window(MSG *msg) {
 
 static void window_poll() {
     MSG msg = {};
-    if (PeekMessage(&msg, s_windowInfo.handle, 0, 0, PM_REMOVE)) {
+    while (PeekMessage(&msg, s_windowInfo.handle, 0, 0, PM_REMOVE)) {
         check_cursor_over_window(&msg);
         TranslateMessage(&msg);
         DispatchMessage(&msg);

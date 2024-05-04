@@ -167,15 +167,15 @@ static bool gfx_create_lit_pipelines(VkPipeline &outLitPipeline) {
 //===API================================================================================================================
 void gfx_lit_draw(VkCommandBuffer &cmdBuffer) {
     const uint32_t litEntityCount = db_get_lit_entity_count();
+    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxLit.pipeline);
     for (uint32_t i = 0; i < litEntityCount; ++i) {
         const LitEntity &entity = *db_get_lit_entity(i);
         const LitMaterial &material = *db_get_lit_material(entity.materialIndex);
         const VkDescriptorSet &descriptorSet = *db_get_descriptor_set(material.descriptorSetIndex);
         const Transform &transform = *db_get_transform(entity.transformIndex);
         const GfxMesh &mesh = *db_get_mesh(entity.meshIndex);
-
         vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxLit.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxLit.pipeline);
+
 
         const mat4 model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(mat4(1.0f), transform.scale);
         const LitPushConstantBuffer pushConstantBuffer = {model};
