@@ -22,6 +22,7 @@
 #include <beet_gfx/gfx_sky.h>
 #include <beet_gfx/db_asset.h>
 #include <beet_gfx/gfx_converter.h>
+#include <beet_gfx/gfx_line.h>
 
 #include <beet_math/quat.h>
 #include <beet_math/utilities.h>
@@ -314,17 +315,30 @@ static void gfx_create_queues() {
         deviceExtensionCount++;
     }
 
+    VkPhysicalDeviceLineRasterizationFeaturesEXT lineRasterizationFeaturesEXT{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT,
+            .pNext = nullptr,
+            .rectangularLines         = VK_TRUE,
+            .bresenhamLines           = VK_TRUE,
+            .smoothLines              = VK_TRUE,
+            .stippledRectangularLines = VK_TRUE,
+            .stippledBresenhamLines   = VK_TRUE,
+            .stippledSmoothLines      = VK_TRUE,
+    };
+    void *pNextRoot1 = &lineRasterizationFeaturesEXT;
+
     VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeaturesKHR{
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
-            .pNext = nullptr,
+            .pNext = pNextRoot1,
             .dynamicRendering = VK_TRUE,
     };
-    void *pNextRoot = &dynamicRenderingFeaturesKHR;
+    void *pNextRoot0 = &dynamicRenderingFeaturesKHR;
 
     const VkPhysicalDeviceFeatures2 deviceFeatures2 = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-            .pNext = pNextRoot,
+            .pNext = pNextRoot0,
             .features = {
+                    .wideLines = VK_TRUE,
                     .samplerAnisotropy = VK_TRUE,
             },
     };
@@ -879,6 +893,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 
             gfx_sky_draw(cmdBuffer);
             gfx_lit_draw(cmdBuffer);
+            gfx_line_draw(cmdBuffer);
 #if BEET_GFX_IMGUI
             gfx_imgui_draw(cmdBuffer);
 #endif // BEET_GFX_IMGUI
@@ -969,11 +984,13 @@ void gfx_create(void *windowHandle) {
 #endif //BEET_GFX_IMGUI
     gfx_create_sky();
     gfx_create_lit();
+    gfx_create_line();
 }
 
 void gfx_cleanup() {
     gfx_cleanup_uniform_buffers();
 
+    gfx_cleanup_line();
     gfx_cleanup_lit();
     gfx_cleanup_sky();
 #if BEET_GFX_IMGUI

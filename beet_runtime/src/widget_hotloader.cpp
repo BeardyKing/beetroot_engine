@@ -2,6 +2,7 @@
 #include <beet_gfx/gfx_lit.h>
 #include <beet_gfx/gfx_sky.h>
 #include <imgui.h>
+#include <beet_gfx/gfx_line.h>
 
 //===API================================================================================================================
 void widget_hot_reload_shaders(bool &enabled) {
@@ -13,6 +14,9 @@ void widget_hot_reload_shaders(bool &enabled) {
         }
         if (ImGui::Button("Reload: Sky")) {
             gfx_rebuild_sky_pipeline();
+        }
+        if (ImGui::Button("Reload: Lines")) {
+            gfx_rebuild_line_pipeline();
         }
         ImGui::End();
     }

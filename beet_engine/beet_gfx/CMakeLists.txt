@@ -45,6 +45,8 @@ add_library(beet_gfx
         src/gfx_sky.cpp
         inc/beet_gfx/gfx_converter.h
         src/gfx_converter.cpp
+        inc/beet_gfx/gfx_line.h
+        src/gfx_line.cpp
 )
 
 target_include_directories(beet_gfx

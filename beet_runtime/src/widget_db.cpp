@@ -1,14 +1,16 @@
 #include <runtime/widget_db.h>
 
 #include <beet_shared/beet_types.h>
+#include <beet_shared/assert.h>
+#include <beet_math/quat.h>
 #include <beet_gfx/db_asset.h>
+#include <beet_gfx/gfx_imgui.h>
+#include <beet_gfx/gfx_line.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
 
 #include <string>
-#include <beet_gfx/gfx_imgui.h>
-#include <beet_shared/assert.h>
 
 //===INTERNAL_STRUCTS===================================================================================================
 static enum SelectedPool {
@@ -138,6 +140,102 @@ static bool widget_draw_transform(Transform &transform) {
         outEdited |= DrawVec3Control("Rot", transform.rotation, 0.0f, 35.0f);
         outEdited |= DrawVec3Control("Scl", transform.scale, 0.0f, 35.0f);
     }
+
+    constexpr uint32_t RGBA_RED = 0xFF0000FF;
+    constexpr uint32_t RGBA_BLUE = 0x0000FFFF;
+    constexpr uint32_t RGBA_GREEN = 0x00FF00FF;
+    constexpr float GIZMO_LINE_THICKNESS = 2.0f;
+
+    const mat4 model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation));
+    {
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{0.0, 0.0, 0.0}, 1)), .color = RGBA_GREEN},
+                {.position = vec3(model * vec4(vec3{0.0, 1.0, 0.0}, 1)), .color = RGBA_GREEN},
+                GIZMO_LINE_THICKNESS
+        );
+
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{0.0, 1.0, 0.0}, 1)), .color = RGBA_GREEN},
+                {.position = vec3(model * vec4(vec3{0.1, 0.9, 0.0}, 1)), .color = RGBA_GREEN},
+                GIZMO_LINE_THICKNESS
+        );
+
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{0.0, 1.0, 0.0}, 1)), .color = RGBA_GREEN},
+                {.position = vec3(model * vec4(vec3{0.0, 0.9, 0.1}, 1)), .color = RGBA_GREEN},
+                GIZMO_LINE_THICKNESS
+        );
+
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{0.0, 1.0, 0.0}, 1)), .color = RGBA_GREEN},
+                {.position = vec3(model * vec4(vec3{0.0, 0.9, -0.1}, 1)), .color = RGBA_GREEN},
+                GIZMO_LINE_THICKNESS
+        );
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{0.0, 1.0, 0.0}, 1)), .color = RGBA_GREEN},
+                {.position = vec3(model * vec4(vec3{-0.1, 0.9, 0.0}, 1)), .color = RGBA_GREEN},
+                GIZMO_LINE_THICKNESS
+        );
+    }
+
+    {
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{0.0, 0.0, 0.0}, 1)), .color = RGBA_BLUE},
+                {.position = vec3(model * vec4(vec3{0.0, 0.0, 1.0}, 1)), .color = RGBA_BLUE},
+                GIZMO_LINE_THICKNESS
+        );
+
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{0.0, 0.0, 1.0}, 1)), .color = RGBA_BLUE},
+                {.position = vec3(model * vec4(vec3{0.0, 0.1, 0.9}, 1)), .color = RGBA_BLUE},
+                GIZMO_LINE_THICKNESS
+        );
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{0.0, 0.0, 1.0}, 1)), .color = RGBA_BLUE},
+                {.position = vec3(model * vec4(vec3{0.0, -0.1, 0.9}, 1)), .color = RGBA_BLUE},
+                GIZMO_LINE_THICKNESS
+        );
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{0.0, 0.0, 1.0}, 1)), .color = RGBA_BLUE},
+                {.position = vec3(model * vec4(vec3{0.1, 0.0, 0.9}, 1)), .color = RGBA_BLUE},
+                GIZMO_LINE_THICKNESS
+        );
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{0.0, 0.0, 1.0}, 1)), .color = RGBA_BLUE},
+                {.position = vec3(model * vec4(vec3{-0.1, 0.0, 0.9}, 1)), .color = RGBA_BLUE},
+                GIZMO_LINE_THICKNESS
+        );
+    }
+
+    {
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{0.0, 0.0, 0.0}, 1)), .color = RGBA_RED},
+                {.position = vec3(model * vec4(vec3{1.0, 0.0, 0.0}, 1)), .color = RGBA_RED},
+                GIZMO_LINE_THICKNESS
+        );
+
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{1.0, 0.0, 0.0}, 1)), .color = RGBA_RED},
+                {.position = vec3(model * vec4(vec3{0.9, 0.1, 0.0}, 1)), .color = RGBA_RED},
+                GIZMO_LINE_THICKNESS
+        );
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{1.0, 0.0, 0.0}, 1)), .color = RGBA_RED},
+                {.position = vec3(model * vec4(vec3{0.9, -0.1, 0.0}, 1)), .color = RGBA_RED},
+                GIZMO_LINE_THICKNESS
+        );
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{1.0, 0.0, 0.0}, 1)), .color = RGBA_RED},
+                {.position = vec3(model * vec4(vec3{0.9, 0.0, 0.1}, 1)), .color = RGBA_RED},
+                GIZMO_LINE_THICKNESS
+        );
+        gfx_line_add_segment_immediate(
+                {.position = vec3(model * vec4(vec3{1.0, 0.0, 0.0}, 1)), .color = RGBA_RED},
+                {.position = vec3(model * vec4(vec3{0.9, 0.0, -0.1}, 1)), .color = RGBA_RED},
+                GIZMO_LINE_THICKNESS
+        );
+    }
+
     return outEdited;
 }
 

@@ -56,11 +56,20 @@ void gfx_create_function_pointers_debug_util_messenger() {
     g_vkSetDebugUtilsObjectNameEXT_Func = (PFN_vkSetDebugUtilsObjectNameEXT) vkGetInstanceProcAddr(instance, BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT);
     ASSERT_MSG(g_vkSetDebugUtilsObjectNameEXT_Func, "Err: failed to setup debug callback %s", BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT);
 }
+
+static constexpr char BEET_VK_CREATE_LINE_RASTERIZATION_MODE_EXT[] = "vkCmdSetLineRasterizationModeEXT";
+PFN_vkCmdSetLineRasterizationModeEXT g_vkCmdSetLineRasterizationModeEXT_Func = {VK_NULL_HANDLE};
+
+static void gfx_create_function_pointers_line_rasterization_mode(){
+    g_vkCmdSetLineRasterizationModeEXT_Func = (PFN_vkCmdSetLineRasterizationModeEXT) vkGetInstanceProcAddr(g_vulkanBackend.instance, BEET_VK_CREATE_LINE_RASTERIZATION_MODE_EXT);
+    ASSERT(g_vkCmdSetLineRasterizationModeEXT_Func != VK_NULL_HANDLE);
+}
 //======================================================================================================================
 
 //===INIT_&_SHUTDOWN====================================================================================================
 void gfx_create_function_pointers() {
     gfx_create_function_pointers_dynamic_rendering();
+//    gfx_create_function_pointers_line_rasterization_mode();//FIXME: This crashes
 };
 
 void gfx_cleanup_function_pointers() {

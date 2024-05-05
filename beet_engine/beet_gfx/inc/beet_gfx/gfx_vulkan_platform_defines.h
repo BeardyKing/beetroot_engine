@@ -33,13 +33,14 @@ static constexpr const char *BEET_VK_INSTANCE_EXTENSIONS[BEET_VK_INSTANCE_EXTENS
 
 static constexpr int32_t BEET_VK_MAX_DEVICE_EXTENSION_COUNT = 64;
 static constexpr int32_t BEET_VK_REQUIRED_DEVICE_EXTENSION_COUNT = 6;
-static constexpr const char* BEET_VK_REQUIRED_DEVICE_EXTENSIONS[6]{
+static constexpr const char* BEET_VK_REQUIRED_DEVICE_EXTENSIONS[7]{
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
         VK_KHR_MAINTENANCE2_EXTENSION_NAME,
         VK_KHR_MULTIVIEW_EXTENSION_NAME,
         VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
         VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
+        VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME
 };
 //======================================================================================================================
 

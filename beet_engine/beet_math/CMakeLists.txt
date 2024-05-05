@@ -11,6 +11,7 @@ add_library(beet_math
         inc/beet_math/vec4.h
         inc/beet_math/mat4.h
         inc/beet_math/quat.h
+        src/vec4.cpp
 )
 
 #====LIB GLM==============
