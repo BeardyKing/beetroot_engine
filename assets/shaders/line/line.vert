@@ -26,14 +26,13 @@ layout (location = 0) out StageLayout {
 } stageLayout;
 //==========================================================
 
-vec4 unpack_uint32_t_to_vec4f(uint packedValue) {
-    // Extract each component from the packed uint
-    float x = float((packedValue >> 24) & 0xFF) / 255.0;
-    float y = float((packedValue >> 16) & 0xFF) / 255.0;
-    float z = float((packedValue >> 8)  & 0xFF) / 255.0;
-    float w = float((packedValue >> 0)  & 0xFF) / 255.0;
-
-    return vec4(x, y, z, w);
+vec4 unpack_uint32_t_to_vec4f(uint packedData) {
+    return vec4(
+        float((packedData >> 24) & 0xFF) / 255.0,
+        float((packedData >> 16) & 0xFF) / 255.0,
+        float((packedData >> 8)  & 0xFF) / 255.0,
+        float((packedData >> 0)  & 0xFF) / 255.0
+    );
 }
 
 void main() {
