@@ -69,7 +69,7 @@ static void gfx_create_function_pointers_line_rasterization_mode(){
 //===INIT_&_SHUTDOWN====================================================================================================
 void gfx_create_function_pointers() {
     gfx_create_function_pointers_dynamic_rendering();
-//    gfx_create_function_pointers_line_rasterization_mode();//FIXME: This crashes
+    gfx_create_function_pointers_line_rasterization_mode();
 };
 
 void gfx_cleanup_function_pointers() {

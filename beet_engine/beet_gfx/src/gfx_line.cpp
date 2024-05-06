@@ -8,6 +8,11 @@
 
 #include <vulkan/vulkan_core.h>
 
+#define IN_PROGRESS_LINE_RENDERING 0
+#if IN_PROGRESS_LINE_RENDERING
+#include <imgui.h>
+#endif
+
 //===INTERNAL_STRUCTS===================================================================================================
 static struct VulkanLine {
     VkDescriptorSetLayout descriptorSetLayout = {VK_NULL_HANDLE};
@@ -128,12 +133,16 @@ static bool gfx_create_line_pipelines(VkPipeline &outLinePipeline) {
     // TODO: this means we don't sort the gizmo based on depth (i.e. order of rendering matters) will consider rendering this to a different buffer in the future
     const VkPipelineDepthStencilStateCreateInfo depthStencilState = gfx_pipeline_depth_stencil_state_create(VK_TRUE, VK_TRUE, VK_COMPARE_OP_ALWAYS);
     const VkPipelineViewportStateCreateInfo viewportState = gfx_pipeline_viewport_state_create(1, 1, 0);
-    const VkPipelineMultisampleStateCreateInfo multisampleState = gfx_pipeline_multisample_state_create(VK_SAMPLE_COUNT_1_BIT, 0);
+    const VkPipelineMultisampleStateCreateInfo multisampleState = gfx_pipeline_multisample_state_create(g_vulkanBackend.sampleCount, 0);
 
-    constexpr uint32_t dynamicStateCount = 3;
-    const VkDynamicState dynamicStateEnables[dynamicStateCount] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_LINE_WIDTH};
+    constexpr uint32_t dynamicStateCount = 4;
+    const VkDynamicState dynamicStateEnables[dynamicStateCount] = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR,
+            VK_DYNAMIC_STATE_LINE_WIDTH,
+            VK_DYNAMIC_STATE_LINE_RASTERIZATION_MODE_EXT,
+    };
     VkPipelineDynamicStateCreateInfo dynamicState = gfx_pipeline_dynamic_state_create(dynamicStateEnables, dynamicStateCount, 0);
-
     constexpr uint32_t shaderStagesCount = 2;
     VkPipelineShaderStageCreateInfo shaderStages[shaderStagesCount] = {};
 
@@ -177,11 +186,23 @@ static bool gfx_create_line_pipelines(VkPipeline &outLinePipeline) {
 extern PFN_vkCmdSetLineRasterizationModeEXT g_vkCmdSetLineRasterizationModeEXT_Func;
 //===API================================================================================================================
 void gfx_line_draw(VkCommandBuffer &cmdBuffer) {
+    static int32_t stateValue = 3;
+#if IN_PROGRESS_LINE_RENDERING
+    ImGui::SetNextWindowSize(ImVec2(600, 125), ImGuiCond_Always);
+    ImGui::Begin("VkLineRasterizationModeEXT: Shaders");
+    ImGui::Text("0: VK_LINE_RASTERIZATION_MODE_DEFAULT_EXT");
+    ImGui::Text("1: VK_LINE_RASTERIZATION_MODE_RECTANGULAR_EXT");
+    ImGui::Text("2: VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT");
+    ImGui::Text("3: VK_LINE_RASTERIZATION_MODE_RECTANGULAR_SMOOTH_EXT");
+    ImGui::DragInt("VkLineRasterizationModeEXT", &stateValue, 0.02f, 0, 3);
+    stateValue = clamp(stateValue, 0, 3);
+    ImGui::End();
+#endif IN_PROGRESS_LINE_RENDERING
     gfx_update_lines_uniform_buffers();
     // There is only 1 descriptor for lines, so we cache it here instead of adding it to the db_pool
     vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, s_gfxLine.pipeline);
     vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, s_gfxLine.pipelineLayout, 0, 1, &s_gfxLine.descriptorSet, 0, nullptr);
-//    g_vkCmdSetLineRasterizationModeEXT_Func(cmdBuffer, static_cast<VkLineRasterizationModeEXT>(3)); //FIXME: This crashes
+    g_vkCmdSetLineRasterizationModeEXT_Func(cmdBuffer, static_cast<VkLineRasterizationModeEXT>(stateValue));
     for (uint32_t i = 0; i < s_lineEntityCount; ++i) {
         const LineEntity &lineEntity = s_lineEntityPool[i];
         const uint32_t numberOfPoints = (lineEntity.lineRangeEnd - lineEntity.lineRangeStart);

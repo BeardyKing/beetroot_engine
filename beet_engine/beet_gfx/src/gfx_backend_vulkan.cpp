@@ -41,6 +41,7 @@ static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
 static struct UserArguments {
     uint32_t selectedPhysicalDeviceIndex = {};
     bool vsync = {true};
+    VkSampleCountFlagBits msaa = VK_SAMPLE_COUNT_1_BIT; //TODO: Unsure how to get dynamic rendering to do multisampling
 } g_userArguments = {};
 
 VulkanBackend g_vulkanBackend = {};
@@ -135,6 +136,11 @@ static void gfx_cleanup_physical_device() {
     g_vulkanBackend.physicalDevice = VK_NULL_HANDLE;
 }
 
+static VkSampleCountFlagBits set_target_sample_count(const VkPhysicalDeviceProperties deviceProperties, VkSampleCountFlagBits target) {
+    VkSampleCountFlags supportedSampleCount = min(deviceProperties.limits.framebufferColorSampleCounts, deviceProperties.limits.framebufferDepthSampleCounts);
+    return (supportedSampleCount & target) ? target : VK_SAMPLE_COUNT_1_BIT;
+}
+
 static void gfx_create_physical_device() {
     uint32_t deviceCount = 0;
 
@@ -157,6 +163,8 @@ static void gfx_create_physical_device() {
     g_vulkanBackend.physicalDevice = physicalDevices[selectedDevice];
 
     vkGetPhysicalDeviceProperties(g_vulkanBackend.physicalDevice, &g_vulkanBackend.deviceProperties);
+    g_vulkanBackend.sampleCount = set_target_sample_count(g_vulkanBackend.deviceProperties, g_userArguments.msaa);
+
     vkGetPhysicalDeviceFeatures(g_vulkanBackend.physicalDevice, &g_vulkanBackend.deviceFeatures);
     vkGetPhysicalDeviceMemoryProperties(g_vulkanBackend.physicalDevice, &g_vulkanBackend.deviceMemoryProperties);
 
@@ -209,6 +217,10 @@ static void gfx_create_queues() {
 
     if (devicePropertyCount > 0) {
         vkEnumerateDeviceExtensionProperties(g_vulkanBackend.physicalDevice, nullptr, &devicePropertyCount, selectedPhysicalDeviceExtensions);
+    }
+
+    for (uint32_t i = 0; i < devicePropertyCount; ++i) {
+        log_verbose(MSG_GFX, "Device extensions: %s \n", selectedPhysicalDeviceExtensions[i].extensionName);
     }
 
     uint32_t queueFamilyCount = 0;
@@ -315,9 +327,23 @@ static void gfx_create_queues() {
         deviceExtensionCount++;
     }
 
+    VkPhysicalDeviceExtendedDynamicState3FeaturesEXT vkPhysicalDeviceExtendedDynamicState3FeaturesEXT = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT,
+            .pNext = nullptr,
+            .extendedDynamicState3LineRasterizationMode = VK_TRUE,
+    };
+    void *pNextRoot3 = &vkPhysicalDeviceExtendedDynamicState3FeaturesEXT;
+
+    VkPhysicalDeviceExtendedDynamicStateFeaturesEXT vkPhysicalDeviceExtendedDynamicStateFeaturesExt = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
+            .pNext = pNextRoot3,
+            .extendedDynamicState = VK_TRUE,
+    };
+    void *pNextRoot2 = &vkPhysicalDeviceExtendedDynamicStateFeaturesExt;
+
     VkPhysicalDeviceLineRasterizationFeaturesEXT lineRasterizationFeaturesEXT{
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT,
-            .pNext = nullptr,
+            .pNext = pNextRoot2,
             .rectangularLines         = VK_TRUE,
             .bresenhamLines           = VK_TRUE,
             .smoothLines              = VK_TRUE,
@@ -630,7 +656,7 @@ static void gfx_create_depth_stencil_buffer() {
     depthImageInfo.extent = {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height, 1};
     depthImageInfo.mipLevels = 1;
     depthImageInfo.arrayLayers = 1;
-    depthImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthImageInfo.samples = g_vulkanBackend.sampleCount;
     depthImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     depthImageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
@@ -829,7 +855,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
                     .baseMipLevel = 0,
                     .levelCount = 1,
                     .baseArrayLayer = 0,
-                    .layerCount = 1
+                    .layerCount = 1,
             }
     );
     gfx_barrier_insert_memory_barrier(
@@ -857,7 +883,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
             .clearValue{
-                    .color = {{0.5f, 0.092f, 0.167f, 1.0f}}
+                    .color = {{0.5f, 0.092f, 0.167f, 1.0f}},
             },
     };
 

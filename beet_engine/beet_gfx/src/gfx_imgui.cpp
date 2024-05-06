@@ -152,7 +152,7 @@ void gfx_create_imgui(void *windowHandle) {
             .DescriptorPool = g_imguiPool,
             .MinImageCount = 3,
             .ImageCount = 3,
-            .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
+            .MSAASamples = g_vulkanBackend.sampleCount,
             .UseDynamicRendering = true,
             .PipelineRenderingCreateInfo = {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,

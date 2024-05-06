@@ -28,6 +28,7 @@ struct SceneUBO {
 //===PUBLIC_STRUCTS=====================================================================================================
 struct SwapChainBuffers {
     VkImage image;
+//    VkDeviceMemory deviceMemory; //TODO: I assume this is how I setup the sample count for the color. i.e. mirror DepthImage
     VkImageView view;
 };
 
@@ -116,9 +117,7 @@ struct VulkanBackend {
     //===UNIFORM BUFFER=============
     GfxBuffer uniformBuffer = {VK_NULL_HANDLE};
     //==============================
-
-
-
+    VkSampleCountFlagBits sampleCount = {VK_SAMPLE_COUNT_1_BIT};
     VkCommandBuffer immediateCommandBuffer = {VK_NULL_HANDLE};
 
     //===DEPRECATED=================

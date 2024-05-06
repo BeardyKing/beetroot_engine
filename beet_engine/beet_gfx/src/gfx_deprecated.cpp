@@ -43,7 +43,7 @@ void gfx_create_deprecated_render_pass() {
     constexpr uint32_t ATTACHMENT_SIZE = 2;
     VkAttachmentDescription attachments[2] = {0};
     attachments[0].format = gfx_utils_select_surface_format().format;
-    attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachments[0].samples = g_vulkanBackend.sampleCount;
     attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -52,7 +52,7 @@ void gfx_create_deprecated_render_pass() {
     attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
     attachments[1].format = gfx_utils_find_depth_format(VK_IMAGE_TILING_OPTIMAL);
-    attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachments[1].samples = g_vulkanBackend.sampleCount;
     attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
