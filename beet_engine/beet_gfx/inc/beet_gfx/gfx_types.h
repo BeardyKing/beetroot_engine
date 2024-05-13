@@ -28,7 +28,6 @@ struct SceneUBO {
 //===PUBLIC_STRUCTS=====================================================================================================
 struct SwapChainBuffers {
     VkImage image;
-//    VkDeviceMemory deviceMemory; //TODO: I assume this is how I setup the sample count for the color. i.e. mirror DepthImage
     VkImageView view;
 };
 
@@ -67,6 +66,13 @@ struct TargetVulkanFormats {
     // TODO: this struct should only last a single "frame" would be a good candidate for the inevitable gfx backend arena allocator
     VkSurfaceFormatKHR surfaceFormat = {};
     VkFormat depthFormat = {};
+    VkFormat colorFormat = {};
+};
+
+struct GfxImageBuffer {
+    VkImage image;
+    VkImageView view;
+    VkDeviceMemory deviceMemory;
 };
 
 struct VulkanBackend {
@@ -79,7 +85,8 @@ struct VulkanBackend {
     VkCommandBuffer *graphicsCommandBuffers = {}; // size is based off swapChain.imageCount
     VkFence *graphicsFenceWait = {};// size is based off swapChain.imageCount
 
-    DepthImage depthStencil = {};
+    GfxImageBuffer depthStencilBuffer = {};
+    GfxImageBuffer colorBuffer = {};
 
     VkExtensionProperties *supportedExtensions = {};
     uint32_t extensionsCount = {};
@@ -87,7 +94,6 @@ struct VulkanBackend {
     uint32_t validationLayersCount = {};
 
     VulkanSwapChain swapChain = {};
-
     uint32_t currentBufferIndex = 0;
 
     Semaphores semaphores = {};

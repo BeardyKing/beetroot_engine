@@ -41,7 +41,7 @@ static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
 static struct UserArguments {
     uint32_t selectedPhysicalDeviceIndex = {};
     bool vsync = {true};
-    VkSampleCountFlagBits msaa = VK_SAMPLE_COUNT_1_BIT; //TODO: Unsure how to get dynamic rendering to do multisampling
+    VkSampleCountFlagBits msaa = VK_SAMPLE_COUNT_4_BIT;
 } g_userArguments = {};
 
 VulkanBackend g_vulkanBackend = {};
@@ -327,35 +327,9 @@ static void gfx_create_queues() {
         deviceExtensionCount++;
     }
 
-    VkPhysicalDeviceExtendedDynamicState3FeaturesEXT vkPhysicalDeviceExtendedDynamicState3FeaturesEXT = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT,
-            .pNext = nullptr,
-            .extendedDynamicState3LineRasterizationMode = VK_TRUE,
-    };
-    void *pNextRoot3 = &vkPhysicalDeviceExtendedDynamicState3FeaturesEXT;
-
-    VkPhysicalDeviceExtendedDynamicStateFeaturesEXT vkPhysicalDeviceExtendedDynamicStateFeaturesExt = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
-            .pNext = pNextRoot3,
-            .extendedDynamicState = VK_TRUE,
-    };
-    void *pNextRoot2 = &vkPhysicalDeviceExtendedDynamicStateFeaturesExt;
-
-    VkPhysicalDeviceLineRasterizationFeaturesEXT lineRasterizationFeaturesEXT{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT,
-            .pNext = pNextRoot2,
-            .rectangularLines         = VK_TRUE,
-            .bresenhamLines           = VK_TRUE,
-            .smoothLines              = VK_TRUE,
-            .stippledRectangularLines = VK_TRUE,
-            .stippledBresenhamLines   = VK_TRUE,
-            .stippledSmoothLines      = VK_TRUE,
-    };
-    void *pNextRoot1 = &lineRasterizationFeaturesEXT;
-
     VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeaturesKHR{
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
-            .pNext = pNextRoot1,
+            .pNext = nullptr,
             .dynamicRendering = VK_TRUE,
     };
     void *pNextRoot0 = &dynamicRenderingFeaturesKHR;
@@ -646,6 +620,65 @@ static void gfx_cleanup_fences() {
     g_vulkanBackend.graphicsFenceWait = nullptr;
 }
 
+static void gfx_create_color_buffer() {
+    g_vulkanTargetFormats.colorFormat = g_vulkanTargetFormats.surfaceFormat.format; // we should consider adding a new find best format function
+
+    VkImageCreateInfo colorImageInfo = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .format = g_vulkanTargetFormats.colorFormat,
+            .extent = {.width = g_vulkanBackend.swapChain.width, .height = g_vulkanBackend.swapChain.height, .depth = 1},
+            .mipLevels = 1,
+            .arrayLayers = 1,
+            .samples = g_vulkanBackend.sampleCount,
+            .tiling = VK_IMAGE_TILING_OPTIMAL,
+            .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+
+    const VkResult createImgRes = vkCreateImage(g_vulkanBackend.device, &colorImageInfo, nullptr, &g_vulkanBackend.colorBuffer.image);
+    ASSERT(createImgRes == VK_SUCCESS);
+
+    VkMemoryRequirements memoryRequirements{};
+    vkGetImageMemoryRequirements(g_vulkanBackend.device, g_vulkanBackend.colorBuffer.image, &memoryRequirements);
+
+    VkMemoryAllocateInfo allocInfo{
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .allocationSize = memoryRequirements.size,
+            .memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+    };
+
+    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr, &g_vulkanBackend.colorBuffer.deviceMemory);
+    ASSERT_MSG(allocRes == VK_SUCCESS, "Err: failed to allocate memory for color buffer")
+
+    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.colorBuffer.image, g_vulkanBackend.colorBuffer.deviceMemory, 0);
+    ASSERT_MSG(bindRes == VK_SUCCESS, "Err: failed to bind color buffer");
+
+    VkImageViewCreateInfo colorImageViewInfo{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = g_vulkanBackend.colorBuffer.image,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = g_vulkanTargetFormats.colorFormat,
+            .subresourceRange = {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+            },
+    };
+
+    const VkResult createRes = vkCreateImageView(g_vulkanBackend.device, &colorImageViewInfo, nullptr, &g_vulkanBackend.colorBuffer.view);
+    ASSERT_MSG(createRes == VK_SUCCESS, "Err: failed to create color image view");
+}
+
+static void gfx_cleanup_color_buffer() {
+    vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.colorBuffer.view, nullptr);
+    vkDestroyImage(g_vulkanBackend.device, g_vulkanBackend.colorBuffer.image, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.colorBuffer.deviceMemory, nullptr);
+}
+
+
 static void gfx_create_depth_stencil_buffer() {
     g_vulkanTargetFormats.depthFormat = gfx_utils_find_depth_format(VK_IMAGE_TILING_OPTIMAL);
 
@@ -660,27 +693,27 @@ static void gfx_create_depth_stencil_buffer() {
     depthImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     depthImageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-    const VkResult imgRes = vkCreateImage(g_vulkanBackend.device, &depthImageInfo, nullptr, &g_vulkanBackend.depthStencil.image);
+    const VkResult imgRes = vkCreateImage(g_vulkanBackend.device, &depthImageInfo, nullptr, &g_vulkanBackend.depthStencilBuffer.image);
     ASSERT_MSG(imgRes == VK_SUCCESS, "Err: failed to create depth stencil image");
 
     VkMemoryRequirements memoryRequirements{};
-    vkGetImageMemoryRequirements(g_vulkanBackend.device, g_vulkanBackend.depthStencil.image, &memoryRequirements);
+    vkGetImageMemoryRequirements(g_vulkanBackend.device, g_vulkanBackend.depthStencilBuffer.image, &memoryRequirements);
 
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memoryRequirements.size;
     allocInfo.memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr, &g_vulkanBackend.depthStencil.deviceMemory);
+    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr, &g_vulkanBackend.depthStencilBuffer.deviceMemory);
     ASSERT_MSG(allocRes == VK_SUCCESS, "Err: failed to allocate memory for depth stencil")
 
-    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencil.image, g_vulkanBackend.depthStencil.deviceMemory, 0);
+    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencilBuffer.image, g_vulkanBackend.depthStencilBuffer.deviceMemory, 0);
     ASSERT_MSG(bindRes == VK_SUCCESS, "Err: failed to bind depth stencil");
 
     VkImageViewCreateInfo depthImageViewInfo{};
     depthImageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     depthImageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    depthImageViewInfo.image = g_vulkanBackend.depthStencil.image;
+    depthImageViewInfo.image = g_vulkanBackend.depthStencilBuffer.image;
     depthImageViewInfo.format = g_vulkanTargetFormats.depthFormat;
     depthImageViewInfo.subresourceRange.baseMipLevel = 0;
     depthImageViewInfo.subresourceRange.levelCount = 1;
@@ -692,14 +725,14 @@ static void gfx_create_depth_stencil_buffer() {
         depthImageViewInfo.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
     }
 
-    const VkResult createRes = vkCreateImageView(g_vulkanBackend.device, &depthImageViewInfo, nullptr, &g_vulkanBackend.depthStencil.view);
+    const VkResult createRes = vkCreateImageView(g_vulkanBackend.device, &depthImageViewInfo, nullptr, &g_vulkanBackend.depthStencilBuffer.view);
     ASSERT_MSG(createRes == VK_SUCCESS, "Err: failed to create depth image view");
 }
 
 static void gfx_cleanup_depth_stencil_buffer() {
-    vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.depthStencil.view, nullptr);
-    vkDestroyImage(g_vulkanBackend.device, g_vulkanBackend.depthStencil.image, nullptr);
-    vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencil.deviceMemory, nullptr);
+    vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.depthStencilBuffer.view, nullptr);
+    vkDestroyImage(g_vulkanBackend.device, g_vulkanBackend.depthStencilBuffer.image, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencilBuffer.deviceMemory, nullptr);
 }
 
 static void gfx_create_pipeline_cache() {
@@ -782,10 +815,12 @@ static void gfx_window_resize() {
     }
     gfx_flush();
 
+    gfx_cleanup_color_buffer();
     gfx_cleanup_depth_stencil_buffer();
     gfx_cleanup_swap_chain();
 
     gfx_create_swap_chain();
+    gfx_create_color_buffer();
     gfx_create_depth_stencil_buffer();
 }
 
@@ -838,69 +873,147 @@ static void gfx_barrier_insert_memory_barrier(
     vkCmdPipelineBarrier(cmdBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 }
 
-static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
-    //TODO: replace cmdIndexed variables with references.
+void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
     const uint32_t cmdIndex = g_vulkanBackend.currentBufferIndex;
+
+    gfx_barrier_insert_memory_barrier(
+            cmdBuffer,
+            g_vulkanBackend.colorBuffer.image,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
+    );
+
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
             g_vulkanBackend.swapChain.buffers[cmdIndex].image,
+            0,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
+    );
+
+    VkImageResolve resolveRegion{
+            .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .layerCount = 1,},
+            .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .layerCount = 1,},
+            .extent {.width = g_vulkanBackend.swapChain.width, .height = g_vulkanBackend.swapChain.height, .depth = 1,}
+    };
+
+
+    vkCmdResolveImage(
+            cmdBuffer,
+            g_vulkanBackend.colorBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            g_vulkanBackend.swapChain.buffers[cmdIndex].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &resolveRegion
+    );
+}
+
+[[maybe_unused]] void blit_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
+    const uint32_t cmdIndex = g_vulkanBackend.currentBufferIndex;
+
+    gfx_barrier_insert_memory_barrier(
+            cmdBuffer,
+            g_vulkanBackend.swapChain.buffers[cmdIndex].image,
+            0,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
+    );
+
+    gfx_barrier_insert_memory_barrier(
+            cmdBuffer,
+            g_vulkanBackend.colorBuffer.image,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
+    );
+
+    const VkImageBlit blitRegion{
+            .srcSubresource {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .layerCount = 1},
+            .srcOffsets = {
+                    {.x = 0, .y = 0, .z = 0},
+                    {.x = int32_t(g_vulkanBackend.swapChain.width), .y = int32_t(g_vulkanBackend.swapChain.height), .z = 1}
+            },
+            .dstSubresource {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .layerCount = 1},
+            .dstOffsets = {
+                    {.x = 0, .y = 0, .z = 0},
+                    {.x = int32_t(g_vulkanBackend.swapChain.width), .y = int32_t(g_vulkanBackend.swapChain.height), .z = 1}
+            },
+    };
+
+    vkCmdBlitImage(
+            cmdBuffer,
+            g_vulkanBackend.colorBuffer.image,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            g_vulkanBackend.swapChain.buffers[cmdIndex].image,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &blitRegion,
+            VK_FILTER_LINEAR
+    );
+}
+
+static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
+    const bool isMultisampling = (g_vulkanBackend.sampleCount != VK_SAMPLE_COUNT_1_BIT);
+    const uint32_t cmdIndex = g_vulkanBackend.currentBufferIndex;
+
+    gfx_barrier_insert_memory_barrier(
+            cmdBuffer,
+            isMultisampling ? g_vulkanBackend.colorBuffer.image : g_vulkanBackend.swapChain.buffers[cmdIndex].image,
             0,
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VkImageSubresourceRange{
-                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                    .baseMipLevel = 0,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1,
-            }
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1,}
     );
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
-            g_vulkanBackend.depthStencil.image,
+            g_vulkanBackend.depthStencilBuffer.image,
             0,
             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
             VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-            VkImageSubresourceRange{
-                    .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
-                    .baseMipLevel = 0,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1
-            }
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1}
     );
 
     const VkRenderingAttachmentInfoKHR colorAttachment = {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-            .imageView = g_vulkanBackend.swapChain.buffers[cmdIndex].view,
+            .imageView = isMultisampling ? g_vulkanBackend.colorBuffer.view : g_vulkanBackend.swapChain.buffers[cmdIndex].view,
             .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .clearValue{
-                    .color = {{0.5f, 0.092f, 0.167f, 1.0f}},
-            },
+            .clearValue{.color = {{0.5f, 0.092f, 0.167f, 1.0f}},},
     };
 
     const VkRenderingAttachmentInfoKHR depthStencilAttachment = {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-            .imageView = g_vulkanBackend.depthStencil.view,
+            .imageView = g_vulkanBackend.depthStencilBuffer.view,
             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .clearValue = {
-                    .depthStencil = {1.0f, 0}
-            },
+            .clearValue = {.depthStencil = {.depth = 1.0f, .stencil = 0}},
     };
 
     const VkRenderingInfoKHR renderingInfo = {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
-            .renderArea = {0, 0, g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height},
+            .renderArea = {.offset = {0, 0}, .extent = {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height}},
             .layerCount = 1,
             .colorAttachmentCount = 1,
             .pColorAttachments = &colorAttachment,
@@ -927,14 +1040,18 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
         gfx_command_end_rendering(cmdBuffer);
     }
 
+    if (isMultisampling) {
+        resolve_color_buffer_to_swapchain(cmdBuffer);
+    }
+
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
             g_vulkanBackend.swapChain.buffers[cmdIndex].image,
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            isMultisampling ? VK_ACCESS_TRANSFER_WRITE_BIT : VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             0,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            isMultisampling ? VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            isMultisampling ? VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
     );
@@ -998,6 +1115,7 @@ void gfx_create(void *windowHandle) {
     gfx_create_swap_chain();
     gfx_create_command_buffers();
     gfx_create_fences();
+    gfx_create_color_buffer();
     gfx_create_depth_stencil_buffer();
     gfx_create_pipeline_cache();
     gfx_create_samplers();
@@ -1024,6 +1142,7 @@ void gfx_cleanup() {
 #endif //BEET_GFX_IMGUI
     gfx_cleanup_samplers();
     gfx_cleanup_pipeline_cache();
+    gfx_cleanup_color_buffer();
     gfx_cleanup_depth_stencil_buffer();
     gfx_cleanup_fences();
     gfx_cleanup_command_buffers();

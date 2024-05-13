@@ -15,7 +15,7 @@ void gfx_create_deprecated_frame_buffer() {
 
     constexpr uint32_t ATTACHMENT_COUNT = 2;
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
-        const VkImageView attachments[ATTACHMENT_COUNT] = {g_vulkanBackend.swapChain.buffers[i].view, g_vulkanBackend.depthStencil.view};
+        const VkImageView attachments[ATTACHMENT_COUNT] = {g_vulkanBackend.swapChain.buffers[i].view, g_vulkanBackend.depthStencilBuffer.view};
 
         VkFramebufferCreateInfo framebufferInfo = {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
         framebufferInfo.pNext = nullptr;
