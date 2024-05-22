@@ -15,9 +15,10 @@ static struct VulkanLine {
     VkPipelineLayout pipelineLayout = {VK_NULL_HANDLE};
     VkPipeline pipeline = {VK_NULL_HANDLE};
 
-    VkDescriptorSet descriptorSet;
+    VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
 
-    GfxBuffer lineUniformBuffer = {VK_NULL_HANDLE};
+    GfxBuffer lineUniformBuffer[BEET_IN_FLIGHT_BUFFER_MAX] = {VK_NULL_HANDLE};
+    uint32_t lineUniformBufferIndex = {};
 } s_gfxLine;
 
 #define MAX_LINE_ENTITY_SIZE (1024 * 1)
@@ -30,7 +31,6 @@ static LineEntity s_lineEntityPool[MAX_LINE_ENTITY_SIZE] = {};
 static uint32_t s_lineEntityCount = 0;
 
 #define MAX_POINT_SIZE (1024 * 4)
-LinePoint3D s_pointPool[MAX_POINT_SIZE] = {};
 static uint32_t s_pointCount = 0;
 
 extern VulkanBackend g_vulkanBackend;
@@ -39,32 +39,40 @@ extern TargetVulkanFormats g_vulkanTargetFormats;
 
 //===INTERNAL_FUNCTIONS=================================================================================================
 static uint32_t add_point(const LinePoint3D &point) {
-    s_pointPool[s_pointCount] = point;
+    //write directly to the mappedData i.e. avoid memcpy from pool to mappedData
+    ((LinePoint3D *) s_gfxLine.lineUniformBuffer[s_gfxLine.lineUniformBufferIndex].mappedData)[s_pointCount] = point;
     s_pointCount++;
+    ASSERT(s_pointCount < MAX_POINT_SIZE);
     return s_pointCount;
 }
 
-static void gfx_update_lines_uniform_buffers() {
-    memcpy(s_gfxLine.lineUniformBuffer.mappedData, &s_pointPool, sizeof(LinePoint3D) * s_pointCount);
+static void gfx_create_line_material_descriptor(VkDescriptorSet &outDescriptorSet) {
+    const VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(s_gfxLine.descriptorPool, &s_gfxLine.descriptorSetLayout, 1);
+    const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &outDescriptorSet);
+    ASSERT(allocDescRes == VK_SUCCESS);
 }
 
 static void gfx_create_lines_uniform_buffers() {
-    const VkResult uniformResult = gfx_buffer_create(
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            s_gfxLine.lineUniformBuffer,
-            (sizeof(LinePoint3D) * MAX_POINT_SIZE),
-            nullptr
-    );
-    ASSERT(uniformResult == VK_SUCCESS);
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; ++i) {
+        const VkResult uniformResult = gfx_buffer_create(
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                s_gfxLine.lineUniformBuffer[i],
+                (sizeof(LinePoint3D) * MAX_POINT_SIZE),
+                nullptr
+        );
+        ASSERT(uniformResult == VK_SUCCESS);
 
-    const VkResult mapResult = vkMapMemory(g_vulkanBackend.device, s_gfxLine.lineUniformBuffer.memory, 0, VK_WHOLE_SIZE, 0, &s_gfxLine.lineUniformBuffer.mappedData);
-    ASSERT(mapResult == VK_SUCCESS);
+        const VkResult mapResult = vkMapMemory(g_vulkanBackend.device, s_gfxLine.lineUniformBuffer[i].memory, 0, VK_WHOLE_SIZE, 0, &s_gfxLine.lineUniformBuffer[i].mappedData);
+        ASSERT(mapResult == VK_SUCCESS);
+    }
 }
 
 static void gfx_cleanup_lines_uniform_buffers() {
-    vkDestroyBuffer(g_vulkanBackend.device, s_gfxLine.lineUniformBuffer.buffer, nullptr);
-    vkFreeMemory(g_vulkanBackend.device, s_gfxLine.lineUniformBuffer.memory, nullptr);
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; ++i) {
+        vkDestroyBuffer(g_vulkanBackend.device, s_gfxLine.lineUniformBuffer[i].buffer, nullptr);
+        vkFreeMemory(g_vulkanBackend.device, s_gfxLine.lineUniformBuffer[i].memory, nullptr);
+    }
 }
 
 static void gfx_create_line_descriptor_set_layout() {
@@ -180,9 +188,7 @@ static bool gfx_create_line_pipelines(VkPipeline &outLinePipeline) {
 
 //===API================================================================================================================
 void gfx_line_draw(VkCommandBuffer &cmdBuffer) {
-    static int32_t stateValue = 3;
-    gfx_update_lines_uniform_buffers();
-    // There is only 1 descriptor for lines, so we cache it here instead of adding it to the db_pool
+    gfx_line_update_material_descriptor(s_gfxLine.descriptorSet);
     vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, s_gfxLine.pipeline);
     vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, s_gfxLine.pipelineLayout, 0, 1, &s_gfxLine.descriptorSet, 0, nullptr);
     for (uint32_t i = 0; i < s_lineEntityCount; ++i) {
@@ -191,19 +197,15 @@ void gfx_line_draw(VkCommandBuffer &cmdBuffer) {
         vkCmdSetLineWidth(cmdBuffer, lineEntity.lineWidth);
         vkCmdDraw(cmdBuffer, numberOfPoints, 1, lineEntity.lineRangeStart, 0);
     }
-
-    //clear existing counts, we only want to copy the data that was added this frame.
     s_pointCount = {0};
     s_lineEntityCount = {0};
+    s_gfxLine.lineUniformBufferIndex = (s_gfxLine.lineUniformBufferIndex + 1) % g_vulkanBackend.swapChainImageCount;
 }
 
 void gfx_line_update_material_descriptor(VkDescriptorSet &outDescriptorSet) {
-    VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(s_gfxLine.descriptorPool, &s_gfxLine.descriptorSetLayout, 1);
-    const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &outDescriptorSet);
-    ASSERT(allocDescRes == VK_SUCCESS);
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
-            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &s_gfxLine.lineUniformBuffer.descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &s_gfxLine.lineUniformBuffer[s_gfxLine.lineUniformBufferIndex].descriptor, 1),
     };
     vkUpdateDescriptorSets(g_vulkanBackend.device, uint32_t(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }
@@ -239,7 +241,7 @@ void gfx_create_line() {
     gfx_create_line_pipeline_layout();
     const bool pipelineResult = gfx_create_line_pipelines(s_gfxLine.pipeline);
     ASSERT(pipelineResult);
-    gfx_line_update_material_descriptor(s_gfxLine.descriptorSet);
+    gfx_create_line_material_descriptor(s_gfxLine.descriptorSet);
     gfx_line_update_material_descriptor(s_gfxLine.descriptorSet);
 }
 

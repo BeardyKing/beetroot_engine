@@ -41,7 +41,7 @@ static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {
 static struct UserArguments {
     uint32_t selectedPhysicalDeviceIndex = {};
     bool vsync = {true};
-    VkSampleCountFlagBits msaa = VK_SAMPLE_COUNT_4_BIT;
+    VkSampleCountFlagBits msaa = VK_SAMPLE_COUNT_8_BIT;
 } g_userArguments = {};
 
 VulkanBackend g_vulkanBackend = {};
@@ -460,10 +460,13 @@ static void gfx_create_swap_chain() {
     g_vulkanTargetFormats.surfaceFormat = gfx_utils_select_surface_format();
     const VkCompositeAlphaFlagBitsKHR compositeAlphaFormat = select_composite_alpha_format(surfaceCapabilities);
 
-    uint32_t targetSwapChainImageCount = surfaceCapabilities.minImageCount + 1;
+    uint32_t targetSwapChainImageCount = surfaceCapabilities.minImageCount + 1; // TODO: consider user option for target.
+    targetSwapChainImageCount = min(targetSwapChainImageCount, BEET_IN_FLIGHT_BUFFER_MAX);
     if ((surfaceCapabilities.maxImageCount > 0) && (targetSwapChainImageCount > surfaceCapabilities.maxImageCount)) {
         targetSwapChainImageCount = surfaceCapabilities.maxImageCount;
+        assert(targetSwapChainImageCount <= BEET_IN_FLIGHT_BUFFER_MAX);
     }
+    g_vulkanBackend.swapChainImageCount = targetSwapChainImageCount;
 
     VkSurfaceTransformFlagsKHR surfaceTransform;
     if (surfaceCapabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
@@ -504,23 +507,22 @@ static void gfx_create_swap_chain() {
 
     //cleanup vulkan resources
     if (oldSwapChain != VK_NULL_HANDLE) {
-        for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
+        for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; i++) {
             vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.swapChain.buffers[i].view, nullptr);
         }
         vkDestroySwapchainKHR(g_vulkanBackend.device, oldSwapChain, nullptr);
     }
-    vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, &g_vulkanBackend.swapChain.imageCount, nullptr);
+    vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, &g_vulkanBackend.swapChainImageCount, nullptr);
 
-    ASSERT(g_vulkanBackend.swapChain.images == nullptr);
-    g_vulkanBackend.swapChain.images = (VkImage *) mem_zalloc(sizeof(VkImage) * g_vulkanBackend.swapChain.imageCount);
-    VkResult swapChainImageResult = vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain,
-                                                            &g_vulkanBackend.swapChain.imageCount,
-                                                            &g_vulkanBackend.swapChain.images[0]);
+    VkResult swapChainImageResult = vkGetSwapchainImagesKHR(
+            g_vulkanBackend.device,
+            g_vulkanBackend.swapChain.swapChain,
+            &g_vulkanBackend.swapChainImageCount,
+            &g_vulkanBackend.swapChain.images[0]
+    );
     ASSERT_MSG(swapChainImageResult == VK_SUCCESS, "Err: failed to re-create swap chain images")
 
-    ASSERT(g_vulkanBackend.swapChain.buffers == nullptr);
-    g_vulkanBackend.swapChain.buffers = (SwapChainBuffers *) mem_zalloc(sizeof(SwapChainBuffers) * g_vulkanBackend.swapChain.imageCount);
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; i++) {
         VkImageViewCreateInfo swapChainImageViewInfo = {};
         swapChainImageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         swapChainImageViewInfo.pNext = nullptr;
@@ -546,30 +548,20 @@ static void gfx_create_swap_chain() {
 }
 
 static void gfx_cleanup_swap_chain() {
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; i++) {
         vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.swapChain.buffers[i].view, nullptr);
     }
 
     ASSERT_MSG(g_vulkanBackend.swapChain.surface != VK_NULL_HANDLE, "Err: swapchain surface has already been destroyed");
     vkDestroySwapchainKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, nullptr);
     g_vulkanBackend.swapChain.swapChain = VK_NULL_HANDLE;
-
-    mem_free(g_vulkanBackend.swapChain.images);
-    g_vulkanBackend.swapChain.images = nullptr;
-
-    mem_free(g_vulkanBackend.swapChain.buffers);
-    g_vulkanBackend.swapChain.buffers = nullptr;
 }
 
 static void gfx_create_command_buffers() {
-    // === GRAPHICS ===
-    ASSERT(g_vulkanBackend.graphicsCommandBuffers == nullptr);
-    g_vulkanBackend.graphicsCommandBuffers = (VkCommandBuffer *) mem_zalloc(sizeof(VkCommandBuffer) * g_vulkanBackend.swapChain.imageCount);
-
     VkCommandBufferAllocateInfo commandBufferInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
     commandBufferInfo.commandPool = g_vulkanBackend.graphicsCommandPool;
     commandBufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    commandBufferInfo.commandBufferCount = g_vulkanBackend.swapChain.imageCount;
+    commandBufferInfo.commandBufferCount = g_vulkanBackend.swapChainImageCount;
 
     VkResult cmdBuffResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &commandBufferInfo, g_vulkanBackend.graphicsCommandBuffers);
     ASSERT_MSG(cmdBuffResult == VK_SUCCESS, "Err: failed to create graphics command buffer");
@@ -583,13 +575,10 @@ static void gfx_create_command_buffers() {
 
 static void gfx_cleanup_command_buffers() {
     // === GRAPHICS ===
-    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, g_vulkanBackend.swapChain.imageCount, g_vulkanBackend.graphicsCommandBuffers);
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
+    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, g_vulkanBackend.swapChainImageCount, g_vulkanBackend.graphicsCommandBuffers);
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; ++i) {
         g_vulkanBackend.graphicsCommandBuffers[i] = VK_NULL_HANDLE;
     }
-
-    mem_free(g_vulkanBackend.graphicsCommandBuffers);
-    g_vulkanBackend.graphicsCommandBuffers = nullptr;
 
     // === IMMEDIATE ===
     vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, 1, &g_vulkanBackend.immediateCommandBuffer);
@@ -603,21 +592,17 @@ static void gfx_create_fences() {
             VK_FENCE_CREATE_SIGNALED_BIT
     };
 
-    ASSERT(g_vulkanBackend.graphicsFenceWait == nullptr);
-    g_vulkanBackend.graphicsFenceWait = (VkFence *) mem_zalloc(sizeof(VkFence) * g_vulkanBackend.swapChain.imageCount);
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; ++i) {
         const VkResult fenceRes = vkCreateFence(g_vulkanBackend.device, &fenceCreateInfo, nullptr, &g_vulkanBackend.graphicsFenceWait[i]);
         ASSERT_MSG(fenceRes == VK_SUCCESS, "Err: failed to create graphics fence [%u]", i);
     }
 }
 
 static void gfx_cleanup_fences() {
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; ++i) {
         vkDestroyFence(g_vulkanBackend.device, g_vulkanBackend.graphicsFenceWait[i], nullptr);
         g_vulkanBackend.graphicsFenceWait[i] = VK_NULL_HANDLE;
     }
-    mem_free(g_vulkanBackend.graphicsFenceWait);
-    g_vulkanBackend.graphicsFenceWait = nullptr;
 }
 
 static void gfx_create_color_buffer() {

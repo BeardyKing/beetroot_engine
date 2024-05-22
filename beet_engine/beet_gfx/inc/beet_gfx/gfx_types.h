@@ -46,9 +46,8 @@ struct VulkanSwapChain {
     VkSurfaceKHR surface;
     VkSwapchainKHR swapChain = VK_NULL_HANDLE;
 
-    uint32_t imageCount;
-    VkImage *images = {nullptr};
-    SwapChainBuffers *buffers = {nullptr};
+    VkImage images[BEET_IN_FLIGHT_BUFFER_MAX] = {nullptr};
+    SwapChainBuffers buffers[BEET_IN_FLIGHT_BUFFER_MAX] = {nullptr};
 
     // TODO: consider this being a ptr to some global size instead
     uint32_t width = 1280;
@@ -81,9 +80,10 @@ struct VulkanBackend {
     VkDevice device = {VK_NULL_HANDLE};
     VkQueue queue = {VK_NULL_HANDLE};
 
+    uint32_t swapChainImageCount = {0};
     VkCommandPool graphicsCommandPool = {VK_NULL_HANDLE};
-    VkCommandBuffer *graphicsCommandBuffers = {}; // size is based off swapChain.imageCount
-    VkFence *graphicsFenceWait = {};// size is based off swapChain.imageCount
+    VkCommandBuffer graphicsCommandBuffers[BEET_IN_FLIGHT_BUFFER_MAX] = {VK_NULL_HANDLE};
+    VkFence graphicsFenceWait[BEET_IN_FLIGHT_BUFFER_MAX] = {VK_NULL_HANDLE};
 
     GfxImageBuffer depthStencilBuffer = {};
     GfxImageBuffer colorBuffer = {};
