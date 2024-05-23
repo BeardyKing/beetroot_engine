@@ -20,7 +20,8 @@
 
 //===TARGETS============================================================================================================
 constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
-constexpr uint32_t BEET_IN_FLIGHT_BUFFER_MAX = 8;
+constexpr uint32_t BEET_SWAP_CHAIN_IMAGE_MAX = 8;
+constexpr uint32_t BEET_BUFFER_COUNT = 2;
 //======================================================================================================================
 
 //===EXTENSIONS=========================================================================================================

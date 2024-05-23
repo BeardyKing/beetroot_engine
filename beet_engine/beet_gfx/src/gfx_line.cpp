@@ -7,18 +7,17 @@
 #include <beet_math/quat.h>
 
 #include <vulkan/vulkan_core.h>
+#include "beet_gfx/gfx_interface.h"
 
 //===INTERNAL_STRUCTS===================================================================================================
 static struct VulkanLine {
     VkDescriptorSetLayout descriptorSetLayout = {VK_NULL_HANDLE};
-    VkDescriptorPool descriptorPool = {VK_NULL_HANDLE};
     VkPipelineLayout pipelineLayout = {VK_NULL_HANDLE};
     VkPipeline pipeline = {VK_NULL_HANDLE};
 
-    VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
-
-    GfxBuffer lineUniformBuffer[BEET_IN_FLIGHT_BUFFER_MAX] = {VK_NULL_HANDLE};
-    uint32_t lineUniformBufferIndex = {};
+    VkDescriptorPool descriptorPools[BEET_BUFFER_COUNT] = {VK_NULL_HANDLE};
+    VkDescriptorSet descriptorSets[BEET_BUFFER_COUNT] = {VK_NULL_HANDLE};
+    GfxBuffer lineUniformBuffers[BEET_BUFFER_COUNT] = {VK_NULL_HANDLE};
 } s_gfxLine;
 
 #define MAX_LINE_ENTITY_SIZE (1024 * 1)
@@ -40,38 +39,40 @@ extern TargetVulkanFormats g_vulkanTargetFormats;
 //===INTERNAL_FUNCTIONS=================================================================================================
 static uint32_t add_point(const LinePoint3D &point) {
     //write directly to the mappedData i.e. avoid memcpy from pool to mappedData
-    ((LinePoint3D *) s_gfxLine.lineUniformBuffer[s_gfxLine.lineUniformBufferIndex].mappedData)[s_pointCount] = point;
+    ((LinePoint3D *) s_gfxLine.lineUniformBuffers[gfx_buffer_index()].mappedData)[s_pointCount] = point;
     s_pointCount++;
     ASSERT(s_pointCount < MAX_POINT_SIZE);
     return s_pointCount;
 }
 
-static void gfx_create_line_material_descriptor(VkDescriptorSet &outDescriptorSet) {
-    const VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(s_gfxLine.descriptorPool, &s_gfxLine.descriptorSetLayout, 1);
-    const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &outDescriptorSet);
-    ASSERT(allocDescRes == VK_SUCCESS);
+static void gfx_create_line_material_descriptor() {
+    for (int i = 0; i < BEET_BUFFER_COUNT; ++i) {
+        const VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(s_gfxLine.descriptorPools[i], &s_gfxLine.descriptorSetLayout, 1);
+        const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &s_gfxLine.descriptorSets[i]);
+        ASSERT(allocDescRes == VK_SUCCESS);
+    }
 }
 
 static void gfx_create_lines_uniform_buffers() {
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; ++i) {
+    for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
         const VkResult uniformResult = gfx_buffer_create(
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                s_gfxLine.lineUniformBuffer[i],
+                s_gfxLine.lineUniformBuffers[i],
                 (sizeof(LinePoint3D) * MAX_POINT_SIZE),
                 nullptr
         );
         ASSERT(uniformResult == VK_SUCCESS);
 
-        const VkResult mapResult = vkMapMemory(g_vulkanBackend.device, s_gfxLine.lineUniformBuffer[i].memory, 0, VK_WHOLE_SIZE, 0, &s_gfxLine.lineUniformBuffer[i].mappedData);
+        const VkResult mapResult = vkMapMemory(g_vulkanBackend.device, s_gfxLine.lineUniformBuffers[i].memory, 0, VK_WHOLE_SIZE, 0, &s_gfxLine.lineUniformBuffers[i].mappedData);
         ASSERT(mapResult == VK_SUCCESS);
     }
 }
 
 static void gfx_cleanup_lines_uniform_buffers() {
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; ++i) {
-        vkDestroyBuffer(g_vulkanBackend.device, s_gfxLine.lineUniformBuffer[i].buffer, nullptr);
-        vkFreeMemory(g_vulkanBackend.device, s_gfxLine.lineUniformBuffer[i].memory, nullptr);
+    for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
+        vkDestroyBuffer(g_vulkanBackend.device, s_gfxLine.lineUniformBuffers[i].buffer, nullptr);
+        vkFreeMemory(g_vulkanBackend.device, s_gfxLine.lineUniformBuffers[i].memory, nullptr);
     }
 }
 
@@ -88,8 +89,10 @@ static void gfx_create_line_descriptor_set_layout() {
             .poolSizeCount = poolSizeCount,
             .pPoolSizes = &poolSizes[0],
     };
-    const VkResult createPoolRes = (vkCreateDescriptorPool(g_vulkanBackend.device, &descriptorPoolInfo, nullptr, &s_gfxLine.descriptorPool));
-    ASSERT(createPoolRes == VK_SUCCESS);
+    for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
+        const VkResult createPoolRes = vkCreateDescriptorPool(g_vulkanBackend.device, &descriptorPoolInfo, nullptr, &s_gfxLine.descriptorPools[i]);
+        ASSERT(createPoolRes == VK_SUCCESS);
+    }
 
     constexpr uint32_t layoutBindingsCount = 2;
     VkDescriptorSetLayoutBinding layoutBindings[layoutBindingsCount] = {
@@ -188,9 +191,9 @@ static bool gfx_create_line_pipelines(VkPipeline &outLinePipeline) {
 
 //===API================================================================================================================
 void gfx_line_draw(VkCommandBuffer &cmdBuffer) {
-    gfx_line_update_material_descriptor(s_gfxLine.descriptorSet);
+    gfx_line_update_material_descriptor(s_gfxLine.descriptorSets[gfx_buffer_index()]);
     vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, s_gfxLine.pipeline);
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, s_gfxLine.pipelineLayout, 0, 1, &s_gfxLine.descriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, s_gfxLine.pipelineLayout, 0, 1, &s_gfxLine.descriptorSets[gfx_buffer_index()], 0, nullptr);
     for (uint32_t i = 0; i < s_lineEntityCount; ++i) {
         const LineEntity &lineEntity = s_lineEntityPool[i];
         const uint32_t numberOfPoints = (lineEntity.lineRangeEnd - lineEntity.lineRangeStart);
@@ -199,13 +202,12 @@ void gfx_line_draw(VkCommandBuffer &cmdBuffer) {
     }
     s_pointCount = {0};
     s_lineEntityCount = {0};
-    s_gfxLine.lineUniformBufferIndex = (s_gfxLine.lineUniformBufferIndex + 1) % g_vulkanBackend.swapChainImageCount;
 }
 
 void gfx_line_update_material_descriptor(VkDescriptorSet &outDescriptorSet) {
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
-            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &s_gfxLine.lineUniformBuffer[s_gfxLine.lineUniformBufferIndex].descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &s_gfxLine.lineUniformBuffers[gfx_buffer_index()].descriptor, 1),
     };
     vkUpdateDescriptorSets(g_vulkanBackend.device, uint32_t(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }
@@ -231,7 +233,6 @@ void gfx_line_add_segment_immediate(const LinePoint3D &start, const LinePoint3D 
     add_point(end);
     s_lineEntityCount += 1;
 }
-
 //======================================================================================================================
 
 //===INIT_&_SHUTDOWN====================================================================================================
@@ -241,14 +242,18 @@ void gfx_create_line() {
     gfx_create_line_pipeline_layout();
     const bool pipelineResult = gfx_create_line_pipelines(s_gfxLine.pipeline);
     ASSERT(pipelineResult);
-    gfx_create_line_material_descriptor(s_gfxLine.descriptorSet);
-    gfx_line_update_material_descriptor(s_gfxLine.descriptorSet);
+    gfx_create_line_material_descriptor();
+    for (int i = 0; i < BEET_BUFFER_COUNT; ++i) {
+        gfx_line_update_material_descriptor(s_gfxLine.descriptorSets[i]);
+    }
 }
 
 void gfx_cleanup_line() {
     gfx_cleanup_lines_uniform_buffers();
     vkDestroyDescriptorSetLayout(g_vulkanBackend.device, s_gfxLine.descriptorSetLayout, nullptr);
-    vkDestroyDescriptorPool(g_vulkanBackend.device, s_gfxLine.descriptorPool, nullptr);
+    for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
+        vkDestroyDescriptorPool(g_vulkanBackend.device, s_gfxLine.descriptorPools[i], nullptr);
+    }
     vkDestroyPipeline(g_vulkanBackend.device, s_gfxLine.pipeline, nullptr);
     vkDestroyPipelineLayout(g_vulkanBackend.device, s_gfxLine.pipelineLayout, nullptr);
 }

@@ -46,8 +46,10 @@ struct VulkanSwapChain {
     VkSurfaceKHR surface;
     VkSwapchainKHR swapChain = VK_NULL_HANDLE;
 
-    VkImage images[BEET_IN_FLIGHT_BUFFER_MAX] = {nullptr};
-    SwapChainBuffers buffers[BEET_IN_FLIGHT_BUFFER_MAX] = {nullptr};
+    uint32_t imageCount = {0};
+    uint32_t currentImageIndex = {0};
+    VkImage images[BEET_SWAP_CHAIN_IMAGE_MAX] = {nullptr};
+    SwapChainBuffers buffers[BEET_SWAP_CHAIN_IMAGE_MAX] = {nullptr};
 
     // TODO: consider this being a ptr to some global size instead
     uint32_t width = 1280;
@@ -80,10 +82,9 @@ struct VulkanBackend {
     VkDevice device = {VK_NULL_HANDLE};
     VkQueue queue = {VK_NULL_HANDLE};
 
-    uint32_t swapChainImageCount = {0};
     VkCommandPool graphicsCommandPool = {VK_NULL_HANDLE};
-    VkCommandBuffer graphicsCommandBuffers[BEET_IN_FLIGHT_BUFFER_MAX] = {VK_NULL_HANDLE};
-    VkFence graphicsFenceWait[BEET_IN_FLIGHT_BUFFER_MAX] = {VK_NULL_HANDLE};
+    VkCommandBuffer graphicsCommandBuffers[BEET_BUFFER_COUNT] = {VK_NULL_HANDLE};
+    VkFence graphicsFenceWait[BEET_BUFFER_COUNT] = {VK_NULL_HANDLE};
 
     GfxImageBuffer depthStencilBuffer = {};
     GfxImageBuffer colorBuffer = {};
@@ -94,7 +95,6 @@ struct VulkanBackend {
     uint32_t validationLayersCount = {};
 
     VulkanSwapChain swapChain = {};
-    uint32_t currentBufferIndex = 0;
 
     Semaphores semaphores = {};
     VkPipelineStageFlags submitPipelineStages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};

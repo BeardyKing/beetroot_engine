@@ -11,10 +11,10 @@ extern VulkanBackend g_vulkanBackend;
 
 void gfx_create_deprecated_frame_buffer() {
     ASSERT(g_vulkanBackend.deprecated_frameBuffers == nullptr);
-    g_vulkanBackend.deprecated_frameBuffers = (VkFramebuffer *) mem_zalloc(sizeof(VkFramebuffer) * g_vulkanBackend.swapChainImageCount);
+    g_vulkanBackend.deprecated_frameBuffers = (VkFramebuffer *) mem_zalloc(sizeof(VkFramebuffer) * g_vulkanBackend.swapChain.imageCount);
 
     constexpr uint32_t ATTACHMENT_COUNT = 2;
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; ++i) {
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
         const VkImageView attachments[ATTACHMENT_COUNT] = {g_vulkanBackend.swapChain.buffers[i].view, g_vulkanBackend.depthStencilBuffer.view};
 
         VkFramebufferCreateInfo framebufferInfo = {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
@@ -32,7 +32,7 @@ void gfx_create_deprecated_frame_buffer() {
 }
 
 void gfx_cleanup_deprecated_frame_buffer() {
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; i++) {
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
         vkDestroyFramebuffer(g_vulkanBackend.device, g_vulkanBackend.deprecated_frameBuffers[i], nullptr);
     }
     mem_free(g_vulkanBackend.deprecated_frameBuffers);
@@ -124,7 +124,7 @@ void gfx_deprecated_render_pass(VkCommandBuffer &cmdBuffer) {
 
     VkRenderPassBeginInfo renderPassBeginInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
     renderPassBeginInfo.renderPass = g_vulkanBackend.deprecated_renderPass;
-    renderPassBeginInfo.framebuffer = g_vulkanBackend.deprecated_frameBuffers[g_vulkanBackend.currentBufferIndex];
+    renderPassBeginInfo.framebuffer = g_vulkanBackend.deprecated_frameBuffers[g_vulkanBackend.swapChain.currentImageIndex]; // pretty sure this should use gfx_buffer_index instead.
     renderPassBeginInfo.renderArea.extent.width = g_vulkanBackend.swapChain.width;
     renderPassBeginInfo.renderArea.extent.height = g_vulkanBackend.swapChain.height;
     renderPassBeginInfo.clearValueCount = clearValueCount;

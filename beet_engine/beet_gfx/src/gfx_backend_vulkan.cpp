@@ -47,6 +47,10 @@ static struct UserArguments {
 VulkanBackend g_vulkanBackend = {};
 TargetVulkanFormats g_vulkanTargetFormats = {};
 
+static struct {
+    uint32_t currentFrame = {0};
+} s_vulkanBackendInternal;
+
 //===INTERNAL_FUNCTIONS=================================================================================================
 static bool gfx_find_supported_extension(const char *extensionName) {
     for (uint32_t i = 0; i < g_vulkanBackend.extensionsCount; ++i) {
@@ -461,12 +465,12 @@ static void gfx_create_swap_chain() {
     const VkCompositeAlphaFlagBitsKHR compositeAlphaFormat = select_composite_alpha_format(surfaceCapabilities);
 
     uint32_t targetSwapChainImageCount = surfaceCapabilities.minImageCount + 1; // TODO: consider user option for target.
-    targetSwapChainImageCount = min(targetSwapChainImageCount, BEET_IN_FLIGHT_BUFFER_MAX);
+    targetSwapChainImageCount = min(targetSwapChainImageCount, BEET_SWAP_CHAIN_IMAGE_MAX);
     if ((surfaceCapabilities.maxImageCount > 0) && (targetSwapChainImageCount > surfaceCapabilities.maxImageCount)) {
         targetSwapChainImageCount = surfaceCapabilities.maxImageCount;
-        assert(targetSwapChainImageCount <= BEET_IN_FLIGHT_BUFFER_MAX);
+        assert(targetSwapChainImageCount <= BEET_SWAP_CHAIN_IMAGE_MAX);
     }
-    g_vulkanBackend.swapChainImageCount = targetSwapChainImageCount;
+    g_vulkanBackend.swapChain.imageCount = targetSwapChainImageCount;
 
     VkSurfaceTransformFlagsKHR surfaceTransform;
     if (surfaceCapabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
@@ -507,22 +511,22 @@ static void gfx_create_swap_chain() {
 
     //cleanup vulkan resources
     if (oldSwapChain != VK_NULL_HANDLE) {
-        for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; i++) {
+        for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
             vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.swapChain.buffers[i].view, nullptr);
         }
         vkDestroySwapchainKHR(g_vulkanBackend.device, oldSwapChain, nullptr);
     }
-    vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, &g_vulkanBackend.swapChainImageCount, nullptr);
+    vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, &g_vulkanBackend.swapChain.imageCount, nullptr);
 
     VkResult swapChainImageResult = vkGetSwapchainImagesKHR(
             g_vulkanBackend.device,
             g_vulkanBackend.swapChain.swapChain,
-            &g_vulkanBackend.swapChainImageCount,
+            &g_vulkanBackend.swapChain.imageCount,
             &g_vulkanBackend.swapChain.images[0]
     );
     ASSERT_MSG(swapChainImageResult == VK_SUCCESS, "Err: failed to re-create swap chain images")
 
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; i++) {
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
         VkImageViewCreateInfo swapChainImageViewInfo = {};
         swapChainImageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         swapChainImageViewInfo.pNext = nullptr;
@@ -548,7 +552,7 @@ static void gfx_create_swap_chain() {
 }
 
 static void gfx_cleanup_swap_chain() {
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; i++) {
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; i++) {
         vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.swapChain.buffers[i].view, nullptr);
     }
 
@@ -558,25 +562,32 @@ static void gfx_cleanup_swap_chain() {
 }
 
 static void gfx_create_command_buffers() {
-    VkCommandBufferAllocateInfo commandBufferInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-    commandBufferInfo.commandPool = g_vulkanBackend.graphicsCommandPool;
-    commandBufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    commandBufferInfo.commandBufferCount = g_vulkanBackend.swapChainImageCount;
+    const VkCommandBufferAllocateInfo gfxCommandBufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = g_vulkanBackend.graphicsCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = BEET_BUFFER_COUNT,
+    };
 
-    VkResult cmdBuffResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &commandBufferInfo, g_vulkanBackend.graphicsCommandBuffers);
+    VkResult cmdBuffResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &gfxCommandBufferInfo, g_vulkanBackend.graphicsCommandBuffers);
     ASSERT_MSG(cmdBuffResult == VK_SUCCESS, "Err: failed to create graphics command buffer");
 
     // === IMMEDIATE ===
+    VkCommandBufferAllocateInfo immediateCommandBufferInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = g_vulkanBackend.graphicsCommandPool,
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1,
+    };
     ASSERT(g_vulkanBackend.immediateCommandBuffer == VK_NULL_HANDLE);
-    commandBufferInfo.commandBufferCount = 1;
-    VkResult cmdImmediateBufferResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &commandBufferInfo, &g_vulkanBackend.immediateCommandBuffer);
+    VkResult cmdImmediateBufferResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &immediateCommandBufferInfo, &g_vulkanBackend.immediateCommandBuffer);
     ASSERT_MSG(cmdImmediateBufferResult == VK_SUCCESS, "Err: failed to create immediate command buffer");
 }
 
 static void gfx_cleanup_command_buffers() {
     // === GRAPHICS ===
-    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, g_vulkanBackend.swapChainImageCount, g_vulkanBackend.graphicsCommandBuffers);
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; ++i) {
+    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, BEET_BUFFER_COUNT, g_vulkanBackend.graphicsCommandBuffers);
+    for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
         g_vulkanBackend.graphicsCommandBuffers[i] = VK_NULL_HANDLE;
     }
 
@@ -592,14 +603,14 @@ static void gfx_create_fences() {
             VK_FENCE_CREATE_SIGNALED_BIT
     };
 
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; ++i) {
+    for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
         const VkResult fenceRes = vkCreateFence(g_vulkanBackend.device, &fenceCreateInfo, nullptr, &g_vulkanBackend.graphicsFenceWait[i]);
         ASSERT_MSG(fenceRes == VK_SUCCESS, "Err: failed to create graphics fence [%u]", i);
     }
 }
 
 static void gfx_cleanup_fences() {
-    for (uint32_t i = 0; i < g_vulkanBackend.swapChainImageCount; ++i) {
+    for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
         vkDestroyFence(g_vulkanBackend.device, g_vulkanBackend.graphicsFenceWait[i], nullptr);
         g_vulkanBackend.graphicsFenceWait[i] = VK_NULL_HANDLE;
     }
@@ -739,21 +750,22 @@ static void gfx_flush() {
     }
 }
 
-static void gfx_render_frame() {
+static void gfx_render_frame(const VkCommandBuffer &cmdBuffer) {
     g_vulkanBackend.submitInfo.commandBufferCount = 1;
-    g_vulkanBackend.submitInfo.pCommandBuffers = &g_vulkanBackend.graphicsCommandBuffers[g_vulkanBackend.currentBufferIndex];
+    g_vulkanBackend.submitInfo.pCommandBuffers = &cmdBuffer;
     const VkResult submitRes = vkQueueSubmit(g_vulkanBackend.queue, 1, &g_vulkanBackend.submitInfo, VK_NULL_HANDLE);
     ASSERT(submitRes == VK_SUCCESS);
 }
 
 static VkResult gfx_acquire_next_swap_chain_image() {
+
     return vkAcquireNextImageKHR(
             g_vulkanBackend.device,
             g_vulkanBackend.swapChain.swapChain,
             UINT64_MAX,
             g_vulkanBackend.semaphores.presentDone,
             VK_NULL_HANDLE,
-            &g_vulkanBackend.currentBufferIndex
+            &g_vulkanBackend.swapChain.currentImageIndex
     );
 }
 
@@ -763,7 +775,7 @@ static VkResult gfx_present() {
     presentInfo.pNext = NULL;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &g_vulkanBackend.swapChain.swapChain;
-    presentInfo.pImageIndices = &g_vulkanBackend.currentBufferIndex;
+    presentInfo.pImageIndices = &g_vulkanBackend.swapChain.currentImageIndex;
 
     if (g_vulkanBackend.semaphores.renderDone != VK_NULL_HANDLE) {
         presentInfo.pWaitSemaphores = &g_vulkanBackend.semaphores.renderDone;
@@ -859,7 +871,7 @@ static void gfx_barrier_insert_memory_barrier(
 }
 
 void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
-    const uint32_t cmdIndex = g_vulkanBackend.currentBufferIndex;
+    const uint32_t swapIndex = g_vulkanBackend.swapChain.currentImageIndex;
 
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
@@ -875,7 +887,7 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
 
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
-            g_vulkanBackend.swapChain.buffers[cmdIndex].image,
+            g_vulkanBackend.swapChain.buffers[swapIndex].image,
             0,
             VK_ACCESS_TRANSFER_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
@@ -895,17 +907,17 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
     vkCmdResolveImage(
             cmdBuffer,
             g_vulkanBackend.colorBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            g_vulkanBackend.swapChain.buffers[cmdIndex].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            g_vulkanBackend.swapChain.buffers[swapIndex].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1, &resolveRegion
     );
 }
 
 [[maybe_unused]] void blit_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
-    const uint32_t cmdIndex = g_vulkanBackend.currentBufferIndex;
+    const uint32_t swapIndex = g_vulkanBackend.swapChain.currentImageIndex;
 
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
-            g_vulkanBackend.swapChain.buffers[cmdIndex].image,
+            g_vulkanBackend.swapChain.buffers[swapIndex].image,
             0,
             VK_ACCESS_TRANSFER_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
@@ -944,7 +956,7 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
             cmdBuffer,
             g_vulkanBackend.colorBuffer.image,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            g_vulkanBackend.swapChain.buffers[cmdIndex].image,
+            g_vulkanBackend.swapChain.buffers[swapIndex].image,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1, &blitRegion,
             VK_FILTER_LINEAR
@@ -953,11 +965,11 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
 
 static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
     const bool isMultisampling = (g_vulkanBackend.sampleCount != VK_SAMPLE_COUNT_1_BIT);
-    const uint32_t cmdIndex = g_vulkanBackend.currentBufferIndex;
+    const uint32_t swapIndex = g_vulkanBackend.swapChain.currentImageIndex;
 
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
-            isMultisampling ? g_vulkanBackend.colorBuffer.image : g_vulkanBackend.swapChain.buffers[cmdIndex].image,
+            isMultisampling ? g_vulkanBackend.colorBuffer.image : g_vulkanBackend.swapChain.buffers[swapIndex].image,
             0,
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
@@ -980,7 +992,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 
     const VkRenderingAttachmentInfoKHR colorAttachment = {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-            .imageView = isMultisampling ? g_vulkanBackend.colorBuffer.view : g_vulkanBackend.swapChain.buffers[cmdIndex].view,
+            .imageView = isMultisampling ? g_vulkanBackend.colorBuffer.view : g_vulkanBackend.swapChain.buffers[swapIndex].view,
             .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -1031,7 +1043,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
-            g_vulkanBackend.swapChain.buffers[cmdIndex].image,
+            g_vulkanBackend.swapChain.buffers[swapIndex].image,
             isMultisampling ? VK_ACCESS_TRANSFER_WRITE_BIT : VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             0,
             isMultisampling ? VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -1154,16 +1166,24 @@ void gfx_update(const double &deltaTime) {
     } else if (nextRes < 0) {
         ASSERT(nextRes == VK_SUCCESS)
     }
-    VkCommandBuffer cmdBuffer = g_vulkanBackend.graphicsCommandBuffers[g_vulkanBackend.currentBufferIndex];
+
+    VkCommandBuffer cmdBuffer = g_vulkanBackend.graphicsCommandBuffers[gfx_buffer_index()];
     vkResetCommandBuffer(cmdBuffer, 0);
     begin_command_recording(cmdBuffer);
     {
         gfx_dynamic_render(cmdBuffer);
     }
     end_command_recording(cmdBuffer);
-    //TODO: build draw commands
-    gfx_render_frame();
+    gfx_render_frame(cmdBuffer);
+
     gfx_present();
     gfx_flush();
+
+    s_vulkanBackendInternal.currentFrame++;
 }
+
+uint32_t gfx_buffer_index(){
+    return (s_vulkanBackendInternal.currentFrame % BEET_BUFFER_COUNT);
+}
+
 //======================================================================================================================
