@@ -6,6 +6,7 @@
 #include <beet_shared/memory.h>
 
 #include <vulkan/vulkan_core.h>
+#include "beet_gfx/gfx_interface.h"
 
 extern VulkanBackend g_vulkanBackend;
 
@@ -124,7 +125,7 @@ void gfx_deprecated_render_pass(VkCommandBuffer &cmdBuffer) {
 
     VkRenderPassBeginInfo renderPassBeginInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
     renderPassBeginInfo.renderPass = g_vulkanBackend.deprecated_renderPass;
-    renderPassBeginInfo.framebuffer = g_vulkanBackend.deprecated_frameBuffers[g_vulkanBackend.swapChain.currentImageIndex]; // pretty sure this should use gfx_buffer_index instead.
+    renderPassBeginInfo.framebuffer = g_vulkanBackend.deprecated_frameBuffers[gfx_swap_chain_index()]; // pretty sure this should use gfx_buffer_index instead.
     renderPassBeginInfo.renderArea.extent.width = g_vulkanBackend.swapChain.width;
     renderPassBeginInfo.renderArea.extent.height = g_vulkanBackend.swapChain.height;
     renderPassBeginInfo.clearValueCount = clearValueCount;

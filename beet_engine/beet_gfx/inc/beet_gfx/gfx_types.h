@@ -48,6 +48,7 @@ struct VulkanSwapChain {
 
     uint32_t imageCount = {0};
     uint32_t currentImageIndex = {0};
+    uint32_t lastImageIndex = {0};
     VkImage images[BEET_SWAP_CHAIN_IMAGE_MAX] = {nullptr};
     SwapChainBuffers buffers[BEET_SWAP_CHAIN_IMAGE_MAX] = {nullptr};
 
@@ -84,7 +85,6 @@ struct VulkanBackend {
 
     VkCommandPool graphicsCommandPool = {VK_NULL_HANDLE};
     VkCommandBuffer graphicsCommandBuffers[BEET_BUFFER_COUNT] = {VK_NULL_HANDLE};
-    VkFence graphicsFenceWait[BEET_BUFFER_COUNT] = {VK_NULL_HANDLE};
 
     GfxImageBuffer depthStencilBuffer = {};
     GfxImageBuffer colorBuffer = {};
@@ -94,11 +94,9 @@ struct VulkanBackend {
     VkLayerProperties *supportedValidationLayers = {};
     uint32_t validationLayersCount = {};
 
+    VkFence graphicsFenceWait[BEET_SWAP_CHAIN_IMAGE_MAX] = {VK_NULL_HANDLE};
+    Semaphores semaphores[BEET_SWAP_CHAIN_IMAGE_MAX] = {VK_NULL_HANDLE};
     VulkanSwapChain swapChain = {};
-
-    Semaphores semaphores = {};
-    VkPipelineStageFlags submitPipelineStages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkSubmitInfo submitInfo = {};
 
     QueueFamilyIndices queueFamilyIndices = {};
     VkPipelineCache pipelineCache = {VK_NULL_HANDLE};

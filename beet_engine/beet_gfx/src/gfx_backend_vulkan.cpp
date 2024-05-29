@@ -563,10 +563,10 @@ static void gfx_cleanup_swap_chain() {
 
 static void gfx_create_command_buffers() {
     const VkCommandBufferAllocateInfo gfxCommandBufferInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = g_vulkanBackend.graphicsCommandPool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = BEET_BUFFER_COUNT,
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = g_vulkanBackend.graphicsCommandPool,
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = BEET_BUFFER_COUNT,
     };
 
     VkResult cmdBuffResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &gfxCommandBufferInfo, g_vulkanBackend.graphicsCommandBuffers);
@@ -603,14 +603,14 @@ static void gfx_create_fences() {
             VK_FENCE_CREATE_SIGNALED_BIT
     };
 
-    for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
         const VkResult fenceRes = vkCreateFence(g_vulkanBackend.device, &fenceCreateInfo, nullptr, &g_vulkanBackend.graphicsFenceWait[i]);
         ASSERT_MSG(fenceRes == VK_SUCCESS, "Err: failed to create graphics fence [%u]", i);
     }
 }
 
 static void gfx_cleanup_fences() {
-    for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
+    for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
         vkDestroyFence(g_vulkanBackend.device, g_vulkanBackend.graphicsFenceWait[i], nullptr);
         g_vulkanBackend.graphicsFenceWait[i] = VK_NULL_HANDLE;
     }
@@ -677,17 +677,21 @@ static void gfx_cleanup_color_buffer() {
 
 static void gfx_create_depth_stencil_buffer() {
     g_vulkanTargetFormats.depthFormat = gfx_utils_find_depth_format(VK_IMAGE_TILING_OPTIMAL);
-
-    VkImageCreateInfo depthImageInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
-    depthImageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    depthImageInfo.imageType = VK_IMAGE_TYPE_2D;
-    depthImageInfo.format = g_vulkanTargetFormats.depthFormat;
-    depthImageInfo.extent = {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height, 1};
-    depthImageInfo.mipLevels = 1;
-    depthImageInfo.arrayLayers = 1;
-    depthImageInfo.samples = g_vulkanBackend.sampleCount;
-    depthImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    depthImageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    const VkImageCreateInfo depthImageInfo = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .format = g_vulkanTargetFormats.depthFormat,
+            .extent = {
+                    .width = g_vulkanBackend.swapChain.width,
+                    .height = g_vulkanBackend.swapChain.height,
+                    .depth =  1
+            },
+            .mipLevels = 1,
+            .arrayLayers = 1,
+            .samples = g_vulkanBackend.sampleCount,
+            .tiling = VK_IMAGE_TILING_OPTIMAL,
+            .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+    };
 
     const VkResult imgRes = vkCreateImage(g_vulkanBackend.device, &depthImageInfo, nullptr, &g_vulkanBackend.depthStencilBuffer.image);
     ASSERT_MSG(imgRes == VK_SUCCESS, "Err: failed to create depth stencil image");
@@ -695,10 +699,11 @@ static void gfx_create_depth_stencil_buffer() {
     VkMemoryRequirements memoryRequirements{};
     vkGetImageMemoryRequirements(g_vulkanBackend.device, g_vulkanBackend.depthStencilBuffer.image, &memoryRequirements);
 
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memoryRequirements.size;
-    allocInfo.memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    const VkMemoryAllocateInfo allocInfo{
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .allocationSize = memoryRequirements.size,
+            .memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+    };
 
     const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr, &g_vulkanBackend.depthStencilBuffer.deviceMemory);
     ASSERT_MSG(allocRes == VK_SUCCESS, "Err: failed to allocate memory for depth stencil")
@@ -706,16 +711,19 @@ static void gfx_create_depth_stencil_buffer() {
     const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencilBuffer.image, g_vulkanBackend.depthStencilBuffer.deviceMemory, 0);
     ASSERT_MSG(bindRes == VK_SUCCESS, "Err: failed to bind depth stencil");
 
-    VkImageViewCreateInfo depthImageViewInfo{};
-    depthImageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    depthImageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    depthImageViewInfo.image = g_vulkanBackend.depthStencilBuffer.image;
-    depthImageViewInfo.format = g_vulkanTargetFormats.depthFormat;
-    depthImageViewInfo.subresourceRange.baseMipLevel = 0;
-    depthImageViewInfo.subresourceRange.levelCount = 1;
-    depthImageViewInfo.subresourceRange.baseArrayLayer = 0;
-    depthImageViewInfo.subresourceRange.layerCount = 1;
-    depthImageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    VkImageViewCreateInfo depthImageViewInfo{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = g_vulkanBackend.depthStencilBuffer.image,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = g_vulkanTargetFormats.depthFormat,
+            .subresourceRange = {
+                    .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+            }
+    };
 
     if (g_vulkanTargetFormats.depthFormat >= VK_FORMAT_D16_UNORM_S8_UINT) {
         depthImageViewInfo.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -751,34 +759,44 @@ static void gfx_flush() {
 }
 
 static void gfx_render_frame(const VkCommandBuffer &cmdBuffer) {
-    g_vulkanBackend.submitInfo.commandBufferCount = 1;
-    g_vulkanBackend.submitInfo.pCommandBuffers = &cmdBuffer;
-    const VkResult submitRes = vkQueueSubmit(g_vulkanBackend.queue, 1, &g_vulkanBackend.submitInfo, VK_NULL_HANDLE);
+    constexpr VkPipelineStageFlags submitPipelineStages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    const VkSubmitInfo submitInfo = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &g_vulkanBackend.semaphores[gfx_last_swap_chain_index()].presentDone,
+            .pWaitDstStageMask = &submitPipelineStages,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &cmdBuffer,
+            .signalSemaphoreCount = 1,
+            .pSignalSemaphores = &g_vulkanBackend.semaphores[gfx_swap_chain_index()].renderDone,
+    };
+
+    const VkResult submitRes = vkQueueSubmit(g_vulkanBackend.queue, 1, &submitInfo, g_vulkanBackend.graphicsFenceWait[gfx_swap_chain_index()]);
     ASSERT(submitRes == VK_SUCCESS);
 }
 
 static VkResult gfx_acquire_next_swap_chain_image() {
-
     return vkAcquireNextImageKHR(
             g_vulkanBackend.device,
             g_vulkanBackend.swapChain.swapChain,
             UINT64_MAX,
-            g_vulkanBackend.semaphores.presentDone,
+            g_vulkanBackend.semaphores[gfx_last_swap_chain_index()].presentDone,
             VK_NULL_HANDLE,
             &g_vulkanBackend.swapChain.currentImageIndex
     );
 }
 
 static VkResult gfx_present() {
-    VkPresentInfoKHR presentInfo = {};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.pNext = NULL;
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = &g_vulkanBackend.swapChain.swapChain;
-    presentInfo.pImageIndices = &g_vulkanBackend.swapChain.currentImageIndex;
+    VkPresentInfoKHR presentInfo = {
+            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            .pNext = nullptr,
+            .swapchainCount = 1,
+            .pSwapchains = &g_vulkanBackend.swapChain.swapChain,
+            .pImageIndices = &g_vulkanBackend.swapChain.currentImageIndex,
+    };
 
-    if (g_vulkanBackend.semaphores.renderDone != VK_NULL_HANDLE) {
-        presentInfo.pWaitSemaphores = &g_vulkanBackend.semaphores.renderDone;
+    if (g_vulkanBackend.semaphores[gfx_swap_chain_index()].renderDone != VK_NULL_HANDLE) {
+        presentInfo.pWaitSemaphores = &g_vulkanBackend.semaphores[gfx_swap_chain_index()].renderDone;
         presentInfo.waitSemaphoreCount = 1;
     }
 
@@ -786,13 +804,14 @@ static VkResult gfx_present() {
 }
 
 static void begin_command_recording(const VkCommandBuffer &cmdBuffer) {
-    VkCommandBufferBeginInfo cmdBeginInfo = {};
-    cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    cmdBeginInfo.pNext = nullptr;
-    cmdBeginInfo.pInheritanceInfo = nullptr;
-    cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    const VkCommandBufferBeginInfo cmdBeginInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .pNext = nullptr,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            .pInheritanceInfo = nullptr,
+    };
 
-    auto result = vkBeginCommandBuffer(cmdBuffer, &cmdBeginInfo);
+    const VkResult result = vkBeginCommandBuffer(cmdBuffer, &cmdBeginInfo);
     ASSERT_MSG(result == VK_SUCCESS, "Err: Vulkan failed to begin command buffer recording");
 }
 
@@ -871,8 +890,6 @@ static void gfx_barrier_insert_memory_barrier(
 }
 
 void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
-    const uint32_t swapIndex = g_vulkanBackend.swapChain.currentImageIndex;
-
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
             g_vulkanBackend.colorBuffer.image,
@@ -887,7 +904,7 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
 
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
-            g_vulkanBackend.swapChain.buffers[swapIndex].image,
+            g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].image,
             0,
             VK_ACCESS_TRANSFER_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
@@ -903,21 +920,18 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
             .extent {.width = g_vulkanBackend.swapChain.width, .height = g_vulkanBackend.swapChain.height, .depth = 1,}
     };
 
-
     vkCmdResolveImage(
             cmdBuffer,
             g_vulkanBackend.colorBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            g_vulkanBackend.swapChain.buffers[swapIndex].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1, &resolveRegion
     );
 }
 
 [[maybe_unused]] void blit_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
-    const uint32_t swapIndex = g_vulkanBackend.swapChain.currentImageIndex;
-
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
-            g_vulkanBackend.swapChain.buffers[swapIndex].image,
+            g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].image,
             0,
             VK_ACCESS_TRANSFER_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
@@ -956,7 +970,7 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
             cmdBuffer,
             g_vulkanBackend.colorBuffer.image,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            g_vulkanBackend.swapChain.buffers[swapIndex].image,
+            g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].image,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1, &blitRegion,
             VK_FILTER_LINEAR
@@ -965,11 +979,10 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
 
 static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
     const bool isMultisampling = (g_vulkanBackend.sampleCount != VK_SAMPLE_COUNT_1_BIT);
-    const uint32_t swapIndex = g_vulkanBackend.swapChain.currentImageIndex;
 
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
-            isMultisampling ? g_vulkanBackend.colorBuffer.image : g_vulkanBackend.swapChain.buffers[swapIndex].image,
+            isMultisampling ? g_vulkanBackend.colorBuffer.image : g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].image,
             0,
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
@@ -992,7 +1005,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 
     const VkRenderingAttachmentInfoKHR colorAttachment = {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-            .imageView = isMultisampling ? g_vulkanBackend.colorBuffer.view : g_vulkanBackend.swapChain.buffers[swapIndex].view,
+            .imageView = isMultisampling ? g_vulkanBackend.colorBuffer.view : g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].view,
             .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -1043,7 +1056,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 
     gfx_barrier_insert_memory_barrier(
             cmdBuffer,
-            g_vulkanBackend.swapChain.buffers[swapIndex].image,
+            g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].image,
             isMultisampling ? VK_ACCESS_TRANSFER_WRITE_BIT : VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             0,
             isMultisampling ? VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -1055,25 +1068,21 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 }
 
 static void gfx_create_semaphores() {
-    VkSemaphoreCreateInfo semaphoreInfo = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-    const VkResult presentRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr, &g_vulkanBackend.semaphores.presentDone);
-    ASSERT_MSG(presentRes == VK_SUCCESS, "Err: failed to create present semaphore");
+    for (int i = 0; i < BEET_SWAP_CHAIN_IMAGE_MAX; ++i) {
+        VkSemaphoreCreateInfo semaphoreInfo = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        const VkResult presentRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr, &g_vulkanBackend.semaphores[i].presentDone);
+        ASSERT_MSG(presentRes == VK_SUCCESS, "Err: failed to create present semaphore");
 
-    const VkResult renderRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr, &g_vulkanBackend.semaphores.renderDone);
-    ASSERT_MSG(renderRes == VK_SUCCESS, "Err: failed to create render semaphore");
-
-    g_vulkanBackend.submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
-    g_vulkanBackend.submitInfo.pWaitDstStageMask = &g_vulkanBackend.submitPipelineStages;
-    g_vulkanBackend.submitInfo.waitSemaphoreCount = 1;
-    g_vulkanBackend.submitInfo.pWaitSemaphores = &g_vulkanBackend.semaphores.presentDone;
-    g_vulkanBackend.submitInfo.signalSemaphoreCount = 1;
-    g_vulkanBackend.submitInfo.pSignalSemaphores = &g_vulkanBackend.semaphores.renderDone;
+        const VkResult renderRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr, &g_vulkanBackend.semaphores[i].renderDone);
+        ASSERT_MSG(renderRes == VK_SUCCESS, "Err: failed to create render semaphore");
+    }
 }
 
 static void gfx_cleanup_semaphores() {
-    vkDestroySemaphore(g_vulkanBackend.device, g_vulkanBackend.semaphores.presentDone, nullptr);
-    vkDestroySemaphore(g_vulkanBackend.device, g_vulkanBackend.semaphores.renderDone, nullptr);
-    g_vulkanBackend.submitInfo = {};
+    for (int i = 0; i < BEET_SWAP_CHAIN_IMAGE_MAX; ++i) {
+        vkDestroySemaphore(g_vulkanBackend.device, g_vulkanBackend.semaphores[i].presentDone, nullptr);
+        vkDestroySemaphore(g_vulkanBackend.device, g_vulkanBackend.semaphores[i].renderDone, nullptr);
+    }
 }
 
 static void gfx_create_uniform_buffers() {
@@ -1157,15 +1166,18 @@ void gfx_cleanup() {
 
 //===API================================================================================================================
 void gfx_update(const double &deltaTime) {
-    gfx_update_uniform_buffers();
+    g_vulkanBackend.swapChain.lastImageIndex = gfx_swap_chain_index();
     const VkResult nextRes = gfx_acquire_next_swap_chain_image();
-
     if (nextRes == VK_ERROR_OUT_OF_DATE_KHR) {
         gfx_window_resize();
         return;
     } else if (nextRes < 0) {
         ASSERT(nextRes == VK_SUCCESS)
     }
+    vkWaitForFences(g_vulkanBackend.device, 1, &g_vulkanBackend.graphicsFenceWait[gfx_swap_chain_index()], true, UINT64_MAX);
+    vkResetFences(g_vulkanBackend.device, 1, &g_vulkanBackend.graphicsFenceWait[gfx_swap_chain_index()]);
+
+    gfx_update_uniform_buffers();
 
     VkCommandBuffer cmdBuffer = g_vulkanBackend.graphicsCommandBuffers[gfx_buffer_index()];
     vkResetCommandBuffer(cmdBuffer, 0);
@@ -1182,8 +1194,16 @@ void gfx_update(const double &deltaTime) {
     s_vulkanBackendInternal.currentFrame++;
 }
 
-uint32_t gfx_buffer_index(){
+uint32_t gfx_buffer_index() {
     return (s_vulkanBackendInternal.currentFrame % BEET_BUFFER_COUNT);
+}
+
+uint32_t gfx_swap_chain_index() {
+    return (g_vulkanBackend.swapChain.currentImageIndex);
+}
+
+uint32_t gfx_last_swap_chain_index() {
+    return (g_vulkanBackend.swapChain.lastImageIndex);
 }
 
 //======================================================================================================================
