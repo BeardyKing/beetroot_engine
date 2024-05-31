@@ -23,3 +23,6 @@
 [submodule "beet_engine/beet_converter/third/SPIRV-Tools"]
 	path = beet_engine/beet_converter/third/SPIRV-Tools
 	url = https://github.com/KhronosGroup/SPIRV-Tools.git
+[submodule "beet_pipeline/third/rapidjson"]
+	path = beet_pipeline/third/rapidjson
+	url = https://github.com/Tencent/rapidjson.git

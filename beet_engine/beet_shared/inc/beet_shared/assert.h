@@ -10,9 +10,9 @@
 #define DEBUG_BREAK() __debugbreak()
 #endif
 
-#define LOG_ERROR(...) printf(__VA_ARGS__);
+#define LOG_ERROR(...) printf(__VA_ARGS__)
 #define LOG_CURRENT_POSITION() \
-    LOG_ERROR("Assertion triggered \n\t file: \t %s \n\t func: \t %s \n\t line: \t %d \n", __FILE__, __FUNCTION__, __LINE__);
+    LOG_ERROR("Assertion triggered \n\t file: \t %s \n\t func: \t %s \n\t line: \t %d \n", __FILE__, __FUNCTION__, __LINE__)
 
 #define ASSERT_MSG(condition, ...)          \
 {                                           \
@@ -30,6 +30,13 @@
             DEBUG_BREAK();                  \
         }                                   \
     }
+
+#define NOT_IMPLEMENTED()                   \
+{                                           \
+    LOG_CURRENT_POSITION();                 \
+    LOG_ERROR("Hit unimplemented code o_o");\
+    DEBUG_BREAK();                          \
+}
 
 #define SANITY_CHECK()                      \
 {                                           \

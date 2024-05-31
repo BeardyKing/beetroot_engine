@@ -11,12 +11,20 @@ add_executable(beet_pipeline
         src/pipeline_commandlines.cpp
 )
 
+##===RapidJSON
+set(RAPIDJSON_INCLUDE_DIR third/rapidjson/include)
+add_subdirectory(third/rapidjson)
+
+
 ##===LIB TARGET DIR
 target_include_directories(beet_pipeline
         PUBLIC inc
+        PUBLIC ${RAPIDJSON_INCLUDE_DIR}
 )
-##===LIB FMT==============//
+##===LIB FMT
 add_subdirectory(third/fmt)
+
+
 
 #===C_GLTF
 project(c_gltf)
@@ -33,6 +41,7 @@ target_link_libraries(beet_pipeline
         beet_converter
         ispc_texture_compressor
         c_gltf
+        rapidjson
         fmt::fmt
 )
 

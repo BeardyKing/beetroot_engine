@@ -15,12 +15,12 @@ void gfx_create_surface(void *windowHandle, const VkInstance *instance, VkSurfac
             VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR
     };
 
-    ASSERT_MSG(windowHandle != nullptr, "Err: invalid window handle");
+    ASSERT_MSG(windowHandle != nullptr, "Err: invalid window handle")
     surfaceInfo.hinstance = GetModuleHandle(nullptr);
     surfaceInfo.hwnd = HWND(windowHandle);
 
     VkResult result = vkCreateWin32SurfaceKHR(*instance, &surfaceInfo, nullptr, outSurface);
-    ASSERT_MSG(result == VK_SUCCESS, "Err: failed to create vulkan surface");
+    ASSERT_MSG(result == VK_SUCCESS, "Err: failed to create vulkan surface")
 }
 // cleanup exists in gfx_backed_vulkan as it doesn't use any windows APIs
 
