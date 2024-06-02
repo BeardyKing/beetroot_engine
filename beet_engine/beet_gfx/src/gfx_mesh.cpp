@@ -140,6 +140,7 @@ void gfx_mesh_create_octahedron_immediate(GfxMesh &outMesh) {
 #if IN_DEV_RUNTIME_GLTF_LOADING
 
 #include "../../../beet_pipeline/third/rapidjson/include/rapidjson/document.h"
+#include <beet_math/quat.h>
 #include <beet_shared/c_string.h>
 #include <beet_shared/log.h>
 
@@ -477,15 +478,311 @@ struct GltfAsset {
     char version[GLTF_STR_VERSION_SIZE] = {};
 };
 
+constexpr size_t GLTF_STR_SCENE_NAME_SIZE = {256};
+struct GltfScene {
+    char name[GLTF_STR_SCENE_NAME_SIZE] = {};
+    std::vector<uint32_t> nodes = {};
+};
+
+constexpr uint32_t GLTF_INDEX_NOT_SET = {UINT32_MAX};
+
+constexpr size_t GLTF_STR_NODE_NAME_SIZE = {256};
+struct GltfNode {
+    char name[GLTF_STR_NODE_NAME_SIZE] = {};
+    uint32_t mesh = {GLTF_INDEX_NOT_SET};
+    vec3f scale = {};
+    vec3f translation = {};
+    quat rotation = {};
+};
+
+struct GltfPrimitives {
+    uint32_t attrib_normal = {GLTF_INDEX_NOT_SET};
+    uint32_t attrib_position = {GLTF_INDEX_NOT_SET};
+    uint32_t attrib_tangent = {GLTF_INDEX_NOT_SET};
+    uint32_t attrib_tex_coord_0 = {GLTF_INDEX_NOT_SET};     //TODO:GLTF
+    //uint32_t attrib_tex_coord_n = {GLTF_INDEX_NOT_SET};   //TODO:GLTF
+    //uint32_t attrib_color_n = {GLTF_INDEX_NOT_SET};       // TODO:GLTF
+    //uint32_t attrib_joints_n = {GLTF_INDEX_NOT_SET};      // TODO:GLTF
+    //uint32_t attrib_weights_n = {GLTF_INDEX_NOT_SET};     // TODO:GLTF
+
+    uint32_t indices = {GLTF_INDEX_NOT_SET};
+    uint32_t material = {GLTF_INDEX_NOT_SET};
+    uint32_t mode = {GLTF_INDEX_NOT_SET};
+};
+
+constexpr size_t GLTF_STR_MESH_NAME_SIZE = {256};
+struct GltfMesh {
+    char name[GLTF_STR_MESH_NAME_SIZE] = {};
+    std::vector<GltfPrimitives> primitives = {};
+};
+
+struct GltfColorTexture {
+    uint32_t index = {GLTF_INDEX_NOT_SET};
+    uint32_t texCoord = {GLTF_INDEX_NOT_SET};
+};
+
+constexpr size_t GLTF_STR_MATERIAL_NAME_SIZE = {256};
+struct GltfMaterial {
+    bool doubleSided = {false};
+    char name[GLTF_STR_MESH_NAME_SIZE] = {};
+    struct {
+        float metallicFactor = 1.0f;
+        float roughnessFactor = 1.0f;
+        GltfColorTexture baseColorTexture = {};
+    } pbrMetallicRoughness;
+};
+
+struct GltfBuffer {
+    size_t byteLength = {};
+    std::vector<char> base64Data = {};
+};
+
 struct GltfIntermediate {
     GltfAsset asset = {};
-
+    uint32_t sceneCount = {};
+    std::vector<GltfScene> scenes = {};
+    std::vector<GltfNode> nodes = {};
+    std::vector<GltfMesh> meshes = {};
+    std::vector<GltfMaterial> materials = {};
     std::vector<GltfAccessor> accessors = {};
     std::vector<GltfBufferViews> bufferViews = {};
     std::vector<GltfTextures> textures = {};
     std::vector<GltfSamplers> samplers = {};
     std::vector<GltfImages> images = {};
+    std::vector<GltfBuffer> buffers = {};
 } g_gltfData;
+
+void parse_gltf_buffers(std::vector<GltfBuffer> &outBuffer, const rapidjson::Value &bufferValue) {
+    ASSERT(bufferValue.IsArray())
+    outBuffer.reserve(bufferValue.GetArray().Size());
+    for (auto const &accessor: bufferValue.GetArray()) {
+        GltfBuffer &gltfBuffer = outBuffer.emplace_back();
+        for (rapidjson::Value::ConstMemberIterator bufferItr = accessor.MemberBegin(); bufferItr != accessor.MemberEnd(); ++bufferItr) {
+            const char *bufferString = bufferItr->name.GetString();
+            if (c_str_equal(bufferString, "byteLength")) {
+                ASSERT(bufferItr->value.IsUint());
+                gltfBuffer.byteLength = bufferItr->value.GetUint();
+                continue;
+            } else if (c_str_equal(bufferString, "uri")) {
+                ASSERT(bufferItr->value.IsString())
+                const char *uriWithMetaData = bufferItr->value.GetString();
+                const char findTarget[] = "base64,";
+                if (const char *foundStr = strstr(uriWithMetaData, findTarget)) {
+                    const char *copyStart = foundStr + strlen(findTarget);
+                    const size_t copyLen = strlen(copyStart);
+                    gltfBuffer.base64Data = std::vector<char>(copyLen + 1, '\0');
+                    memcpy(gltfBuffer.base64Data.data(), copyStart, copyLen);
+                } else {
+                    NOT_IMPLEMENTED(); // uri is a file on disk.
+                    //TODO: A good test for this code would be to export 2 GLTF files
+                    //      from the same src one as binary one embedded as base64 and validate the results match after decode.
+                }
+                continue;
+            }
+            NOT_IMPLEMENTED()
+        }
+    }
+}
+
+void parse_gltf_materials(std::vector<GltfMaterial> &outMaterials, const rapidjson::Value &materialValue) {
+    ASSERT(materialValue.IsArray())
+    outMaterials.reserve(materialValue.GetArray().Size());
+    for (auto const &accessor: materialValue.GetArray()) {
+        GltfMaterial &gltfMaterial = outMaterials.emplace_back();
+        for (rapidjson::Value::ConstMemberIterator materialsItr = accessor.MemberBegin(); materialsItr != accessor.MemberEnd(); ++materialsItr) {
+            const char *materialsString = materialsItr->name.GetString();
+
+            if (c_str_equal(materialsString, "name")) {
+                ASSERT(materialsItr->value.IsString());
+                ASSERT(materialsItr->value.GetStringLength() < GLTF_STR_MATERIAL_NAME_SIZE)
+                sprintf(gltfMaterial.name, "%s", materialsItr->value.GetString());
+                continue;
+            } else if (c_str_equal(materialsString, "doubleSided")) {
+                ASSERT(materialsItr->value.IsBool());
+                gltfMaterial.doubleSided = materialsItr->value.GetBool();
+                continue;
+            } else if (c_str_equal(materialsString, "pbrMetallicRoughness")) {
+                ASSERT(materialsItr->value.IsObject());
+                for (rapidjson::Value::ConstMemberIterator pbrMetallicRoughnessItr = materialsItr->value.MemberBegin();
+                     pbrMetallicRoughnessItr != materialsItr->value.MemberEnd(); ++pbrMetallicRoughnessItr) {
+                    const char *pbrMetallicRoughnessString = pbrMetallicRoughnessItr->name.GetString();
+                    if (c_str_equal(pbrMetallicRoughnessString, "metallicFactor")) {
+                        ASSERT(pbrMetallicRoughnessItr->value.IsNumber());
+                        gltfMaterial.pbrMetallicRoughness.metallicFactor = pbrMetallicRoughnessItr->value.GetFloat();
+                        continue;
+                    } else if (c_str_equal(pbrMetallicRoughnessString, "roughnessFactor")) {
+                        ASSERT(pbrMetallicRoughnessItr->value.IsNumber());
+                        gltfMaterial.pbrMetallicRoughness.roughnessFactor = pbrMetallicRoughnessItr->value.GetFloat();
+                        continue;
+                    } else if (c_str_equal(pbrMetallicRoughnessString, "baseColorTexture")) {
+                        ASSERT(pbrMetallicRoughnessItr->value.IsObject());
+                        for (rapidjson::Value::ConstMemberIterator baseColorTextureItr = pbrMetallicRoughnessItr->value.MemberBegin();
+                             baseColorTextureItr != pbrMetallicRoughnessItr->value.MemberEnd(); ++baseColorTextureItr) {
+                            const char *baseColorTextureString = baseColorTextureItr->name.GetString();
+                            if (c_str_equal(baseColorTextureString, "index")) {
+                                ASSERT(baseColorTextureItr->value.IsUint());
+                                gltfMaterial.pbrMetallicRoughness.baseColorTexture.index = baseColorTextureItr->value.GetUint();
+                                continue;
+                            } else if (c_str_equal(baseColorTextureString, "texCoord")) {
+                                ASSERT(baseColorTextureItr->value.IsUint());
+                                gltfMaterial.pbrMetallicRoughness.baseColorTexture.texCoord = baseColorTextureItr->value.GetUint();
+                            }
+                            NOT_IMPLEMENTED();
+                        }
+                        continue;
+                    }
+                    NOT_IMPLEMENTED();
+                }
+                continue;
+            }
+            NOT_IMPLEMENTED()
+        }
+    }
+}
+
+
+void parse_gltf_meshes(std::vector<GltfMesh> &outMeshes, const rapidjson::Value &meshValue) {
+    ASSERT(meshValue.IsArray())
+    outMeshes.reserve(meshValue.GetArray().Size());
+    for (auto const &accessor: meshValue.GetArray()) {
+        GltfMesh &gltfMesh = outMeshes.emplace_back();
+
+        for (rapidjson::Value::ConstMemberIterator itr = accessor.MemberBegin(); itr != accessor.MemberEnd(); ++itr) {
+            const char *jsonString = itr->name.GetString();
+            const rapidjson::Value &itrValue = itr->value;
+
+            if (c_str_equal(jsonString, "name")) {
+                ASSERT(itr->value.IsString())
+                ASSERT(itr->value.GetStringLength() < GLTF_STR_MESH_NAME_SIZE)
+                sprintf(gltfMesh.name, "%s", itr->value.GetString());
+                continue;
+            } else if (c_str_equal(jsonString, "primitives")) {
+                ASSERT(itrValue.IsArray())
+                GltfPrimitives &gltfPrimitives = gltfMesh.primitives.emplace_back();
+                for (auto const &primEle: itrValue.GetArray()) {
+                    for (rapidjson::Value::ConstMemberIterator primItr = primEle.MemberBegin(); primItr != primEle.MemberEnd(); ++primItr) {
+                        const rapidjson::Value &primItrValue = primItr->value;
+                        const char *primJsonString = primItr->name.GetString();
+
+                        if (c_str_equal(primJsonString, "indices")) {
+                            ASSERT(primItrValue.IsUint())
+                            gltfPrimitives.indices = primItrValue.GetUint();
+                            continue;
+                        } else if (c_str_equal(primJsonString, "material")) {
+                            ASSERT(primItrValue.IsUint())
+                            gltfPrimitives.material = primItrValue.GetUint();
+                            continue;
+                        } else if (c_str_equal(primJsonString, "attributes")) {
+                            ASSERT(primItrValue.IsObject())
+                            for (rapidjson::Value::ConstMemberIterator attribItr = primItrValue.MemberBegin(); attribItr != primItrValue.MemberEnd(); ++attribItr) {
+
+                                const char *attribJsonString = attribItr->name.GetString();
+                                const rapidjson::Value &attribItrValue = attribItr->value;
+
+                                if (c_str_equal(attribJsonString, "POSITION")) {
+                                    ASSERT(attribItrValue.IsUint())
+                                    gltfPrimitives.attrib_position = attribItrValue.GetUint();
+                                    continue;
+                                } else if (c_str_equal(attribJsonString, "NORMAL")) {
+                                    ASSERT(attribItrValue.IsUint())
+                                    gltfPrimitives.attrib_normal = attribItrValue.GetUint();
+                                    continue;
+                                } else if (c_str_equal(attribJsonString, "TANGENT")) {
+                                    ASSERT(attribItrValue.IsUint())
+                                    gltfPrimitives.attrib_tangent = attribItrValue.GetUint();
+                                    continue;
+                                } else if (c_str_equal(attribJsonString, "TEXCOORD_0")) {
+                                    ASSERT(attribItrValue.IsUint())
+                                    gltfPrimitives.attrib_tex_coord_0 = attribItrValue.GetUint();
+                                    continue;
+                                }
+                                NOT_IMPLEMENTED()
+                            }
+                            continue;
+                        }
+                        NOT_IMPLEMENTED()
+                    }
+                }
+                continue;
+            }
+            NOT_IMPLEMENTED()
+        }
+    }
+}
+
+void parse_gltf_nodes(std::vector<GltfNode> &outNodes, const rapidjson::Value &nodeValue) {
+    ASSERT(nodeValue.IsArray())
+    outNodes.reserve(nodeValue.GetArray().Size());
+    for (auto const &accessor: nodeValue.GetArray()) {
+        GltfNode &gltfNode = outNodes.emplace_back();
+
+        for (rapidjson::Value::ConstMemberIterator itr = accessor.MemberBegin(); itr != accessor.MemberEnd(); ++itr) {
+            const char *jsonString = itr->name.GetString();
+            const rapidjson::Value &itrValue = itr->value;
+
+            if (c_str_equal(jsonString, "name")) {
+                ASSERT(itr->value.IsString())
+                ASSERT(itr->value.GetStringLength() < GLTF_STR_NODE_NAME_SIZE)
+                sprintf(gltfNode.name, "%s", itr->value.GetString());
+                continue;
+            } else if (c_str_equal(jsonString, "mesh")) {
+                ASSERT(itrValue.IsUint())
+                gltfNode.mesh = itrValue.GetUint();
+                continue;
+            } else if (c_str_equal(jsonString, "rotation")) {
+                ASSERT(itrValue.IsArray())
+                ASSERT(itrValue.GetArray().Size() == 4)
+                gltfNode.rotation.x = itrValue[0].GetFloat();
+                gltfNode.rotation.y = itrValue[1].GetFloat();
+                gltfNode.rotation.z = itrValue[2].GetFloat();
+                gltfNode.rotation.w = itrValue[3].GetFloat();
+                continue;
+            } else if (c_str_equal(jsonString, "translation")) {
+                ASSERT(itrValue.IsArray())
+                ASSERT(itrValue.GetArray().Size() == 3)
+                gltfNode.translation.x = itrValue[0].GetFloat();
+                gltfNode.translation.y = itrValue[1].GetFloat();
+                gltfNode.translation.z = itrValue[2].GetFloat();
+                continue;
+            } else if (c_str_equal(jsonString, "scale")) {
+                ASSERT(itrValue.IsArray())
+                ASSERT(itrValue.GetArray().Size() == 3)
+                gltfNode.scale.x = itrValue[0].GetFloat();
+                gltfNode.scale.y = itrValue[1].GetFloat();
+                gltfNode.scale.z = itrValue[2].GetFloat();
+                continue;
+            }
+            NOT_IMPLEMENTED()
+        }
+    }
+}
+
+void parse_gltf_scenes(std::vector<GltfScene> &outScenes, const rapidjson::Value &sceneValue) {
+    ASSERT(sceneValue.IsArray())
+    outScenes.reserve(sceneValue.GetArray().Size());
+    for (auto const &accessor: sceneValue.GetArray()) {
+        GltfScene &gltfScene = outScenes.emplace_back();
+
+        for (rapidjson::Value::ConstMemberIterator itr = accessor.MemberBegin(); itr != accessor.MemberEnd(); ++itr) {
+            const char *jsonString = itr->name.GetString();
+            const rapidjson::Value &itrValue = itr->value;
+
+            if (c_str_equal(jsonString, "name")) {
+                ASSERT(itr->value.IsString())
+                ASSERT(itr->value.GetStringLength() < GLTF_STR_SCENE_NAME_SIZE)
+                sprintf(gltfScene.name, "%s", itr->value.GetString());
+                continue;
+            } else if (c_str_equal(jsonString, "nodes")) {
+                ASSERT(itrValue.IsArray())
+                for (auto const &nodesEle: itrValue.GetArray()) {
+                    gltfScene.nodes.emplace_back(nodesEle.GetUint());
+                }
+                continue;
+            }
+            NOT_IMPLEMENTED()
+        }
+    }
+}
 
 void parse_gltf_samplers(std::vector<GltfSamplers> &outSamplers, const rapidjson::Value &samplerValue) {
     ASSERT(samplerValue.IsArray())
@@ -683,7 +980,7 @@ void parse_gltf_asset(GltfAsset &outAsset, const rapidjson::Value &jsonValue) {
     }
 }
 
-void dump_gltf_intermediate(const GltfIntermediate &gltfData) {
+void gltf_dump_intermediate(const GltfIntermediate &gltfData) {
     printf("start: dumping gltf intermediate:\n\n");
 
     printf("Asset:\n");
@@ -768,14 +1065,70 @@ void dump_gltf_intermediate(const GltfIntermediate &gltfData) {
         printf("\n");
     }
 
+    printf("Scene Count: %u\n", gltfData.sceneCount);
+    printf("\n");
+
+    printf("Scenes Array: [%zu]\n", gltfData.scenes.size());
+    for (const GltfScene &scene: gltfData.scenes) {
+        printf(" name: '%s'\n", scene.name);
+        printf(" Nodes Array: [%zu]\n", scene.nodes.size());
+        for (const uint32_t &node: scene.nodes) {
+            printf("  %u\n", node);
+        }
+        printf("\n");
+    }
+
+    printf("Nodes Array: [%zu]\n", gltfData.nodes.size());
+    for (const GltfNode &node: gltfData.nodes) {
+        printf(" name: '%s'\n", node.name);
+        printf(" meshIndex: %u\n", node.mesh);
+        printf(" translation : [ %f , %f , %f ]\n", node.translation.x, node.translation.y, node.translation.z);
+        printf(" rotation : [ %f , %f , %f , %f ]\n", node.rotation.x, node.rotation.y, node.rotation.z, node.rotation.w);
+        printf(" scale : [ %f , %f , %f ]\n", node.scale.x, node.scale.y, node.scale.z);
+        printf("\n");
+    }
+
+    printf("Meshes Array: [%zu]\n", gltfData.meshes.size());
+    for (const GltfMesh &mesh: gltfData.meshes) {
+        printf(" name: '%s'\n", mesh.name);
+        printf(" Primitives Array: [%zu]\n", mesh.primitives.size());
+        for (const GltfPrimitives &primitive: mesh.primitives) {
+            printf("  indices %u\n", primitive.indices);
+            printf("  material %u\n", primitive.material);
+            printf("  attribute: position %u\n", primitive.attrib_position);
+            printf("  attribute: normal %u\n", primitive.attrib_normal);
+            printf("  attribute: tangent %u\n", primitive.attrib_tangent);
+            printf("  attribute: tex coord %u\n", primitive.attrib_tex_coord_0);
+        }
+        printf("\n");
+    }
+
+    printf("Material Array: [%zu]\n", gltfData.materials.size());
+    for (const GltfMaterial &material: gltfData.materials) {
+        printf(" name: '%s'\n", material.name);
+        printf(" doubleSided: %u\n", material.doubleSided);
+        printf(" pbrMetallicRoughness:\n");
+        printf("  baseColorTexture index: %u\n", material.pbrMetallicRoughness.baseColorTexture.index);
+        printf("  baseColorTexture tex coord: %u\n", material.pbrMetallicRoughness.baseColorTexture.texCoord);
+        printf("  metallicFactor: %f\n", material.pbrMetallicRoughness.metallicFactor);
+        printf("  roughnessFactor: %f\n", material.pbrMetallicRoughness.roughnessFactor);
+
+        printf("\n");
+    }
+
+    printf("Buffers Array: [%zu]\n", gltfData.buffers.size());
+    for (const GltfBuffer &buffer: gltfData.buffers) {
+        printf(" byteLength: %zu\n", buffer.byteLength);
+        printf(" uriData:( base64Data size) %zu\n", buffer.base64Data.size());
+        printf(" base64 str: %s\n", buffer.base64Data.data());
+        printf("\n");
+    }
 
     printf("end: dumping gltf intermediate:\n");
     printf("\n");
 }
 
 void gltf_parse_json() {
-    log_verbose(MSG_CONVERTER, "%s \n", gltfJson)
-
     rapidjson::Document document;  // Default template parameter uses UTF8 and MemoryPoolAllocator.
     if (document.Parse(gltfJson).HasParseError()) {
         SANITY_CHECK()
@@ -784,7 +1137,23 @@ void gltf_parse_json() {
     ASSERT(document.IsObject())
     for (rapidjson::Value::ConstMemberIterator itr = document.MemberBegin(); itr != document.MemberEnd(); ++itr) {
         const char *jsonString = itr->name.GetString();
-        if (c_str_equal(jsonString, "asset")) {
+        if (c_str_equal(jsonString, "scene")) {
+            ASSERT(itr->value.IsUint())
+            g_gltfData.sceneCount = itr->value.GetUint();
+            continue;
+        } else if (c_str_equal(jsonString, "scenes")) {
+            parse_gltf_scenes(g_gltfData.scenes, itr->value);
+            continue;
+        } else if (c_str_equal(jsonString, "nodes")) {
+            parse_gltf_nodes(g_gltfData.nodes, itr->value);
+            continue;
+        } else if (c_str_equal(jsonString, "meshes")) {
+            parse_gltf_meshes(g_gltfData.meshes, itr->value);
+            continue;
+        } else if (c_str_equal(jsonString, "materials")) {
+            parse_gltf_materials(g_gltfData.materials, itr->value);
+            continue;
+        } else if (c_str_equal(jsonString, "asset")) {
             parse_gltf_asset(g_gltfData.asset, itr->value);
             continue;
         } else if (c_str_equal(jsonString, "accessors")) {
@@ -802,12 +1171,14 @@ void gltf_parse_json() {
         } else if (c_str_equal(jsonString, "images")) {
             parse_gltf_images(g_gltfData.images, itr->value);
             continue;
+        } else if (c_str_equal(jsonString, "buffers")) {
+            parse_gltf_buffers(g_gltfData.buffers, itr->value);
+            continue;
         }
-
-//        NOT_IMPLEMENTED(); Add this once I have the basics for GLTF parsing and just add the bits I need as an when I run into them.
+        NOT_IMPLEMENTED(); // Parser is still IN_DEV, will implement missing features as and when I run into issues.
     }
 
-    dump_gltf_intermediate(g_gltfData);
+    gltf_dump_intermediate(g_gltfData);
 }
 
 //#define CGLTF_IMPLEMENTATION
