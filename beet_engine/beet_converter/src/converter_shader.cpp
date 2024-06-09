@@ -117,7 +117,7 @@ bool convert_shader_spv(const char *localAssetDir) {
         return true;
     }
 
-    if (FILE *fp = fopen(inPath, "r+")) {
+    if (FILE *fp = fopen(inPath, "rb")) {
         size_t fileSize = fs_file_size(inPath);
         char *shader = (char *) mem_zalloc(fileSize);
         fread(shader, fileSize, 1, fp);

@@ -140,6 +140,9 @@ void gfx_mesh_create_octahedron_immediate(GfxMesh &outMesh) {
 #if IN_DEV_RUNTIME_GLTF_LOADING
 
 #include "../../../beet_pipeline/third/rapidjson/include/rapidjson/document.h"
+#include <beet_shared/filesystem.h>
+#include <beet_shared/base_64.h>
+#include <beet_shared/memory.h>
 #include <beet_math/quat.h>
 #include <beet_shared/c_string.h>
 #include <beet_shared/log.h>
@@ -308,7 +311,7 @@ union GltfComponentType {
     float float32;
 };
 
-[[maybe_unused]] size_t GltfComponentTypeSizeLookup(GltfComponentTypesEnum type) {
+size_t gltf_component_type_size_lookup(GltfComponentTypesEnum type) {
     switch (type) {
         case GLTF_COMPONENT_UNDEFINED:
             return 0;
@@ -331,7 +334,7 @@ union GltfComponentType {
     return 0;
 }
 
-const char *GltfComponentTypeLookup(GltfComponentTypesEnum type) {
+const char *gltf_component_type_lookup(GltfComponentTypesEnum type) {
     switch (type) {
         case GLTF_COMPONENT_UNDEFINED:
             return "GLTF_COMPONENT_UNDEFINED";
@@ -365,7 +368,7 @@ enum GltfAccessorType : uint32_t {
     GLTF_MAT4,
 };
 
-const char *GltfAccessorTypeLookup(GltfAccessorType type) {
+const char *gltf_accessor_type_lookup(GltfAccessorType type) {
     switch (type) {
         case GLTF_ACCESSOR_UNDEFINED:
             return "GLTF_ACCESSOR_UNDEFINED";
@@ -388,7 +391,7 @@ const char *GltfAccessorTypeLookup(GltfAccessorType type) {
     return "";
 }
 
-uint32_t GltfAccessorTypeSizeLookup(GltfAccessorType type) {
+uint32_t gltf_accessor_type_size_lookup(GltfAccessorType type) {
     switch (type) {
         case GLTF_ACCESSOR_UNDEFINED:
             return 0;
@@ -410,7 +413,7 @@ uint32_t GltfAccessorTypeSizeLookup(GltfAccessorType type) {
     return 0;
 }
 
-GltfAccessorType AccessorTypeLookup(const char *str) {
+GltfAccessorType gltf_accessor_type_lookup(const char *str) {
     if (c_str_equal(str, "SCALAR")) {
         return GLTF_SCALAR;
     }
@@ -437,7 +440,7 @@ GltfAccessorType AccessorTypeLookup(const char *str) {
 }
 
 struct GltfBufferViews {
-    uint32_t buffer = {};
+    uint32_t bufferIndex = {};
     uint32_t byteOffset = {};
     uint32_t byteLength = {};
     uint32_t target = {};
@@ -455,16 +458,18 @@ struct GltfSamplers {
 
 constexpr size_t GLTF_STR_MEDIA_TYPE_SIZE = {128};
 constexpr size_t GLTF_STR_MEDIA_NAME_SIZE = {256};
+constexpr size_t GLTF_STR_URI_NAME_SIZE = {256};
 struct GltfImages {
     uint32_t bufferView = {};
     char mediaType[GLTF_STR_MEDIA_TYPE_SIZE] = {}; //mimeType
     char name[GLTF_STR_MEDIA_NAME_SIZE] = {};
+    char uri[GLTF_STR_URI_NAME_SIZE] = {}; //TODO we probably don't want to load textures during parse so a name of the texture is probably fine.
 };
 
 struct GltfAccessor {
     GltfComponentTypesEnum componentType = {GLTF_COMPONENT_UNDEFINED};
     GltfAccessorType accessorType = {GLTF_ACCESSOR_UNDEFINED};
-    uint32_t bufferView = {};
+    uint32_t bufferViewIndex = {};
     uint32_t byteOffset = {};
     uint32_t count = {};
     std::vector<GltfComponentType> max = {};
@@ -534,10 +539,12 @@ struct GltfMaterial {
 
 struct GltfBuffer {
     size_t byteLength = {};
-    std::vector<char> base64Data = {};
+    std::vector<char> binaryData = {};
 };
 
+constexpr size_t GLTF_STR_PATH_SIZE = {256};
 struct GltfIntermediate {
+    char path[GLTF_STR_PATH_SIZE] = {};
     GltfAsset asset = {};
     uint32_t sceneCount = {};
     std::vector<GltfScene> scenes = {};
@@ -551,6 +558,29 @@ struct GltfIntermediate {
     std::vector<GltfImages> images = {};
     std::vector<GltfBuffer> buffers = {};
 } g_gltfData;
+
+bool parse_gltf_get_binary_data(std::vector<char> &outData, const char *uri, const char *gltfPath) {
+    char buildPath[256] = {};
+    sprintf(buildPath, "%s", gltfPath);
+    const bool result = c_str_replace_after_delim_reverse(buildPath, uri, "/");
+    ASSERT(result)
+
+    ASSERT(outData.empty())
+    if (fs_file_exists(buildPath)) {
+        const size_t fileSize = fs_file_size(buildPath);
+        outData.resize(fileSize);
+        FILE *fp = nullptr;
+        fp = fopen(buildPath, "rb");
+        ASSERT(fp != nullptr);
+        if (fp) {
+            fread(outData.data(), fileSize, 1, fp);
+            fclose(fp);
+            fp = nullptr;
+            return true;
+        }
+    }
+    return false;
+}
 
 void parse_gltf_buffers(std::vector<GltfBuffer> &outBuffer, const rapidjson::Value &bufferValue) {
     ASSERT(bufferValue.IsArray())
@@ -570,13 +600,16 @@ void parse_gltf_buffers(std::vector<GltfBuffer> &outBuffer, const rapidjson::Val
                 if (const char *foundStr = strstr(uriWithMetaData, findTarget)) {
                     const char *copyStart = foundStr + strlen(findTarget);
                     const size_t copyLen = strlen(copyStart);
-                    gltfBuffer.base64Data = std::vector<char>(copyLen + 1, '\0');
-                    memcpy(gltfBuffer.base64Data.data(), copyStart, copyLen);
+                    std::vector<char> base64Data(copyLen + 1, '\0');
+                    memcpy(base64Data.data(), copyStart, copyLen);
+
+                    gltfBuffer.binaryData.resize(base64_decode_size(base64Data.data(), base64Data.size() + 1), '\0');
+                    base64_decode(base64Data.data(), (uint8_t *) gltfBuffer.binaryData.data());
                 } else {
-                    NOT_IMPLEMENTED(); // uri is a file on disk.
-                    //TODO: A good test for this code would be to export 2 GLTF files
-                    //      from the same src one as binary one embedded as base64 and validate the results match after decode.
+                    bool result = parse_gltf_get_binary_data(gltfBuffer.binaryData, uriWithMetaData, g_gltfData.path);
+                    ASSERT(result);
                 }
+                //TODO: Consider asserting if byteLength and the binaryData size match later on in the code.
                 continue;
             }
             NOT_IMPLEMENTED()
@@ -832,6 +865,11 @@ void parse_gltf_images(std::vector<GltfImages> &outImages, const rapidjson::Valu
                 ASSERT(itr->value.GetStringLength() < GLTF_STR_MEDIA_NAME_SIZE)
                 sprintf(gltfImages.name, "%s", itr->value.GetString());
                 continue;
+            } else if (c_str_equal(jsonString, "uri")) {
+                ASSERT(itr->value.IsString())
+                ASSERT(itr->value.GetStringLength() < GLTF_STR_MEDIA_NAME_SIZE)
+                sprintf(gltfImages.uri, "%s", itr->value.GetString());
+                continue;
             }
             NOT_IMPLEMENTED()
         }
@@ -874,7 +912,7 @@ void parse_gltf_buffer_views(std::vector<GltfBufferViews> &outBufferViews, const
 
             if (c_str_equal(jsonString, "buffer")) {
                 ASSERT(itrValue.IsUint())
-                gltfBufferViews.buffer = itrValue.GetUint();
+                gltfBufferViews.bufferIndex = itrValue.GetUint();
                 continue;
             } else if (c_str_equal(jsonString, "byteOffset")) {
                 ASSERT(itrValue.IsUint())
@@ -910,11 +948,11 @@ void parse_gltf_accessors(std::vector<GltfAccessor> &outAccessors, const rapidjs
                 continue;
             } else if (c_str_equal(jsonString, "type")) {
                 ASSERT(itrValue.IsString())
-                gltfAccessor.accessorType = AccessorTypeLookup(itrValue.GetString());
+                gltfAccessor.accessorType = gltf_accessor_type_lookup(itrValue.GetString());
                 continue;
             } else if (c_str_equal(jsonString, "bufferView")) {
                 ASSERT(itrValue.IsUint())
-                gltfAccessor.bufferView = itrValue.GetUint();
+                gltfAccessor.bufferViewIndex = itrValue.GetUint();
                 continue;
             } else if (c_str_equal(jsonString, "byteOffset")) {
                 ASSERT(itrValue.IsUint())
@@ -990,9 +1028,9 @@ void gltf_dump_intermediate(const GltfIntermediate &gltfData) {
 
     printf("Accessor Array: [%zu]\n", gltfData.accessors.size());
     for (const GltfAccessor &accessor: gltfData.accessors) {
-        printf(" componentType: %u - %s\n", accessor.componentType, GltfComponentTypeLookup(accessor.componentType));
-        printf(" accessorType: %u - %s - [ %u ]\n", accessor.accessorType, GltfAccessorTypeLookup(accessor.accessorType), GltfAccessorTypeSizeLookup(accessor.accessorType));
-        printf(" bufferView: %u \n", accessor.bufferView);
+        printf(" componentType: %u - %s\n", accessor.componentType, gltf_component_type_lookup(accessor.componentType));
+        printf(" accessorType: %u - %s - [ %u ]\n", accessor.accessorType, gltf_accessor_type_lookup(accessor.accessorType), gltf_accessor_type_size_lookup(accessor.accessorType));
+        printf(" bufferViewIndex: %u \n", accessor.bufferViewIndex);
         printf(" byteOffset: %u \n", accessor.byteOffset);
         printf(" count: %u\n", accessor.count);
 
@@ -1036,7 +1074,7 @@ void gltf_dump_intermediate(const GltfIntermediate &gltfData) {
 
     printf("bufferViews Array: [%zu]\n", gltfData.bufferViews.size());
     for (const GltfBufferViews &bufferViews: gltfData.bufferViews) {
-        printf(" buffer: %u\n", bufferViews.buffer);
+        printf(" bufferIndex: %u\n", bufferViews.bufferIndex);
         printf(" byteOffset: %u\n", bufferViews.byteOffset);
         printf(" byteLength: %u \n", bufferViews.byteLength);
         printf(" target: %u \n", bufferViews.target);
@@ -1062,6 +1100,7 @@ void gltf_dump_intermediate(const GltfIntermediate &gltfData) {
         printf(" bufferView: %u\n", images.bufferView);
         printf(" name: %s\n", images.name);
         printf(" mediaType: %s\n", images.mediaType);
+        printf(" uri: %s\n", images.uri);
         printf("\n");
     }
 
@@ -1119,8 +1158,11 @@ void gltf_dump_intermediate(const GltfIntermediate &gltfData) {
     printf("Buffers Array: [%zu]\n", gltfData.buffers.size());
     for (const GltfBuffer &buffer: gltfData.buffers) {
         printf(" byteLength: %zu\n", buffer.byteLength);
-        printf(" uriData:( base64Data size) %zu\n", buffer.base64Data.size());
-        printf(" base64 str: %s\n", buffer.base64Data.data());
+        printf(" uriData:( binary Data size) %zu\n", buffer.binaryData.size());
+        for (const char c: buffer.binaryData) {
+            printf("%c", c);
+        }
+        printf("\n");
         printf("\n");
     }
 
@@ -1128,9 +1170,39 @@ void gltf_dump_intermediate(const GltfIntermediate &gltfData) {
     printf("\n");
 }
 
-void gltf_parse_json() {
+void *gltf_pull_out_binary_data_alloc(const uint32_t inAccessorIndex, size_t &outCount, GltfAccessorType &outAccessor, GltfComponentTypesEnum &outType) {
+    if (inAccessorIndex != GLTF_INDEX_NOT_SET) {
+        const GltfAccessor &accessor = g_gltfData.accessors[inAccessorIndex];
+        const GltfBufferViews &bufferView = g_gltfData.bufferViews[accessor.bufferViewIndex];
+        const GltfBuffer &buffer = g_gltfData.buffers[bufferView.bufferIndex];
+        outAccessor = accessor.accessorType;
+        outType = accessor.componentType;
+        outCount = accessor.count * gltf_accessor_type_size_lookup(accessor.accessorType);
+        const size_t allocSize = outCount * gltf_component_type_size_lookup(accessor.componentType);
+        ASSERT(allocSize == bufferView.byteLength);
+
+        void *outData = mem_zalloc(allocSize);
+        ASSERT(outData != nullptr)
+        memcpy(outData, &buffer.binaryData[0] + bufferView.byteOffset, allocSize);
+        return outData;
+    }
+    return nullptr;
+}
+
+void gltf_parse_json(const char *path, std::vector<GfxMesh> &outMeshes) {
+    sprintf(g_gltfData.path, "%s", path);
     rapidjson::Document document;  // Default template parameter uses UTF8 and MemoryPoolAllocator.
-    if (document.Parse(gltfJson).HasParseError()) {
+    FILE *fp = nullptr;
+    fp = fopen(g_gltfData.path, "rb");
+    std::vector<char> jsonData;
+    if (fp) {
+        size_t fileSize = fs_file_size(g_gltfData.path);
+        jsonData.resize(fileSize + 1, '\0');
+        fread(jsonData.data(), fileSize, 1, fp);
+        fclose(fp);
+    }
+
+    if (document.Parse(jsonData.data()).HasParseError()) {
         SANITY_CHECK()
     }
 
@@ -1178,33 +1250,152 @@ void gltf_parse_json() {
         NOT_IMPLEMENTED(); // Parser is still IN_DEV, will implement missing features as and when I run into issues.
     }
 
-    gltf_dump_intermediate(g_gltfData);
+//    gltf_dump_intermediate(g_gltfData);
+
+    //TODO: Do this for each scene/node/mesh.
+    auto &currentPrimitive = g_gltfData.meshes[0].primitives[0];
+
+    size_t indicesCount = 0;
+    GltfAccessorType indicesAccessorType = {};
+    GltfComponentTypesEnum indicesComponentType = {};
+    void *indices = gltf_pull_out_binary_data_alloc(g_gltfData.meshes[0].primitives[0].indices, indicesCount, indicesAccessorType, indicesComponentType);
+
+    size_t tangentCount = 0;
+    GltfAccessorType tangentAccessorType;
+    GltfComponentTypesEnum tangentComponentType;
+    void *tangents = gltf_pull_out_binary_data_alloc(g_gltfData.meshes[0].primitives[0].attrib_tangent, tangentCount, tangentAccessorType, tangentComponentType);
+
+    size_t normalCount = 0;
+    GltfAccessorType normalAccessorType;
+    GltfComponentTypesEnum normalComponentType;
+    void *normals = gltf_pull_out_binary_data_alloc(g_gltfData.meshes[0].primitives[0].attrib_normal, normalCount, normalAccessorType, normalComponentType);
+
+    size_t uvCount = 0;
+    GltfAccessorType uvAccessorType;
+    GltfComponentTypesEnum uvComponentType;
+    void *uvs = gltf_pull_out_binary_data_alloc(g_gltfData.meshes[0].primitives[0].attrib_tex_coord_0, uvCount, uvAccessorType, uvComponentType);
+
+    size_t positionCount = 0;
+    GltfAccessorType positionAccessorType;
+    GltfComponentTypesEnum positionComponentType;
+    void *positions = gltf_pull_out_binary_data_alloc(g_gltfData.meshes[0].primitives[0].attrib_position, positionCount, positionAccessorType, positionComponentType);
+
+    std::vector<GfxVertex> raw_verts(positionCount / gltf_accessor_type_size_lookup(positionAccessorType));
+    std::vector<uint32_t> raw_indices;
+
+    for (size_t i = 0; i < raw_verts.size(); i++) {
+        GfxVertex &vertRef = raw_verts[i];
+
+        if (positionCount > 0) {
+            const size_t elementCount = gltf_accessor_type_size_lookup(positionAccessorType);
+            ASSERT(elementCount == 3)
+            ASSERT(positionComponentType == GLTF_FLOAT_32);
+            vertRef.pos.x = ((float *) positions)[(i * elementCount) + 0];
+            vertRef.pos.y = ((float *) positions)[(i * elementCount) + 1];
+            vertRef.pos.z = ((float *) positions)[(i * elementCount) + 2];
+        }
+        if (normalCount > 0) {
+            const size_t elementCount = gltf_accessor_type_size_lookup(normalAccessorType);
+            ASSERT(elementCount == 3)
+            ASSERT(positionComponentType == GLTF_FLOAT_32);
+            vertRef.normal.x = ((float *) normals)[(i * elementCount) + 0];
+            vertRef.normal.y = ((float *) normals)[(i * elementCount) + 1];
+            vertRef.normal.z = ((float *) normals)[(i * elementCount) + 1];
+        }
+        if (uvCount > 0) {
+            const size_t elementCount = gltf_accessor_type_size_lookup(uvAccessorType);
+            ASSERT(elementCount == 2)
+            ASSERT(positionComponentType == GLTF_FLOAT_32);
+            vertRef.uv.x = ((float *) uvs)[(i * elementCount) + 0];
+            vertRef.uv.y = ((float *) uvs)[(i * elementCount) + 1];
+        }
+        if (tangentCount > 0) {
+            const size_t elementCount = gltf_accessor_type_size_lookup(tangentAccessorType);
+            ASSERT(elementCount == 3)
+            ASSERT(positionComponentType == GLTF_FLOAT_32);
+            //TODO: GfxVertex does not taken in tangents (currently)
+        }
+        {
+            //TODO: COLOUR
+        }
+    }
+
+    for (size_t i = 0; i < indicesCount; i += 1) {
+        const size_t elementCount = gltf_accessor_type_size_lookup(indicesAccessorType);
+        ASSERT(elementCount == 1);
+        uint32_t &idx = raw_indices.emplace_back();
+        switch (indicesComponentType) {
+            case GLTF_UINT_8 :
+                idx = ((uint8_t *) indices)[i];
+                break;
+            case GLTF_UINT_16 :
+                idx = ((uint16_t *) indices)[i];
+                break;
+            case GLTF_UINT_32 :
+                idx = ((uint32_t *) indices)[i];
+                break;
+            case GLTF_COMPONENT_UNDEFINED:
+            case GLTF_COMPONENT_UNUSED: // likely int32_t
+            case GLTF_INT_8:
+            case GLTF_INT_16:
+            case GLTF_FLOAT_32: NOT_IMPLEMENTED() // I don't expect we to need to support these.
+                break;
+        }
+    }
+
+    const RawMesh rawMesh = {
+            raw_verts.data(),
+            raw_indices.data(),
+            static_cast<uint32_t>(raw_verts.size()),
+            static_cast<uint32_t>(raw_indices.size()),
+    };
+
+    GfxMesh &curr = outMeshes.emplace_back();
+    gfx_mesh_create_immediate(rawMesh, curr);
+
+    if (positionCount > 0) {
+        mem_free(positions);
+    }
+    if (uvCount > 0) {
+        mem_free(uvs);
+    }
+    if (normalCount > 0) {
+        mem_free(normals);
+    }
+    if (tangentCount > 0) {
+        mem_free(tangents);
+    }
+    if (indicesCount > 0) {
+        mem_free(indices);
+    }
 }
 
-//#define CGLTF_IMPLEMENTATION
-//
-//#include "../../../beet_pipeline/third/cgltf/cgltf.h"
-//#include <vector>
-//
+#define CGLTF_IMPLEMENTATION
+
+#include "../../../beet_pipeline/third/cgltf/cgltf.h"
+#include <vector>
+
 //constexpr uint32_t accessorPoolSize = 500000; // 3 MiB
 //static float s_accessorDataPool[accessorPoolSize] = {};
 
 std::vector<GfxMesh> gfx_mesh_load_gltf() {
-    gltf_parse_json();
-    return {};
+    const char *path = "assets/scenes/example_scene_2.gltf";
+//    const char *path = "assets/scenes/example_scene.gltf";
+//    const char *path = "assets/scenes/intel/NewSponza_Main_glTF_002.gltf";
+//    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/SciFiHelmet/glTF/SciFiHelmet.gltf";
+//    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/Sponza/glTF/Sponza.gltf";
+//    const char *path = "example_scene_2.gltf";
+//    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/GlassVaseFlowers/glTF/GlassVaseFlowers.gltf";
 
+    std::vector<GfxMesh> outMeshes;
+    gltf_parse_json(path, outMeshes);
+    return outMeshes;
 
-//    std::vector<GfxMesh> outMeshes;
-//
-//    //TODO: currently lit entities have a root to the world, need to fix this.
-////    float nodeToWorld[16];
-////    cgltf_node_transform_world(_node, nodeToWorld);
+    //TODO: currently lit entities have a root to the world, need to fix this.
+//    float nodeToWorld[16];
+//    cgltf_node_transform_world(_node, nodeToWorld);
 //    memset(s_accessorDataPool, 0, accessorPoolSize);
 //
-////    const char *path = "assets/scenes/intel/NewSponza_Main_glTF_002.gltf";
-////    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/SciFiHelmet/glTF/SciFiHelmet.gltf";
-//    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/Sponza/glTF/Sponza.gltf";
-////    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/GlassVaseFlowers/glTF/GlassVaseFlowers.gltf";
 //
 //    cgltf_options options = {};
 //    cgltf_data *data = nullptr;
@@ -1296,6 +1487,19 @@ std::vector<GfxMesh> gfx_mesh_load_gltf() {
 //                                    }
 //                                }
 //                            }
+//
+//                            for (const auto &v: vertices) {
+//                                printf("pos : %f %f %f \n", v.pos.x, v.pos.y, v.pos.z);
+//                                printf("norm: %f %f %f \n", v.normal.x, v.normal.y, v.normal.z);
+//                                printf("uv  : %f %f\n", v.uv.x, v.uv.y);
+//                                printf("\n");
+//                            }
+//
+//                            printf("indices\n");
+//                            for (const auto &idx: indices) {
+//                                printf(" %u\n", idx);
+//                            }
+//                            printf("\n");
 //
 //                            const RawMesh rawMesh = {
 //                                    vertices.data(),

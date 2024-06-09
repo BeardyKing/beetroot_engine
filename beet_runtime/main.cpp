@@ -3,6 +3,7 @@
 #include <beet_core/input.h>
 
 #include <beet_shared/log.h>
+#include <beet_shared/memory.h>
 
 #include <beet_gfx/gfx_interface.h>
 #include <beet_gfx/gfx_imgui.h>
