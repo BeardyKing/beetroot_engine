@@ -147,149 +147,6 @@ void gfx_mesh_create_octahedron_immediate(GfxMesh &outMesh) {
 #include <beet_shared/c_string.h>
 #include <beet_shared/log.h>
 
-const char gltfJson[] = "{\n"
-                        "    \"asset\" : {\n"
-                        "        \"generator\" : \"Khronos glTF Blender I/O v3.3.27\",\n"
-                        "        \"version\" : \"2.0\"\n"
-                        "    },\n"
-                        "    \"scene\" : 0,\n"
-                        "    \"scenes\" : [\n"
-                        "        {\n"
-                        "            \"name\" : \"Scene\",\n"
-                        "            \"nodes\" : [\n"
-                        "                0\n"
-                        "            ]\n"
-                        "        }\n"
-                        "    ],\n"
-                        "    \"nodes\" : [\n"
-                        "        {\n"
-                        "            \"mesh\" : 0,\n"
-                        "            \"name\" : \"Cube\"\n"
-                        "        }\n"
-                        "    ],\n"
-                        "    \"materials\" : [\n"
-                        "        {\n"
-                        "            \"doubleSided\" : true,\n"
-                        "            \"name\" : \"Material\",\n"
-                        "            \"pbrMetallicRoughness\" : {\n"
-                        "                \"baseColorTexture\" : {\n"
-                        "                    \"index\" : 0\n"
-                        "                },\n"
-                        "                \"metallicFactor\" : 0,\n"
-                        "                \"roughnessFactor\" : 0.5\n"
-                        "            }\n"
-                        "        }\n"
-                        "    ],\n"
-                        "    \"meshes\" : [\n"
-                        "        {\n"
-                        "            \"name\" : \"Cube\",\n"
-                        "            \"primitives\" : [\n"
-                        "                {\n"
-                        "                    \"attributes\" : {\n"
-                        "                        \"POSITION\" : 0,\n"
-                        "                        \"NORMAL\" : 1,\n"
-                        "                        \"TEXCOORD_0\" : 2\n"
-                        "                    },\n"
-                        "                    \"indices\" : 3,\n"
-                        "                    \"material\" : 0\n"
-                        "                }\n"
-                        "            ]\n"
-                        "        }\n"
-                        "    ],\n"
-                        "    \"textures\" : [\n"
-                        "        {\n"
-                        "            \"sampler\" : 0,\n"
-                        "            \"source\" : 0\n"
-                        "        }\n"
-                        "    ],\n"
-                        "    \"images\" : [\n"
-                        "        {\n"
-                        "            \"bufferView\" : 4,\n"
-                        "            \"mimeType\" : \"image/png\",\n"
-                        "            \"name\" : \"hi_16x16\"\n"
-                        "        }\n"
-                        "    ],\n"
-                        "    \"accessors\" : [\n"
-                        "        {\n"
-                        "            \"bufferView\" : 0,\n"
-                        "            \"componentType\" : 5126,\n"
-                        "            \"count\" : 24,\n"
-                        "            \"max\" : [\n"
-                        "                1,\n"
-                        "                1,\n"
-                        "                1\n"
-                        "            ],\n"
-                        "            \"min\" : [\n"
-                        "                -1,\n"
-                        "                -1,\n"
-                        "                -1\n"
-                        "            ],\n"
-                        "            \"type\" : \"VEC3\"\n"
-                        "        },\n"
-                        "        {\n"
-                        "            \"bufferView\" : 1,\n"
-                        "            \"componentType\" : 5126,\n"
-                        "            \"count\" : 24,\n"
-                        "            \"type\" : \"VEC3\"\n"
-                        "        },\n"
-                        "        {\n"
-                        "            \"bufferView\" : 2,\n"
-                        "            \"componentType\" : 5126,\n"
-                        "            \"count\" : 24,\n"
-                        "            \"type\" : \"VEC2\"\n"
-                        "        },\n"
-                        "        {\n"
-                        "            \"bufferView\" : 3,\n"
-                        "            \"componentType\" : 5123,\n"
-                        "            \"count\" : 36,\n"
-                        "            \"type\" : \"SCALAR\"\n"
-                        "        }\n"
-                        "    ],\n"
-                        "    \"bufferViews\" : [\n"
-                        "        {\n"
-                        "            \"buffer\" : 0,\n"
-                        "            \"byteLength\" : 288,\n"
-                        "            \"byteOffset\" : 0,\n"
-                        "            \"target\" : 34962\n"
-                        "        },\n"
-                        "        {\n"
-                        "            \"buffer\" : 0,\n"
-                        "            \"byteLength\" : 288,\n"
-                        "            \"byteOffset\" : 288,\n"
-                        "            \"target\" : 34962\n"
-                        "        },\n"
-                        "        {\n"
-                        "            \"buffer\" : 0,\n"
-                        "            \"byteLength\" : 192,\n"
-                        "            \"byteOffset\" : 576,\n"
-                        "            \"target\" : 34962\n"
-                        "        },\n"
-                        "        {\n"
-                        "            \"buffer\" : 0,\n"
-                        "            \"byteLength\" : 72,\n"
-                        "            \"byteOffset\" : 768,\n"
-                        "            \"target\" : 34963\n"
-                        "        },\n"
-                        "        {\n"
-                        "            \"buffer\" : 0,\n"
-                        "            \"byteLength\" : 430,\n"
-                        "            \"byteOffset\" : 840\n"
-                        "        }\n"
-                        "    ],\n"
-                        "    \"samplers\" : [\n"
-                        "        {\n"
-                        "            \"magFilter\" : 9729,\n"
-                        "            \"minFilter\" : 9987\n"
-                        "        }\n"
-                        "    ],\n"
-                        "    \"buffers\" : [\n"
-                        "        {\n"
-                        "            \"byteLength\" : 1272,\n"
-                        "            \"uri\" : \"data:application/octet-stream;base64,AACAPwAAgD8AAIC/AACAPwAAgD8AAIC/AACAPwAAgD8AAIC/AACAPwAAgL8AAIC/AACAPwAAgL8AAIC/AACAPwAAgL8AAIC/AACAPwAAgD8AAIA/AACAPwAAgD8AAIA/AACAPwAAgD8AAIA/AACAPwAAgL8AAIA/AACAPwAAgL8AAIA/AACAPwAAgL8AAIA/AACAvwAAgD8AAIC/AACAvwAAgD8AAIC/AACAvwAAgD8AAIC/AACAvwAAgL8AAIC/AACAvwAAgL8AAIC/AACAvwAAgL8AAIC/AACAvwAAgD8AAIA/AACAvwAAgD8AAIA/AACAvwAAgD8AAIA/AACAvwAAgL8AAIA/AACAvwAAgL8AAIA/AACAvwAAgL8AAIA/AAAAAAAAAAAAAIC/AAAAAAAAgD8AAACAAACAPwAAAAAAAACAAAAAAAAAgL8AAACAAAAAAAAAAAAAAIC/AACAPwAAAAAAAACAAAAAAAAAAAAAAIA/AAAAAAAAgD8AAACAAACAPwAAAAAAAACAAAAAAAAAgL8AAACAAAAAAAAAAAAAAIA/AACAPwAAAAAAAACAAACAvwAAAAAAAACAAAAAAAAAAAAAAIC/AAAAAAAAgD8AAACAAACAvwAAAAAAAACAAAAAAAAAgL8AAACAAAAAAAAAAAAAAIC/AACAvwAAAAAAAACAAAAAAAAAAAAAAIA/AAAAAAAAgD8AAACAAACAvwAAAAAAAACAAAAAAAAAgL8AAACAAAAAAAAAAAAAAIA/AACAPwAAAAAAAIA/AAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/AACAPwAAAAAAAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAIA/AACAPwAAAAAAAIA/AACAPwAAAAAAAAAAAAAAAAAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AQAOABQAAQAUAAcACgAGABMACgATABcAFQASAAwAFQAMAA8AEAADAAkAEAAJABYABQACAAgABQAIAAsAEQANAAAAEQAAAAQAiVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAFDSURBVDhPzZKxioNQEEVdIRoIiFj4A0IQBNtgOlsbm/gVlinyLSntxVr8A1tboySBFEGUICKISdyr7xGSane7PcU4M+9e5434NQwD8xdY+vw1PxvKsrzf77QAuBJ4PB51XZP8nfP5rGma53m0HgY6IQxDwzBOpxMpX4iiaFkWPLQGxLfdbnGWpikp38FkzKfFa0JRFIvFguO4PM+Px2PXdaSPK5mmGUURKQE1VFUF9W63W6/Xq9XKdV2yKC55OBwulwuRAWrAcdM0vu+rqqooCraM4xh9NBFlWZ5UI9TQ9/3tdlsul0EQ7Pd7nueTJEH/+XwizufzSTVCDdgGm202G0mSyIosOx5hGbyrbVsiA9TgOA7m2raNHAZBEHRdRz6bzVAiTqqJ6VsNGI3Ph4gciuv1SuZgtyzLECfVyH/4+T5gmG9Y7PkNFDxPhAAAAABJRU5ErkJgggAA\"\n"
-                        "        }\n"
-                        "    ]\n"
-                        "}";
-
 //3.6.2.2. Accessor Data Types
 enum GltfComponentTypesEnum {
     GLTF_COMPONENT_UNDEFINED = 0,
@@ -443,6 +300,7 @@ struct GltfBufferViews {
     uint32_t bufferIndex = {};
     uint32_t byteOffset = {};
     uint32_t byteLength = {};
+    uint32_t byteStride = {};
     uint32_t target = {};
 };
 
@@ -451,9 +309,35 @@ struct GltfTextures {
     uint32_t source = {};
 };
 
+enum GltfWrapMode : uint32_t {
+    GLTF_WRAP_MODE_UNDEFINED = 0,
+    GLTF_WRAP_MODE_CLAMP_TO_EDGE = 33071,
+    GLTF_WRAP_MODE_MIRRORED_REPEAT = 33648,
+    GLTF_WRAP_MODE_REPEAT = 10497,
+    //WebGL spec also has TEXTURE_WRAP_S & TEXTURE_WRAP_T
+};
+
+enum GltfMagnificationFilter : uint32_t {
+    GLTF_SAMPLER_MAG_FILTER_UNDEFINED = 0,
+    GLTF_SAMPLER_MAG_FILTER_NEAREST = 9728,
+    GLTF_SAMPLER_MAG_FILTER_LINEAR = 9729,
+};
+
+enum GltfMinificationFilter : uint32_t {
+    GLTF_SAMPLER_MIN_FILTER_UNDEFINED = 0,
+    GLTF_SAMPLER_MIN_FILTER_NEAREST = 9728,
+    GLTF_SAMPLER_MIN_FILTER_LINEAR = 9729,
+    GLTF_SAMPLER_MIN_FILTER_NEAREST_MIPMAP_NEAREST = 9984,
+    GLTF_SAMPLER_MIN_FILTER_LINEAR_MIPMAP_NEAREST = 9985,
+    GLTF_SAMPLER_MIN_FILTER_NEAREST_MIPMAP_LINEAR = 9986,
+    GLTF_SAMPLER_MIN_FILTER_LINEAR_MIPMAP_LINEAR = 9987,
+};
+
 struct GltfSamplers {
-    uint32_t magFilter = {};
-    uint32_t minFilter = {};
+    GltfMagnificationFilter magFilter = {};
+    GltfMinificationFilter minFilter = {};
+    GltfWrapMode wrapS = {GLTF_WRAP_MODE_REPEAT};
+    GltfWrapMode wrapT = {GLTF_WRAP_MODE_REPEAT};
 };
 
 constexpr size_t GLTF_STR_MEDIA_TYPE_SIZE = {128};
@@ -500,6 +384,17 @@ struct GltfNode {
     quat rotation = {};
 };
 
+//A.27. JSON Schema for Mesh Primitive
+enum GltfTopologyMode : int32_t {
+    GLTF_TOPOLOGY_MODE_POINTS = 0,
+    GLTF_TOPOLOGY_MODE_LINES = 1,
+    GLTF_TOPOLOGY_MODE_LINE_LOOP = 2,
+    GLTF_TOPOLOGY_MODE_LINE_STRIP = 3,
+    GLTF_TOPOLOGY_MODE_TRIANGLES = 4,
+    GLTF_TOPOLOGY_MODE_TRIANGLE_STRIP = 5,
+    GLTF_TOPOLOGY_MODE_TRIANGLE_FAN = 6,
+};
+
 struct GltfPrimitives {
     uint32_t attrib_normal = {GLTF_INDEX_NOT_SET};
     uint32_t attrib_position = {GLTF_INDEX_NOT_SET};
@@ -512,7 +407,7 @@ struct GltfPrimitives {
 
     uint32_t indices = {GLTF_INDEX_NOT_SET};
     uint32_t material = {GLTF_INDEX_NOT_SET};
-    uint32_t mode = {GLTF_INDEX_NOT_SET};
+    GltfTopologyMode mode = {GLTF_TOPOLOGY_MODE_TRIANGLES};
 };
 
 constexpr size_t GLTF_STR_MESH_NAME_SIZE = {256};
@@ -521,10 +416,29 @@ struct GltfMesh {
     std::vector<GltfPrimitives> primitives = {};
 };
 
-struct GltfColorTexture {
+struct GltfTexture {
     uint32_t index = {GLTF_INDEX_NOT_SET};
     uint32_t texCoord = {GLTF_INDEX_NOT_SET};
 };
+
+constexpr size_t GLTF_STR_ALPHA_MODE_NAME_SIZE = {256};
+enum GltfAlphaMode {
+    GLTF_ALPHA_MODE_OPAQUE = 0,
+    GLTF_ALPHA_MODE_MASK = 1,
+    GLTF_ALPHA_MODE_BLEND = 2,
+};
+
+GltfAlphaMode gltf_alpha_mode_type_lookup(const char *alphaModeStr) {
+    if (c_str_equal(alphaModeStr, "OPAQUE")) {
+        return GLTF_ALPHA_MODE_OPAQUE;
+    } else if (c_str_equal(alphaModeStr, "MASK")) {
+        return GLTF_ALPHA_MODE_MASK;
+    } else if (c_str_equal(alphaModeStr, "BLEND")) {
+        return GLTF_ALPHA_MODE_BLEND;
+    }
+    SANITY_CHECK();
+    return GLTF_ALPHA_MODE_OPAQUE;
+}
 
 constexpr size_t GLTF_STR_MATERIAL_NAME_SIZE = {256};
 struct GltfMaterial {
@@ -533,8 +447,14 @@ struct GltfMaterial {
     struct {
         float metallicFactor = 1.0f;
         float roughnessFactor = 1.0f;
-        GltfColorTexture baseColorTexture = {};
+        vec4f baseColorFactor = {};
+        GltfTexture baseColorTexture = {};
+        GltfTexture metallicRoughnessTexture = {};
     } pbrMetallicRoughness;
+    GltfTexture normalTexture = {};
+    GltfTexture occlusionTexture = {};
+    GltfAlphaMode alphaMode = {};
+    float alphaCutoff = {};
 };
 
 struct GltfBuffer {
@@ -617,6 +537,23 @@ void parse_gltf_buffers(std::vector<GltfBuffer> &outBuffer, const rapidjson::Val
     }
 }
 
+void parse_gltf_texture(GltfTexture &outTexture, const rapidjson::Value &textureValue) {
+    ASSERT(textureValue.IsObject());
+    for (rapidjson::Value::ConstMemberIterator baseColorTextureItr = textureValue.MemberBegin();
+         baseColorTextureItr != textureValue.MemberEnd(); ++baseColorTextureItr) {
+        const char *baseColorTextureString = baseColorTextureItr->name.GetString();
+        if (c_str_equal(baseColorTextureString, "index")) {
+            ASSERT(baseColorTextureItr->value.IsUint());
+            outTexture.index = baseColorTextureItr->value.GetUint();
+            continue;
+        } else if (c_str_equal(baseColorTextureString, "texCoord")) {
+            ASSERT(baseColorTextureItr->value.IsUint());
+            outTexture.texCoord = baseColorTextureItr->value.GetUint();
+        }
+        NOT_IMPLEMENTED();
+    }
+}
+
 void parse_gltf_materials(std::vector<GltfMaterial> &outMaterials, const rapidjson::Value &materialValue) {
     ASSERT(materialValue.IsArray())
     outMaterials.reserve(materialValue.GetArray().Size());
@@ -630,9 +567,26 @@ void parse_gltf_materials(std::vector<GltfMaterial> &outMaterials, const rapidjs
                 ASSERT(materialsItr->value.GetStringLength() < GLTF_STR_MATERIAL_NAME_SIZE)
                 sprintf(gltfMaterial.name, "%s", materialsItr->value.GetString());
                 continue;
+            } else if (c_str_equal(materialsString, "alphaMode")) {
+                ASSERT(materialsItr->value.IsString());
+                ASSERT(materialsItr->value.GetStringLength() < GLTF_STR_ALPHA_MODE_NAME_SIZE)
+                gltfMaterial.alphaMode = gltf_alpha_mode_type_lookup(materialsItr->value.GetString());
+                continue;
+            } else if (c_str_equal(materialsString, "alphaCutoff")) {
+                ASSERT(materialsItr->value.IsNumber());
+                gltfMaterial.alphaCutoff = materialsItr->value.GetFloat();
+                continue;
             } else if (c_str_equal(materialsString, "doubleSided")) {
                 ASSERT(materialsItr->value.IsBool());
                 gltfMaterial.doubleSided = materialsItr->value.GetBool();
+                continue;
+            } else if (c_str_equal(materialsString, "normalTexture")) {
+                ASSERT(materialsItr->value.IsObject());
+                parse_gltf_texture(gltfMaterial.normalTexture, materialsItr->value);
+                continue;
+            } else if (c_str_equal(materialsString, "occlusionTexture")) {
+                ASSERT(materialsItr->value.IsObject());
+                parse_gltf_texture(gltfMaterial.occlusionTexture, materialsItr->value);
                 continue;
             } else if (c_str_equal(materialsString, "pbrMetallicRoughness")) {
                 ASSERT(materialsItr->value.IsObject());
@@ -649,19 +603,19 @@ void parse_gltf_materials(std::vector<GltfMaterial> &outMaterials, const rapidjs
                         continue;
                     } else if (c_str_equal(pbrMetallicRoughnessString, "baseColorTexture")) {
                         ASSERT(pbrMetallicRoughnessItr->value.IsObject());
-                        for (rapidjson::Value::ConstMemberIterator baseColorTextureItr = pbrMetallicRoughnessItr->value.MemberBegin();
-                             baseColorTextureItr != pbrMetallicRoughnessItr->value.MemberEnd(); ++baseColorTextureItr) {
-                            const char *baseColorTextureString = baseColorTextureItr->name.GetString();
-                            if (c_str_equal(baseColorTextureString, "index")) {
-                                ASSERT(baseColorTextureItr->value.IsUint());
-                                gltfMaterial.pbrMetallicRoughness.baseColorTexture.index = baseColorTextureItr->value.GetUint();
-                                continue;
-                            } else if (c_str_equal(baseColorTextureString, "texCoord")) {
-                                ASSERT(baseColorTextureItr->value.IsUint());
-                                gltfMaterial.pbrMetallicRoughness.baseColorTexture.texCoord = baseColorTextureItr->value.GetUint();
-                            }
-                            NOT_IMPLEMENTED();
-                        }
+                        parse_gltf_texture(gltfMaterial.pbrMetallicRoughness.baseColorTexture, pbrMetallicRoughnessItr->value);
+                        continue;
+                    } else if (c_str_equal(pbrMetallicRoughnessString, "metallicRoughnessTexture")) {
+                        ASSERT(pbrMetallicRoughnessItr->value.IsObject());
+                        parse_gltf_texture(gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture, pbrMetallicRoughnessItr->value);
+                        continue;
+                    } else if (c_str_equal(pbrMetallicRoughnessString, "baseColorFactor")) {
+                        ASSERT(pbrMetallicRoughnessItr->value.IsArray())
+                        ASSERT(pbrMetallicRoughnessItr->value.GetArray().Size() == 4)
+                        gltfMaterial.pbrMetallicRoughness.baseColorFactor.r = pbrMetallicRoughnessItr->value[0].GetFloat();
+                        gltfMaterial.pbrMetallicRoughness.baseColorFactor.g = pbrMetallicRoughnessItr->value[1].GetFloat();
+                        gltfMaterial.pbrMetallicRoughness.baseColorFactor.b = pbrMetallicRoughnessItr->value[2].GetFloat();
+                        gltfMaterial.pbrMetallicRoughness.baseColorFactor.a = pbrMetallicRoughnessItr->value[3].GetFloat();
                         continue;
                     }
                     NOT_IMPLEMENTED();
@@ -691,8 +645,8 @@ void parse_gltf_meshes(std::vector<GltfMesh> &outMeshes, const rapidjson::Value 
                 continue;
             } else if (c_str_equal(jsonString, "primitives")) {
                 ASSERT(itrValue.IsArray())
-                GltfPrimitives &gltfPrimitives = gltfMesh.primitives.emplace_back();
                 for (auto const &primEle: itrValue.GetArray()) {
+                    GltfPrimitives &gltfPrimitives = gltfMesh.primitives.emplace_back();
                     for (rapidjson::Value::ConstMemberIterator primItr = primEle.MemberBegin(); primItr != primEle.MemberEnd(); ++primItr) {
                         const rapidjson::Value &primItrValue = primItr->value;
                         const char *primJsonString = primItr->name.GetString();
@@ -700,6 +654,10 @@ void parse_gltf_meshes(std::vector<GltfMesh> &outMeshes, const rapidjson::Value 
                         if (c_str_equal(primJsonString, "indices")) {
                             ASSERT(primItrValue.IsUint())
                             gltfPrimitives.indices = primItrValue.GetUint();
+                            continue;
+                        } else if (c_str_equal(primJsonString, "mode")) {
+                            ASSERT(primItrValue.IsInt())
+                            gltfPrimitives.mode = GltfTopologyMode(primItrValue.GetInt());
                             continue;
                         } else if (c_str_equal(primJsonString, "material")) {
                             ASSERT(primItrValue.IsUint())
@@ -829,11 +787,19 @@ void parse_gltf_samplers(std::vector<GltfSamplers> &outSamplers, const rapidjson
 
             if (c_str_equal(jsonString, "magFilter")) {
                 ASSERT(itrValue.IsUint())
-                gltfSamplers.magFilter = itrValue.GetUint();
+                gltfSamplers.magFilter = GltfMagnificationFilter(itrValue.GetUint());
                 continue;
             } else if (c_str_equal(jsonString, "minFilter")) {
                 ASSERT(itrValue.IsUint())
-                gltfSamplers.minFilter = itrValue.GetUint();
+                gltfSamplers.minFilter = GltfMinificationFilter(itrValue.GetUint());
+                continue;
+            } else if (c_str_equal(jsonString, "wrapS")) {
+                ASSERT(itrValue.IsUint())
+                gltfSamplers.wrapS = GltfWrapMode(itrValue.GetUint());
+                continue;
+            } else if (c_str_equal(jsonString, "wrapT")) {
+                ASSERT(itrValue.IsInt())
+                gltfSamplers.wrapT = GltfWrapMode(itrValue.GetInt());
                 continue;
             }
             NOT_IMPLEMENTED()
@@ -921,6 +887,10 @@ void parse_gltf_buffer_views(std::vector<GltfBufferViews> &outBufferViews, const
             } else if (c_str_equal(jsonString, "byteLength")) {
                 ASSERT(itrValue.IsUint())
                 gltfBufferViews.byteLength = itrValue.GetUint();
+                continue;
+            } else if (c_str_equal(jsonString, "byteStride")) {
+                ASSERT(itrValue.IsUint())
+                gltfBufferViews.byteStride = itrValue.GetUint();
                 continue;
             } else if (c_str_equal(jsonString, "target")) {
                 ASSERT(itrValue.IsUint())
@@ -1179,11 +1149,22 @@ void *gltf_pull_out_binary_data_alloc(const uint32_t inAccessorIndex, size_t &ou
         outType = accessor.componentType;
         outCount = accessor.count * gltf_accessor_type_size_lookup(accessor.accessorType);
         const size_t allocSize = outCount * gltf_component_type_size_lookup(accessor.componentType);
-        ASSERT(allocSize == bufferView.byteLength);
+        ASSERT(allocSize <= bufferView.byteLength); // sometimes we subview into a buffer.
 
         void *outData = mem_zalloc(allocSize);
         ASSERT(outData != nullptr)
-        memcpy(outData, &buffer.binaryData[0] + bufferView.byteOffset, allocSize);
+        if (bufferView.byteStride == 0) {
+            memcpy(outData, &buffer.binaryData[0] + bufferView.byteOffset + accessor.byteOffset, allocSize);
+        } else {
+            for (int i = 0; i < accessor.count; ++i) {
+                size_t cpySize = gltf_accessor_type_size_lookup(accessor.accessorType) * gltf_component_type_size_lookup(accessor.componentType);
+                ASSERT(bufferView.byteStride == cpySize)
+                const char *cpyStart = (&buffer.binaryData[0] + bufferView.byteOffset + accessor.byteOffset) + (i * cpySize);
+                const char *destStart = ((char *) outData + (i * cpySize));
+                size_t strideOffset = (i * (accessor.byteOffset));
+                memcpy((void *) destStart, cpyStart + strideOffset, cpySize);
+            }
+        }
         return outData;
     }
     return nullptr;
@@ -1253,120 +1234,122 @@ void gltf_parse_json(const char *path, std::vector<GfxMesh> &outMeshes) {
 //    gltf_dump_intermediate(g_gltfData);
 
     //TODO: Do this for each scene/node/mesh.
-    auto &currentPrimitive = g_gltfData.meshes[0].primitives[0];
+    for (size_t primIndex = 0; primIndex < g_gltfData.meshes[0].primitives.size(); ++primIndex) {
+        auto &currentPrimitive = g_gltfData.meshes[0].primitives[primIndex];
 
-    size_t indicesCount = 0;
-    GltfAccessorType indicesAccessorType = {};
-    GltfComponentTypesEnum indicesComponentType = {};
-    void *indices = gltf_pull_out_binary_data_alloc(g_gltfData.meshes[0].primitives[0].indices, indicesCount, indicesAccessorType, indicesComponentType);
+        size_t indicesCount = 0;
+        GltfAccessorType indicesAccessorType = {};
+        GltfComponentTypesEnum indicesComponentType = {};
+        void *indices = gltf_pull_out_binary_data_alloc(currentPrimitive.indices, indicesCount, indicesAccessorType, indicesComponentType);
 
-    size_t tangentCount = 0;
-    GltfAccessorType tangentAccessorType;
-    GltfComponentTypesEnum tangentComponentType;
-    void *tangents = gltf_pull_out_binary_data_alloc(g_gltfData.meshes[0].primitives[0].attrib_tangent, tangentCount, tangentAccessorType, tangentComponentType);
+        size_t tangentCount = 0;
+        GltfAccessorType tangentAccessorType;
+        GltfComponentTypesEnum tangentComponentType;
+        void *tangents = gltf_pull_out_binary_data_alloc(currentPrimitive.attrib_tangent, tangentCount, tangentAccessorType, tangentComponentType);
 
-    size_t normalCount = 0;
-    GltfAccessorType normalAccessorType;
-    GltfComponentTypesEnum normalComponentType;
-    void *normals = gltf_pull_out_binary_data_alloc(g_gltfData.meshes[0].primitives[0].attrib_normal, normalCount, normalAccessorType, normalComponentType);
+        size_t normalCount = 0;
+        GltfAccessorType normalAccessorType;
+        GltfComponentTypesEnum normalComponentType;
+        void *normals = gltf_pull_out_binary_data_alloc(currentPrimitive.attrib_normal, normalCount, normalAccessorType, normalComponentType);
 
-    size_t uvCount = 0;
-    GltfAccessorType uvAccessorType;
-    GltfComponentTypesEnum uvComponentType;
-    void *uvs = gltf_pull_out_binary_data_alloc(g_gltfData.meshes[0].primitives[0].attrib_tex_coord_0, uvCount, uvAccessorType, uvComponentType);
+        size_t uvCount = 0;
+        GltfAccessorType uvAccessorType;
+        GltfComponentTypesEnum uvComponentType;
+        void *uvs = gltf_pull_out_binary_data_alloc(currentPrimitive.attrib_tex_coord_0, uvCount, uvAccessorType, uvComponentType);
 
-    size_t positionCount = 0;
-    GltfAccessorType positionAccessorType;
-    GltfComponentTypesEnum positionComponentType;
-    void *positions = gltf_pull_out_binary_data_alloc(g_gltfData.meshes[0].primitives[0].attrib_position, positionCount, positionAccessorType, positionComponentType);
+        size_t positionCount = 0;
+        GltfAccessorType positionAccessorType;
+        GltfComponentTypesEnum positionComponentType;
+        void *positions = gltf_pull_out_binary_data_alloc(currentPrimitive.attrib_position, positionCount, positionAccessorType, positionComponentType);
 
-    std::vector<GfxVertex> raw_verts(positionCount / gltf_accessor_type_size_lookup(positionAccessorType));
-    std::vector<uint32_t> raw_indices;
+        std::vector<GfxVertex> raw_verts(positionCount / gltf_accessor_type_size_lookup(positionAccessorType));
+        std::vector<uint32_t> raw_indices;
 
-    for (size_t i = 0; i < raw_verts.size(); i++) {
-        GfxVertex &vertRef = raw_verts[i];
+        for (size_t i = 0; i < raw_verts.size(); i++) {
+            GfxVertex &vertRef = raw_verts[i];
+
+            if (positionCount > 0) {
+                const size_t elementCount = gltf_accessor_type_size_lookup(positionAccessorType);
+                ASSERT(elementCount == 3)
+                ASSERT(positionComponentType == GLTF_FLOAT_32);
+                vertRef.pos.x = ((float *) positions)[(i * elementCount) + 0];
+                vertRef.pos.y = ((float *) positions)[(i * elementCount) + 1];
+                vertRef.pos.z = ((float *) positions)[(i * elementCount) + 2];
+            }
+            if (normalCount > 0) {
+                const size_t elementCount = gltf_accessor_type_size_lookup(normalAccessorType);
+                ASSERT(elementCount == 3)
+                ASSERT(positionComponentType == GLTF_FLOAT_32);
+                vertRef.normal.x = ((float *) normals)[(i * elementCount) + 0];
+                vertRef.normal.y = ((float *) normals)[(i * elementCount) + 1];
+                vertRef.normal.z = ((float *) normals)[(i * elementCount) + 1];
+            }
+            if (uvCount > 0) {
+                const size_t elementCount = gltf_accessor_type_size_lookup(uvAccessorType);
+                ASSERT(elementCount == 2)
+                ASSERT(positionComponentType == GLTF_FLOAT_32);
+                vertRef.uv.x = ((float *) uvs)[(i * elementCount) + 0];
+                vertRef.uv.y = ((float *) uvs)[(i * elementCount) + 1];
+            }
+            if (tangentCount > 0) {
+                const size_t elementCount = gltf_accessor_type_size_lookup(tangentAccessorType);
+                ASSERT(elementCount == 4)
+                ASSERT(positionComponentType == GLTF_FLOAT_32);
+                //TODO: GfxVertex does not taken in tangents (currently)
+            }
+            {
+                //TODO: COLOUR
+            }
+        }
+
+        for (size_t i = 0; i < indicesCount; i += 1) {
+            const size_t elementCount = gltf_accessor_type_size_lookup(indicesAccessorType);
+            ASSERT(elementCount == 1);
+            uint32_t &idx = raw_indices.emplace_back();
+            switch (indicesComponentType) {
+                case GLTF_UINT_8 :
+                    idx = ((uint8_t *) indices)[i];
+                    break;
+                case GLTF_UINT_16 :
+                    idx = ((uint16_t *) indices)[i];
+                    break;
+                case GLTF_UINT_32 :
+                    idx = ((uint32_t *) indices)[i];
+                    break;
+                case GLTF_COMPONENT_UNDEFINED:
+                case GLTF_COMPONENT_UNUSED: // likely int32_t
+                case GLTF_INT_8:
+                case GLTF_INT_16:
+                case GLTF_FLOAT_32: NOT_IMPLEMENTED() // I don't expect we to need to support these.
+                    break;
+            }
+        }
+
+        const RawMesh rawMesh = {
+                raw_verts.data(),
+                raw_indices.data(),
+                static_cast<uint32_t>(raw_verts.size()),
+                static_cast<uint32_t>(raw_indices.size()),
+        };
+
+        GfxMesh &curr = outMeshes.emplace_back();
+        gfx_mesh_create_immediate(rawMesh, curr);
 
         if (positionCount > 0) {
-            const size_t elementCount = gltf_accessor_type_size_lookup(positionAccessorType);
-            ASSERT(elementCount == 3)
-            ASSERT(positionComponentType == GLTF_FLOAT_32);
-            vertRef.pos.x = ((float *) positions)[(i * elementCount) + 0];
-            vertRef.pos.y = ((float *) positions)[(i * elementCount) + 1];
-            vertRef.pos.z = ((float *) positions)[(i * elementCount) + 2];
-        }
-        if (normalCount > 0) {
-            const size_t elementCount = gltf_accessor_type_size_lookup(normalAccessorType);
-            ASSERT(elementCount == 3)
-            ASSERT(positionComponentType == GLTF_FLOAT_32);
-            vertRef.normal.x = ((float *) normals)[(i * elementCount) + 0];
-            vertRef.normal.y = ((float *) normals)[(i * elementCount) + 1];
-            vertRef.normal.z = ((float *) normals)[(i * elementCount) + 1];
+            mem_free(positions);
         }
         if (uvCount > 0) {
-            const size_t elementCount = gltf_accessor_type_size_lookup(uvAccessorType);
-            ASSERT(elementCount == 2)
-            ASSERT(positionComponentType == GLTF_FLOAT_32);
-            vertRef.uv.x = ((float *) uvs)[(i * elementCount) + 0];
-            vertRef.uv.y = ((float *) uvs)[(i * elementCount) + 1];
+            mem_free(uvs);
+        }
+        if (normalCount > 0) {
+            mem_free(normals);
         }
         if (tangentCount > 0) {
-            const size_t elementCount = gltf_accessor_type_size_lookup(tangentAccessorType);
-            ASSERT(elementCount == 3)
-            ASSERT(positionComponentType == GLTF_FLOAT_32);
-            //TODO: GfxVertex does not taken in tangents (currently)
+            mem_free(tangents);
         }
-        {
-            //TODO: COLOUR
+        if (indicesCount > 0) {
+            mem_free(indices);
         }
-    }
-
-    for (size_t i = 0; i < indicesCount; i += 1) {
-        const size_t elementCount = gltf_accessor_type_size_lookup(indicesAccessorType);
-        ASSERT(elementCount == 1);
-        uint32_t &idx = raw_indices.emplace_back();
-        switch (indicesComponentType) {
-            case GLTF_UINT_8 :
-                idx = ((uint8_t *) indices)[i];
-                break;
-            case GLTF_UINT_16 :
-                idx = ((uint16_t *) indices)[i];
-                break;
-            case GLTF_UINT_32 :
-                idx = ((uint32_t *) indices)[i];
-                break;
-            case GLTF_COMPONENT_UNDEFINED:
-            case GLTF_COMPONENT_UNUSED: // likely int32_t
-            case GLTF_INT_8:
-            case GLTF_INT_16:
-            case GLTF_FLOAT_32: NOT_IMPLEMENTED() // I don't expect we to need to support these.
-                break;
-        }
-    }
-
-    const RawMesh rawMesh = {
-            raw_verts.data(),
-            raw_indices.data(),
-            static_cast<uint32_t>(raw_verts.size()),
-            static_cast<uint32_t>(raw_indices.size()),
-    };
-
-    GfxMesh &curr = outMeshes.emplace_back();
-    gfx_mesh_create_immediate(rawMesh, curr);
-
-    if (positionCount > 0) {
-        mem_free(positions);
-    }
-    if (uvCount > 0) {
-        mem_free(uvs);
-    }
-    if (normalCount > 0) {
-        mem_free(normals);
-    }
-    if (tangentCount > 0) {
-        mem_free(tangents);
-    }
-    if (indicesCount > 0) {
-        mem_free(indices);
     }
 }
 
@@ -1379,11 +1362,11 @@ void gltf_parse_json(const char *path, std::vector<GfxMesh> &outMeshes) {
 //static float s_accessorDataPool[accessorPoolSize] = {};
 
 std::vector<GfxMesh> gfx_mesh_load_gltf() {
-    const char *path = "assets/scenes/example_scene_2.gltf";
+//    const char *path = "assets/scenes/example_scene_2.gltf";
 //    const char *path = "assets/scenes/example_scene.gltf";
 //    const char *path = "assets/scenes/intel/NewSponza_Main_glTF_002.gltf";
 //    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/SciFiHelmet/glTF/SciFiHelmet.gltf";
-//    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/Sponza/glTF/Sponza.gltf";
+    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/Sponza/glTF/Sponza.gltf";
 //    const char *path = "example_scene_2.gltf";
 //    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/GlassVaseFlowers/glTF/GlassVaseFlowers.gltf";
 
