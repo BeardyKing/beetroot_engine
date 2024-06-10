@@ -28,7 +28,7 @@ void gfx_command_end_immediate_recording() {
     vkQueueWaitIdle(g_vulkanBackend.queue);
 }
 
-void gfx_command_begin_rendering(VkCommandBuffer &cmdBuffer, const VkRenderingInfo &renderingInfo) {
+void gfx_command_begin_rendering(VkCommandBuffer &cmdBuffer, const VkRenderingInfoKHR &renderingInfo) {
     g_vkCmdBeginRenderingKHR_Func(cmdBuffer, &renderingInfo);
 }
 
