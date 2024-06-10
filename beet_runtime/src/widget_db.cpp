@@ -141,12 +141,18 @@ static bool widget_draw_transform(Transform &transform) {
         outEdited |= DrawVec3Control("Scl", transform.scale, 0.0f, 35.0f);
     }
 
-    constexpr uint32_t RGBA_RED = 0xFF0000FF;
-    constexpr uint32_t RGBA_BLUE = 0x0000FFFF;
-    constexpr uint32_t RGBA_GREEN = 0x00FF00FF;
+    constexpr uint32_t RGBA_RED = 0xFF3333FF;
+    constexpr uint32_t RGBA_GREEN = 0x33FF33FF;
+    constexpr uint32_t RGBA_BLUE = 0x3333FFFF;
     constexpr float GIZMO_LINE_THICKNESS = 2.0f;
 
-    const mat4 model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation));
+    const CameraEntity &camEntity = *db_get_camera_entity(0);
+    Transform *cameraTransform = db_get_transform(camEntity.transformIndex);
+    Camera *camera = db_get_camera(camEntity.cameraIndex);
+
+    float constantSizeScale = 0.5f * (distance(cameraTransform->position, transform.position) / tanf(camera->fov) / 2.0f);
+    const mat4 model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * glm::scale(mat4(1.0f), vec3f(-constantSizeScale));
+
     {
         gfx_line_add_segment_immediate(
                 {.position = vec3(model * vec4(vec3{0.0, 0.0, 0.0}, 1)), .color = RGBA_GREEN},
