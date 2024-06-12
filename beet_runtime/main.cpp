@@ -27,7 +27,7 @@ void imgui_update() {
 #endif //BEET_GFX_IMGUI
 
 int main() {
-    window_create("beetroot engine - runtime", {1024, 769});
+    window_create("beetroot engine - runtime", {1024, 768});
 #if BEET_GFX_IMGUI
     window_set_procedure_callback_func(gfx_imgui_get_win32_proc_function_pointer());
 #endif //BEET_GFX_IMGUI

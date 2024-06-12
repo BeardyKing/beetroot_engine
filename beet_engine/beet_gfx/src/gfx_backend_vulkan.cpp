@@ -1206,4 +1206,8 @@ uint32_t gfx_last_swap_chain_index() {
     return (g_vulkanBackend.swapChain.lastImageIndex);
 }
 
+vec2i gfx_screen_size(){
+    return {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
+}
+
 //======================================================================================================================
