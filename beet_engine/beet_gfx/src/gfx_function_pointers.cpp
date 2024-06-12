@@ -57,10 +57,10 @@ void gfx_create_function_pointers_debug_util_messenger() {
     ASSERT_MSG(g_vkSetDebugUtilsObjectNameEXT_Func, "Err: failed to setup debug callback %s", BEET_VK_OBJECT_NAME_DEBUG_UTIL_EXT);
 }
 
+#if BEET_VK_COMPILE_VERSION_1_3
 static constexpr char BEET_VK_CREATE_LINE_RASTERIZATION_MODE_EXT[] = "vkCmdSetLineRasterizationModeEXT";
 PFN_vkCmdSetLineRasterizationModeEXT g_vkCmdSetLineRasterizationModeEXT_Func = {VK_NULL_HANDLE};
 
-#if BEET_VK_COMPILE_VERSION_1_3
 static void gfx_create_function_pointers_line_rasterization_mode(){
     g_vkCmdSetLineRasterizationModeEXT_Func = (PFN_vkCmdSetLineRasterizationModeEXT) vkGetInstanceProcAddr(g_vulkanBackend.instance, BEET_VK_CREATE_LINE_RASTERIZATION_MODE_EXT);
     ASSERT(g_vkCmdSetLineRasterizationModeEXT_Func != VK_NULL_HANDLE);
