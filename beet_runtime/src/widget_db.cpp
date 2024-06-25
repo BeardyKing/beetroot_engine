@@ -293,6 +293,7 @@ static bool widget_draw_transform(Transform &transform) {
         outEdited |= DrawVec3Control("Scl", transform.scale, 0.0f, 35.0f);
     }
 
+
     constexpr uint32_t RGBA_RED = 0xFF3333FF;
     constexpr uint32_t RGBA_RED_HOVERED = 0xFF9999FF;
 

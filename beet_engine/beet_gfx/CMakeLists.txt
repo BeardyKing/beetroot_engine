@@ -47,6 +47,7 @@ add_library(beet_gfx
         src/gfx_converter.cpp
         inc/beet_gfx/gfx_line.h
         src/gfx_line.cpp
+        inc/beet_gfx/IconsFontAwesome5.h
 )
 
 target_include_directories(beet_gfx

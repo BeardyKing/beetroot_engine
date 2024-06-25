@@ -7,6 +7,7 @@
 #include <imgui.h>
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_win32.h>
+#include <beet_gfx/IconsFontAwesome5.h>
 
 //===INTERNAL_STRUCTS===================================================================================================
 extern VulkanBackend g_vulkanBackend;
@@ -17,11 +18,11 @@ VkDescriptorPool g_imguiPool = {VK_NULL_HANDLE};
 bool g_imguiFinishedRendering = {true};
 //======================================================================================================================
 
-static void gfx_imgui_set_theme(){
+static void gfx_imgui_set_theme() {
     ImGui::GetStyle().FrameRounding = 0.0f;
     ImGui::GetStyle().GrabRounding = 4.0f;
 
-    ImVec4* colors = ImGui::GetStyle().Colors;
+    ImVec4 *colors = ImGui::GetStyle().Colors;
     colors[ImGuiCol_Text] = ImVec4(0.95f, 0.96f, 0.98f, 1.00f);
     colors[ImGuiCol_TextDisabled] = ImVec4(0.36f, 0.42f, 0.47f, 1.00f);
     colors[ImGuiCol_WindowBg] = ImVec4(0.11f, 0.15f, 0.17f, 1.00f);
@@ -97,8 +98,8 @@ void gfx_imgui_draw(VkCommandBuffer &cmdBuffer) {
     g_imguiFinishedRendering = true;
 }
 
-void* gfx_imgui_get_win32_proc_function_pointer(){
-    return (void*)ImGui_ImplWin32_WndProcHandler;
+void *gfx_imgui_get_win32_proc_function_pointer() {
+    return (void *) ImGui_ImplWin32_WndProcHandler;
 }
 //======================================================================================================================
 
@@ -140,6 +141,18 @@ void gfx_create_imgui(void *windowHandle) {
     io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
     io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
     gfx_imgui_set_theme();
+
+    io.Fonts->AddFontDefault();
+    const float baseFontSize = 25.0f;
+    const float iconFontSize = baseFontSize * 2.0f / 3.0f;
+    static const ImWchar icons_ranges[] = {ICON_MIN_FA, ICON_MAX_16_FA, 0};
+
+    ImFontConfig icons_config;
+    icons_config.MergeMode = true;
+    icons_config.PixelSnapH = true;
+    icons_config.GlyphMinAdvanceX = iconFontSize;
+    icons_config.GlyphOffset = ImVec2{1, 3.0f};
+    io.Fonts->AddFontFromFileTTF("assets/fonts/" FONT_ICON_FILE_NAME_FAS, iconFontSize, &icons_config, icons_ranges);
 
 //    const VkFormat surfaceFormat = gfx_utils_select_surface_format().format;
 //    const VkFormat depthFormat = gfx_utils_find_depth_format(VK_IMAGE_TILING_OPTIMAL);

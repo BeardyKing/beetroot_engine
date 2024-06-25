@@ -24,6 +24,7 @@ add_library(beet_shared
         inc/beet_shared/beet_types.h
         inc/beet_shared/base_64.h
         src/base_64.cpp
+        inc/beet_shared/defer.h
 )
 
 #====LIB TARGET DIR=======

@@ -1,24 +1,24 @@
 UV_Grid_test
-    File:    UV_Grid_test
-    Dir:     res/textures/UV_Grid
-    Format:  .png
-    Licence: Attribution-ShareAlike
-    Licence  Link: https://creativecommons.org/licenses/by-sa/4.0/
-    Author:  Kingsley Hopking
+    File:          UV_Grid_test
+    Dir:           assets/textures/UV_Grid
+    Format:        .png
+    Licence:       Attribution-ShareAlike
+    Licence Link:  https://creativecommons.org/licenses/by-sa/4.0/
+    Author:        Kingsley Hopking
 
 oct_map_test
-    File:    oct_map_test
-    Dir:     res/textures/oct_map
-    Format:  .png
-    Licence: Attribution-ShareAlike
-    Licence  Link: https://creativecommons.org/licenses/by-sa/4.0/
-    Author:  Kingsley Hopking
+    File:          oct_map_test
+    Dir:           assets/textures/oct_map
+    Format:        .png
+    Licence:       Attribution-ShareAlike
+    Licence Link:  https://creativecommons.org/licenses/by-sa/4.0/
+    Author:        Kingsley Hopking
 
 Herkulessäulen
-    File: herkulessaulen_4k
-    Dir: res/textures/sky/
-    Format: .hdr
-    Licence: CC0
-    Licence  link: https://polyhaven.com/license
+    File:          herkulessaulen_4k
+    Dir:           assets/textures/sky/
+    Format:        .hdr
+    Licence:       CC0
+    Licence link:  https://polyhaven.com/license
     Download link: https://polyhaven.com/a/herkulessaulen
-    Author: Andreas Mischok
+    Author:        Andreas Mischok

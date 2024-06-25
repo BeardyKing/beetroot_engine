@@ -1,0 +1,8 @@
+fa-solid-900 (Font Awesome 5.9)
+    File:          fa-solid-900
+    Dir:           assets/fonts
+    Format:        .ttf
+    Licence:       Open Font Licence 1.1
+    Licence Link:  https://openfontlicense.org/
+    Download Link: https://cdnjs.com/libraries/font-awesome/5.9.0
+    Author:        Font Awesome
