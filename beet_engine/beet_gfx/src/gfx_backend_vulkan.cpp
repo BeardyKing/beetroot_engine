@@ -690,7 +690,7 @@ static void gfx_create_depth_stencil_buffer() {
             .arrayLayers = 1,
             .samples = g_vulkanBackend.sampleCount,
             .tiling = VK_IMAGE_TILING_OPTIMAL,
-            .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
     };
 
     const VkResult imgRes = vkCreateImage(g_vulkanBackend.device, &depthImageInfo, nullptr, &g_vulkanBackend.depthStencilBuffer.image);
@@ -733,10 +733,71 @@ static void gfx_create_depth_stencil_buffer() {
     ASSERT_MSG(createRes == VK_SUCCESS, "Err: failed to create depth image view");
 }
 
+
 static void gfx_cleanup_depth_stencil_buffer() {
     vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.depthStencilBuffer.view, nullptr);
     vkDestroyImage(g_vulkanBackend.device, g_vulkanBackend.depthStencilBuffer.image, nullptr);
     vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencilBuffer.deviceMemory, nullptr);
+}
+
+static void gfx_create_resolve_depth_buffer() {
+    g_vulkanTargetFormats.depthFormat = gfx_utils_find_depth_format(VK_IMAGE_TILING_OPTIMAL);
+    const VkImageCreateInfo depthImageInfo = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .format = g_vulkanTargetFormats.depthFormat,
+            .extent = {
+                    .width = g_vulkanBackend.swapChain.width,
+                    .height = g_vulkanBackend.swapChain.height,
+                    .depth =  1
+            },
+            .mipLevels = 1,
+            .arrayLayers = 1,
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .tiling = VK_IMAGE_TILING_OPTIMAL,
+            .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+    };
+
+    const VkResult imgRes = vkCreateImage(g_vulkanBackend.device, &depthImageInfo, nullptr, &g_vulkanBackend.resolvedDepthBuffer.image);
+    ASSERT_MSG(imgRes == VK_SUCCESS, "Err: failed to create depth stencil image");
+
+    VkMemoryRequirements memoryRequirements{};
+    vkGetImageMemoryRequirements(g_vulkanBackend.device, g_vulkanBackend.resolvedDepthBuffer.image, &memoryRequirements);
+
+    const VkMemoryAllocateInfo allocInfo{
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .allocationSize = memoryRequirements.size,
+            .memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+    };
+
+    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr, &g_vulkanBackend.resolvedDepthBuffer.deviceMemory);
+    ASSERT_MSG(allocRes == VK_SUCCESS, "Err: failed to allocate memory for depth stencil")
+
+    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.resolvedDepthBuffer.image, g_vulkanBackend.resolvedDepthBuffer.deviceMemory, 0);
+    ASSERT_MSG(bindRes == VK_SUCCESS, "Err: failed to bind depth stencil");
+
+    VkImageViewCreateInfo depthImageViewInfo{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = g_vulkanBackend.resolvedDepthBuffer.image,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = g_vulkanTargetFormats.depthFormat,
+            .subresourceRange = {
+                    .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+            }
+    };
+
+    const VkResult createRes = vkCreateImageView(g_vulkanBackend.device, &depthImageViewInfo, nullptr, &g_vulkanBackend.resolvedDepthBuffer.view);
+    ASSERT_MSG(createRes == VK_SUCCESS, "Err: failed to create depth image view");
+}
+
+static void gfx_cleanup_resolve_depth_stencil_buffer() {
+    vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.resolvedDepthBuffer.view, nullptr);
+    vkDestroyImage(g_vulkanBackend.device, g_vulkanBackend.resolvedDepthBuffer.image, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.resolvedDepthBuffer.deviceMemory, nullptr);
 }
 
 static void gfx_create_pipeline_cache() {
@@ -833,11 +894,13 @@ static void gfx_window_resize() {
 
     gfx_cleanup_color_buffer();
     gfx_cleanup_depth_stencil_buffer();
+    gfx_cleanup_resolve_depth_stencil_buffer();
     gfx_cleanup_swap_chain();
 
     gfx_create_swap_chain();
     gfx_create_color_buffer();
     gfx_create_depth_stencil_buffer();
+    gfx_create_resolve_depth_buffer();
 }
 
 static void gfx_update_uniform_buffers() {
@@ -864,33 +927,169 @@ static void gfx_update_uniform_buffers() {
     memcpy(g_vulkanBackend.uniformBuffer.mappedData, &uniformBuffData, sizeof(SceneUBO));
 }
 
-static void gfx_barrier_insert_memory_barrier(
-        VkCommandBuffer &cmdBuffer,
-        const VkImage &image,
-        const VkAccessFlags srcAccessMask,
-        const VkAccessFlags dstAccessMask,
-        const VkImageLayout oldImageLayout,
-        const VkImageLayout newImageLayout,
-        const VkPipelineStageFlags srcStageMask,
-        const VkPipelineStageFlags dstStageMask,
-        const VkImageSubresourceRange subresourceRange) {
+void blit_depth_stencil_to_resolved_depth(VkCommandBuffer &cmdBuffer,
+                                             const GfxImageBuffer &srcBuffer,
+                                             GfxImageBuffer &dstBuffer) {
+    const uint32_t width = g_vulkanBackend.swapChain.width;
+    const uint32_t height = g_vulkanBackend.swapChain.height;
 
-    VkImageMemoryBarrier imageMemoryBarrier{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .srcAccessMask = srcAccessMask,
-            .dstAccessMask = dstAccessMask,
-            .oldLayout = oldImageLayout,
-            .newLayout = newImageLayout,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = image,
-            .subresourceRange = subresourceRange,
-    };
-    vkCmdPipelineBarrier(cmdBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+    VkImageSubresourceRange subresourceRange = {};
+    subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    subresourceRange.baseMipLevel = 0;
+    subresourceRange.levelCount = 1;
+    subresourceRange.baseArrayLayer = 0;
+    subresourceRange.layerCount = 1;
+
+    // Transition the source image layout to VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+    gfx_command_insert_memory_barrier(
+            cmdBuffer,
+            srcBuffer.image,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            subresourceRange
+    );
+
+    // Transition the destination image layout to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
+    gfx_command_insert_memory_barrier(
+            cmdBuffer,
+            dstBuffer.image,
+            0,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            subresourceRange
+    );
+
+    // Define the source and destination regions for the blit operation.
+    VkImageBlit blitRegion = {};
+    blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    blitRegion.srcSubresource.mipLevel = 0;
+    blitRegion.srcSubresource.baseArrayLayer = 0;
+    blitRegion.srcSubresource.layerCount = 1;
+    blitRegion.srcOffsets[0] = {0, 0, 0};
+    blitRegion.srcOffsets[1] = {static_cast<int32_t>(width), static_cast<int32_t>(height), 1};
+
+    blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    blitRegion.dstSubresource.mipLevel = 0;
+    blitRegion.dstSubresource.baseArrayLayer = 0;
+    blitRegion.dstSubresource.layerCount = 1;
+    blitRegion.dstOffsets[0] = {0, 0, 0};
+    blitRegion.dstOffsets[1] = {static_cast<int32_t>(width), static_cast<int32_t>(height), 1};
+
+    // Issue the blit command.
+    vkCmdBlitImage(
+            cmdBuffer,
+            srcBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            dstBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &blitRegion,
+            VK_FILTER_NEAREST // Use nearest filtering
+    );
+
+    // Transition the source image layout back to VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.
+    gfx_command_insert_memory_barrier(
+            cmdBuffer,
+            srcBuffer.image,
+            VK_ACCESS_TRANSFER_READ_BIT,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            subresourceRange
+    );
+
+    // Transition the destination image layout to VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL.
+    gfx_command_insert_memory_barrier(
+            cmdBuffer,
+            dstBuffer.image,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            subresourceRange
+    );
 }
 
+void resolve_depth_stencil_to_resolved_depth(VkCommandBuffer &cmdBuffer,
+                                             const GfxImageBuffer &srcBuffer,
+                                             GfxImageBuffer &dstBuffer) {
+    const uint32_t width = g_vulkanBackend.swapChain.width;
+    const uint32_t height = g_vulkanBackend.swapChain.height;
+
+    gfx_command_insert_memory_barrier(
+            cmdBuffer,
+            srcBuffer.image,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1}
+    );
+
+    gfx_command_insert_memory_barrier(
+            cmdBuffer,
+            dstBuffer.image,
+            0,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1}
+    );
+    VkImageResolve resolveRegion{
+            .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, .layerCount = 1,},
+            .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT , .layerCount = 1,},
+            .extent = {.width = width, .height = height, .depth = 1}
+    };
+
+    vkCmdResolveImage(
+            cmdBuffer,
+            srcBuffer.image,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            dstBuffer.image,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &resolveRegion
+    );
+
+    gfx_command_insert_memory_barrier(
+            cmdBuffer,
+            srcBuffer.image,
+            VK_ACCESS_TRANSFER_READ_BIT,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1}
+    );
+
+    gfx_command_insert_memory_barrier(
+            cmdBuffer,
+            dstBuffer.image,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1}
+    );
+}
+
+
 void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
-    gfx_barrier_insert_memory_barrier(
+    gfx_command_insert_memory_barrier(
             cmdBuffer,
             g_vulkanBackend.colorBuffer.image,
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -902,7 +1101,7 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
     );
 
-    gfx_barrier_insert_memory_barrier(
+    gfx_command_insert_memory_barrier(
             cmdBuffer,
             g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].image,
             0,
@@ -929,7 +1128,8 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
 }
 
 [[maybe_unused]] void blit_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
-    gfx_barrier_insert_memory_barrier(
+
+    gfx_command_insert_memory_barrier(
             cmdBuffer,
             g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].image,
             0,
@@ -941,7 +1141,7 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
     );
 
-    gfx_barrier_insert_memory_barrier(
+    gfx_command_insert_memory_barrier(
             cmdBuffer,
             g_vulkanBackend.colorBuffer.image,
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -980,7 +1180,7 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
 static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
     const bool isMultisampling = (g_vulkanBackend.sampleCount != VK_SAMPLE_COUNT_1_BIT);
 
-    gfx_barrier_insert_memory_barrier(
+    gfx_command_insert_memory_barrier(
             cmdBuffer,
             isMultisampling ? g_vulkanBackend.colorBuffer.image : g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].image,
             0,
@@ -991,7 +1191,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1,}
     );
-    gfx_barrier_insert_memory_barrier(
+    gfx_command_insert_memory_barrier(
             cmdBuffer,
             g_vulkanBackend.depthStencilBuffer.image,
             0,
@@ -1031,6 +1231,13 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
             .pStencilAttachment = &depthStencilAttachment,
     };
 
+    if(isMultisampling){
+        resolve_depth_stencil_to_resolved_depth(cmdBuffer, g_vulkanBackend.depthStencilBuffer, g_vulkanBackend.resolvedDepthBuffer);
+    }
+    else{
+        blit_depth_stencil_to_resolved_depth(cmdBuffer, g_vulkanBackend.depthStencilBuffer, g_vulkanBackend.resolvedDepthBuffer);
+    }
+
     {
         gfx_command_begin_rendering(cmdBuffer, renderingInfo);
         {
@@ -1054,7 +1261,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
         resolve_color_buffer_to_swapchain(cmdBuffer);
     }
 
-    gfx_barrier_insert_memory_barrier(
+    gfx_command_insert_memory_barrier(
             cmdBuffer,
             g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].image,
             isMultisampling ? VK_ACCESS_TRANSFER_WRITE_BIT : VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -1123,6 +1330,7 @@ void gfx_create(void *windowHandle) {
     gfx_create_fences();
     gfx_create_color_buffer();
     gfx_create_depth_stencil_buffer();
+    gfx_create_resolve_depth_buffer();
     gfx_create_pipeline_cache();
     gfx_create_samplers();
     gfx_create_function_pointers();
@@ -1150,6 +1358,7 @@ void gfx_cleanup() {
     gfx_cleanup_pipeline_cache();
     gfx_cleanup_color_buffer();
     gfx_cleanup_depth_stencil_buffer();
+    gfx_cleanup_resolve_depth_stencil_buffer();
     gfx_cleanup_fences();
     gfx_cleanup_command_buffers();
     gfx_cleanup_swap_chain();
@@ -1206,8 +1415,12 @@ uint32_t gfx_last_swap_chain_index() {
     return (g_vulkanBackend.swapChain.lastImageIndex);
 }
 
-vec2i gfx_screen_size(){
+vec2i gfx_screen_size() {
     return {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
+}
+
+uint32_t get_multisample_count(){
+    return (uint32_t)g_userArguments.msaa;
 }
 
 //======================================================================================================================

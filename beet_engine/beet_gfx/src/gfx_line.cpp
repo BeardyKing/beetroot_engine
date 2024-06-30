@@ -3,11 +3,12 @@
 #include <beet_gfx/gfx_descriptors.h>
 #include <beet_gfx/gfx_shader.h>
 #include <beet_gfx/gfx_pipeline.h>
-#include <beet_shared/assert.h>
-#include <beet_math/quat.h>
+#include <beet_gfx/gfx_interface.h>
+#include <beet_gfx/gfx_samplers.h>
 
-#include <vulkan/vulkan_core.h>
-#include "beet_gfx/gfx_interface.h"
+#include <beet_shared/assert.h>
+
+#include <beet_math/quat.h>
 
 //===INTERNAL_STRUCTS===================================================================================================
 static struct VulkanLine {
@@ -60,8 +61,7 @@ static void gfx_create_lines_uniform_buffers() {
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                 s_gfxLine.lineUniformBuffers[i],
                 (sizeof(LinePoint3D) * MAX_POINT_SIZE),
-                nullptr
-        );
+                nullptr);
         ASSERT(uniformResult == VK_SUCCESS);
 
         const VkResult mapResult = vkMapMemory(g_vulkanBackend.device, s_gfxLine.lineUniformBuffers[i].memory, 0, VK_WHOLE_SIZE, 0, &s_gfxLine.lineUniformBuffers[i].mappedData);
@@ -77,10 +77,11 @@ static void gfx_cleanup_lines_uniform_buffers() {
 }
 
 static void gfx_create_line_descriptor_set_layout() {
-    constexpr uint32_t poolSizeCount = 2;
+    constexpr uint32_t poolSizeCount = 3;
     VkDescriptorPoolSize poolSizes[poolSizeCount] = {
             VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1},
             VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1},
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1},
     };
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo{
@@ -94,7 +95,7 @@ static void gfx_create_line_descriptor_set_layout() {
         ASSERT(createPoolRes == VK_SUCCESS);
     }
 
-    constexpr uint32_t layoutBindingsCount = 2;
+    constexpr uint32_t layoutBindingsCount = 3;
     VkDescriptorSetLayoutBinding layoutBindings[layoutBindingsCount] = {
             {VkDescriptorSetLayoutBinding{
                     .binding = 0,
@@ -107,6 +108,12 @@ static void gfx_create_line_descriptor_set_layout() {
                     .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                     .descriptorCount = 1,
                     .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            }},
+            {VkDescriptorSetLayoutBinding{
+                    .binding = 2,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                    .descriptorCount = 1,
+                    .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
             }},
     };
 
@@ -134,10 +141,19 @@ static void gfx_create_line_pipeline_layout() {
 static bool gfx_create_line_pipelines(VkPipeline &outLinePipeline) {
     const VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = gfx_pipeline_input_assembly_create(VK_PRIMITIVE_TOPOLOGY_LINE_LIST, 0, VK_FALSE);
     const VkPipelineRasterizationStateCreateInfo rasterizationState = gfx_pipeline_rasterization_create(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-    const VkPipelineColorBlendAttachmentState blendAttachmentState = gfx_pipeline_color_blend_attachment_state(0xf, VK_FALSE);
+
+    VkPipelineColorBlendAttachmentState blendAttachmentState = gfx_pipeline_color_blend_attachment_state(0xf, VK_FALSE);
+    blendAttachmentState.blendEnable = VK_TRUE;
+    blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+    blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+
     const VkPipelineColorBlendStateCreateInfo colorBlendState = gfx_pipeline_color_blend_state_create(1, &blendAttachmentState);
     // TODO: this means we don't sort the gizmo based on depth (i.e. order of rendering matters) will consider rendering this to a different buffer in the future
-    const VkPipelineDepthStencilStateCreateInfo depthStencilState = gfx_pipeline_depth_stencil_state_create(VK_TRUE, VK_TRUE, VK_COMPARE_OP_ALWAYS);
+    const VkPipelineDepthStencilStateCreateInfo depthStencilState = gfx_pipeline_depth_stencil_state_create(VK_FALSE, VK_TRUE, VK_COMPARE_OP_ALWAYS);
     const VkPipelineViewportStateCreateInfo viewportState = gfx_pipeline_viewport_state_create(1, 1, 0);
     const VkPipelineMultisampleStateCreateInfo multisampleState = gfx_pipeline_multisample_state_create(g_vulkanBackend.sampleCount, 0);
 
@@ -205,9 +221,18 @@ void gfx_line_draw(VkCommandBuffer &cmdBuffer) {
 }
 
 void gfx_line_update_material_descriptor(VkDescriptorSet &outDescriptorSet) {
+
+    const VkDescriptorImageInfo depthImageInfo = {
+            .sampler = gfx_samplers()->samplers[TextureSamplerType::DepthStencil],
+            .imageView = g_vulkanBackend.resolvedDepthBuffer.view,
+            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
+    };
+
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &s_gfxLine.lineUniformBuffers[gfx_buffer_index()].descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &depthImageInfo, 1),
+
     };
     vkUpdateDescriptorSets(g_vulkanBackend.device, uint32_t(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }

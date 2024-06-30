@@ -35,4 +35,29 @@ void gfx_command_begin_rendering(VkCommandBuffer &cmdBuffer, const VkRenderingIn
 void gfx_command_end_rendering(VkCommandBuffer &cmdBuffer) {
     g_vkCmdEndRenderingKHR_Func(cmdBuffer);
 }
+
+void gfx_command_insert_memory_barrier(
+        VkCommandBuffer &cmdBuffer,
+        const VkImage &image,
+        const VkAccessFlags srcAccessMask,
+        const VkAccessFlags dstAccessMask,
+        const VkImageLayout oldImageLayout,
+        const VkImageLayout newImageLayout,
+        const VkPipelineStageFlags srcStageMask,
+        const VkPipelineStageFlags dstStageMask,
+        const VkImageSubresourceRange subresourceRange) {
+
+    VkImageMemoryBarrier imageMemoryBarrier{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .srcAccessMask = srcAccessMask,
+            .dstAccessMask = dstAccessMask,
+            .oldLayout = oldImageLayout,
+            .newLayout = newImageLayout,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = image,
+            .subresourceRange = subresourceRange,
+    };
+    vkCmdPipelineBarrier(cmdBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+}
 //======================================================================================================================

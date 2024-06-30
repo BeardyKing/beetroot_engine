@@ -89,6 +89,8 @@ struct VulkanBackend {
     GfxImageBuffer depthStencilBuffer = {};
     GfxImageBuffer colorBuffer = {};
 
+    GfxImageBuffer resolvedDepthBuffer; // multisample resolve.
+
     VkExtensionProperties *supportedExtensions = {};
     uint32_t extensionsCount = {};
     VkLayerProperties *supportedValidationLayers = {};

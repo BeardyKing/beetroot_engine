@@ -1,8 +1,10 @@
 #include <beet_gfx/gfx_debug.h>
 #include <beet_gfx/gfx_types.h>
 #include <beet_gfx/gfx_function_pointers.h>
+#include <beet_gfx/gfx_interface.h>
 
 #include <beet_shared/assert.h>
+#include <beet_shared/c_string.h>
 #include <beet_shared/log.h>
 
 #include <vulkan/vulkan_core.h>
@@ -36,10 +38,21 @@ static VkBool32 VKAPI_PTR validation_message_callback(
         const VkDebugUtilsMessengerCallbackDataEXT *callbackData,
         void */*userData*/) {
 
+    //TODO:HACK Currently using multisample resolve on a depth stencil which is not supported without extension `VK_KHR_depth_stencil_resolve`
+    //          I haven't worked out how to get this to work alongside with the extension `VK_KHR_dynamic_rendering`.
+    //          usually you would provide a resolve context as part of a subpass, but dynamic rendering doesn't use sub passes.
+    const VkSampleCountFlagBits multisampleCount = (VkSampleCountFlagBits) get_multisample_count();
+    const bool HACK_ignoreResolveImageError =
+            (multisampleCount == VK_SAMPLE_COUNT_1_BIT) &&
+            (!c_str_equal(callbackData->pMessageIdName, "VUID-vkCmdResolveImage-dstImage-02003") ||
+             !c_str_equal(callbackData->pMessageIdName, "VUID-VkImageResolve-aspectMask-00266"));
+
     switch (messageWarningLevel) {
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: {
-            log_error(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
-            ASSERT_MSG(false, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
+            if (HACK_ignoreResolveImageError) {
+                log_error(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
+                ASSERT_MSG(false, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
+            }
             break;
         }
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: {

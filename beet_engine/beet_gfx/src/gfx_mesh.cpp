@@ -1,8 +1,9 @@
 #include <beet_gfx/gfx_mesh.h>
-#include <beet_shared/assert.h>
 #include <beet_gfx/gfx_buffer.h>
 #include <beet_gfx/gfx_command.h>
 #include <beet_gfx/gfx_types.h>
+
+#include <beet_shared/assert.h>
 
 //===INTERNAL_STRUCTS===================================================================================================
 extern VulkanBackend g_vulkanBackend;

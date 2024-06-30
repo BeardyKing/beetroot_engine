@@ -9,6 +9,7 @@ enum TextureSamplerType : int32_t {
     LinearRepeat = 1,
     LinearMirror = 2,
     PointRepeat = 3,
+    DepthStencil = 4,
 
     COUNT,
 };

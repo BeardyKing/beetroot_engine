@@ -22,16 +22,16 @@ layout (set = 0, binding = 1) uniform LinesUBO {
 
 //===STAGE OUT==============================================
 layout (location = 0) out StageLayout {
-    vec3 color;
+    vec4 color;
 } stageLayout;
 //==========================================================
 
 vec4 unpack_uint32_t_to_vec4f(uint packedData) {
     return vec4(
-        float((packedData >> 24) & 0xFF) / 255.0,
-        float((packedData >> 16) & 0xFF) / 255.0,
-        float((packedData >> 8)  & 0xFF) / 255.0,
-        float((packedData >> 0)  & 0xFF) / 255.0
+    float((packedData >> 24) & 0xFF) / 255.0,
+    float((packedData >> 16) & 0xFF) / 255.0,
+    float((packedData >> 8)  & 0xFF) / 255.0,
+    float((packedData >> 0)  & 0xFF) / 255.0
     );
 }
 
@@ -39,5 +39,5 @@ void main() {
     vec4 position = vec4(lines.point[gl_VertexIndex].position, 1.0);
     vec4 color = unpack_uint32_t_to_vec4f(lines.point[gl_VertexIndex].color);
     gl_Position = (scene.projection * scene.view) * position;
-    stageLayout.color = color.rgb;
+    stageLayout.color = color;
 }
