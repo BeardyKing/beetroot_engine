@@ -23,6 +23,12 @@ struct SceneUBO {
     vec3f position;
     float unused_0;
 };
+
+struct LinePoint3D {
+    // used in line & triangle strip shaders
+    vec3f position;
+    uint32_t color;
+};
 //======================================================================================================================
 
 //===PUBLIC_STRUCTS=====================================================================================================

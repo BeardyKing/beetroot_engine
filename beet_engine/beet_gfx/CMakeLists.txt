@@ -48,6 +48,8 @@ add_library(beet_gfx
         inc/beet_gfx/gfx_line.h
         src/gfx_line.cpp
         inc/beet_gfx/IconsFontAwesome5.h
+        inc/beet_gfx/gfx_triangle_strip.h
+        src/gfx_triangle_strip.cpp
 )
 
 target_include_directories(beet_gfx

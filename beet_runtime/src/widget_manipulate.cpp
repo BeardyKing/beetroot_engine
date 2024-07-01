@@ -19,6 +19,7 @@
 #include <beet_gfx/IconsFontAwesome5.h>
 
 #include <cstdint>
+#include "beet_gfx/gfx_triangle_strip.h"
 
 //===INTERNAL_STRUCTS===================================================================================================
 enum Manipulator : uint32_t {
@@ -143,7 +144,7 @@ static bool ray_oob_intersection(const Ray &ray, const OOBB &oobb, float &tMin, 
     return true;
 }
 
-static void draw_box(const mat4 &model, const glm::vec3 &halfSizes, const uint32_t color, const float lineWidth) {
+static void draw_box(const mat4 &model, const vec3f &halfSizes, const uint32_t color, const float lineWidth) {
     constexpr uint32_t vertCount = 8;
     glm::vec3 vertices[vertCount] = {
             vec3(model * vec4(vec3(-halfSizes.x, -halfSizes.y, -halfSizes.z), 1)),
@@ -178,7 +179,8 @@ static void draw_box(const mat4 &model, const glm::vec3 &halfSizes, const uint32
     }
 }
 
-static Ray screen_to_ray(int32_t mouseX, int32_t mouseY, int32_t screenWidth, int32_t screenHeight, const Camera &camera, const Transform &cameraTransform) {
+static Ray
+screen_to_ray(const int32_t mouseX, const int32_t mouseY, const int32_t screenWidth, const int32_t screenHeight, const Camera &camera, const Transform &cameraTransform) {
     const vec3f camForward = glm::quat(cameraTransform.rotation) * WORLD_FORWARD;
     const vec3f lookTarget = cameraTransform.position + camForward;
 
@@ -188,7 +190,7 @@ static Ray screen_to_ray(int32_t mouseX, int32_t mouseY, int32_t screenWidth, in
     float x = (2.0f * float(mouseX)) / float(screenWidth) - 1.0f;
     float y = 1.0f - (2.0f * float(mouseY)) / float(screenHeight);
 
-    const vec2 ndc(x, y);
+    const vec2f ndc(x, y);
     const vec4 clipCoords(ndc, -1.0f, 1.0f);
     const mat4 invProjectionMatrix = glm::inverse(projection);
 
@@ -197,13 +199,13 @@ static Ray screen_to_ray(int32_t mouseX, int32_t mouseY, int32_t screenWidth, in
     viewCoords.w = 0.0f;
 
     const mat4 invViewMatrix = glm::inverse(view);
-    const vec4 worldCoords = invViewMatrix * viewCoords;
-    const vec3 direction = glm::normalize(glm::vec3(worldCoords));
+    const vec4f worldCoords = invViewMatrix * viewCoords;
+    const vec3f direction = glm::normalize(vec3f(worldCoords));
 
     return {.origin = cameraTransform.position, .direction = direction};
 }
 
-static glm::vec3 closest_point_on_line_from_ray(const glm::vec3 &rayOrigin, const glm::vec3 &rayDirection, const glm::vec3 &linePoint, const glm::vec3 &lineDirection) {
+static vec3f closest_point_on_line_from_ray(const vec3f &rayOrigin, const vec3f &rayDirection, const vec3f &linePoint, const vec3f &lineDirection) {
     const vec3f r = rayOrigin - linePoint;
     const float a = glm::dot(rayDirection, rayDirection);
     const float b = glm::dot(rayDirection, lineDirection);
@@ -224,26 +226,173 @@ static glm::vec3 closest_point_on_line_from_ray(const glm::vec3 &rayOrigin, cons
 
 static void gizmo_translate_object(Transform &transform, Ray &ray, const vec3f moveAxisConstraint, const bool isGizmoSelected, bool isGrabbing) {
     if (isGizmoSelected) {
-        static glm::vec3 initialOffset = {};
+        static vec3f initialOffset = {};
         if (!isGrabbing) {
             initialOffset = {};
             isGrabbing = true;
             glm::quat rotation = transform.rotation;
             rotation = glm::normalize(rotation);
-            const vec3 forwardDirection = glm::normalize(rotation * moveAxisConstraint);
-            const vec3 forwardStart = transform.position;
-            const vec3 closestPoint = closest_point_on_line_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection);
+            const vec3f forwardDirection = glm::normalize(rotation * moveAxisConstraint);
+            const vec3f forwardStart = transform.position;
+            const vec3f closestPoint = closest_point_on_line_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection);
             initialOffset = transform.position - closestPoint;
         }
 
         const quat rotation = transform.rotation;
-        const vec3 forwardDirection = glm::normalize(rotation * moveAxisConstraint);
-        const vec3 forwardStart = transform.position;
-        const vec3 closestPoint = closest_point_on_line_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection);
-        const vec3 projectedPoint = forwardStart + forwardDirection * glm::dot(closestPoint - forwardStart, forwardDirection);
+        const vec3f forwardDirection = glm::normalize(rotation * moveAxisConstraint);
+        const vec3f forwardStart = transform.position;
+        const vec3f closestPoint = closest_point_on_line_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection);
+        const vec3f projectedPoint = forwardStart + forwardDirection * glm::dot(closestPoint - forwardStart, forwardDirection);
         transform.position = projectedPoint + initialOffset;
     }
 }
+
+void draw_arc(const vec3f &center,
+              float radius, uint32_t color,
+              const mat4 &modelTransform,
+              const float arcPercent = 1.0f,
+              const float startOffsetPercent = 0.0f,
+              const uint32_t segments = 36,
+              const float lineWidth = 1.0f) {
+
+    const float arcPercentClamped = glm::clamp(arcPercent, 0.0f, 1.0f);
+    const float startOffsetPercentClamped = glm::clamp(startOffsetPercent, 0.0f, 1.0f);
+
+    const uint32_t arcSegments = uint32_t(segments * arcPercentClamped);
+    const float startAngle = 2.0f * glm::pi<float>() * startOffsetPercentClamped;
+    const float endAngle = startAngle + 2.0f * glm::pi<float>() * arcPercentClamped;
+
+    std::vector<vec3f> arcPoints(arcSegments + 1);
+    for (uint32_t i = 0; i <= arcSegments; ++i) {
+        const float theta = startAngle + (endAngle - startAngle) * float(i) / float(arcSegments);
+        const float x = radius * cos(theta);
+        const float y = radius * sin(theta);
+        arcPoints[i] = vec3f(x, y, 0.0f);
+    }
+
+    for (uint32_t i = 0; i < arcSegments; ++i) {
+        const LinePoint3D start = {
+                .position = glm::vec3(modelTransform * glm::vec4(arcPoints[i] + center, 1.0f)),
+                .color = color
+        };
+        const LinePoint3D end = {
+                .position = glm::vec3(modelTransform * glm::vec4(arcPoints[i + 1] + center, 1.0f)),
+                .color = color
+        };
+        gfx_line_add_segment_immediate(start, end, lineWidth);
+    }
+}
+
+std::vector<LinePoint3D> generate_thick_polyline(const std::vector<vec2f> &points, const float lineWidth, const uint32_t color, const bool closedLoop = false) {
+    std::vector<LinePoint3D> outVertices;
+    outVertices.reserve(points.size() * 2);
+
+    ASSERT_MSG(points.size() > 2, "Err: Not enough points to create a polyline")
+    if (points.size() < 2) {
+        return {};
+    }
+
+    const vec2 firstDir = glm::normalize(points[1] - points[0]);
+    const vec2 firstNormal = vec2f(-firstDir.y, firstDir.x);
+    const vec2 firstOffset = firstNormal * (lineWidth / 2.0f);
+
+    outVertices.push_back({vec3f(points[0] + firstOffset, 0.0f), color});
+    outVertices.push_back({vec3f(points[0] - firstOffset, 0.0f), color});
+
+    for (size_t i = 1; i < points.size() - 1; ++i) {
+        const vec2f prevDir = glm::normalize(points[i] - points[i - 1]);
+        const vec2f nextDir = glm::normalize(points[i + 1] - points[i]);
+
+        const vec2f prevNormal = vec2f(-prevDir.y, prevDir.x);
+        const vec2f nextNormal = vec2f(-nextDir.y, nextDir.x);
+
+        const vec2f joinDir = prevNormal + nextNormal;
+        const vec2f joinNormal = glm::normalize(joinDir);
+
+        const vec2f bevelOffset = joinNormal * (lineWidth / 2.0f);
+
+        outVertices.push_back({vec3f(points[i] + bevelOffset, 0.0f), color});
+        outVertices.push_back({vec3f(points[i] - bevelOffset, 0.0f), color});
+    }
+
+    const size_t lastIndex = points.size() - 1;
+    const vec2f lastDir = glm::normalize(points[lastIndex] - points[lastIndex - 1]);
+    const vec2f lastNormal = vec2f(-lastDir.y, lastDir.x);
+    const vec2f lastOffset = lastNormal * (lineWidth / 2.0f);
+
+    outVertices.push_back({vec3f(points[lastIndex] + lastOffset, 0.0f), color});
+    outVertices.push_back({vec3f(points[lastIndex] - lastOffset, 0.0f), color});
+
+    if (closedLoop) {
+        outVertices.push_back({vec3f(points[0] + firstOffset, 0.0f), color});
+        outVertices.push_back({vec3f(points[0] - firstOffset, 0.0f), color});
+    }
+
+    return outVertices;
+}
+
+void draw_arc_polyline(const vec3f &center,
+                       const float radius,
+                       const uint32_t color,
+                       const mat4 &modelTransform,
+                       const float arcPercent = 1.0f,
+                       const float startOffsetPercent = 0.0f,
+                       const uint32_t segments = 36,
+                       const float lineWidth = 1.0f,
+                       const bool closedLoop = false) {
+
+    std::vector<vec2f> points;
+    points.reserve(segments + 1);
+
+    const float startAngle = glm::tau<float>() * startOffsetPercent;
+    const float endAngle = glm::tau<float>() * arcPercent + startAngle;
+
+    for (uint32_t i = 0; i <= segments; ++i) {
+        const float angle = startAngle + (endAngle - startAngle) * float(i) / float(segments);
+        const float x = center.x + radius * glm::cos(angle);
+        const float y = center.y + radius * glm::sin(angle);
+        points.emplace_back(x, y);
+    }
+
+    std::vector<LinePoint3D> vertices = generate_thick_polyline(points, lineWidth, color, closedLoop);
+    for (auto &p: vertices) {
+        p.position = vec3(modelTransform * vec4(p.position, 1));
+    }
+    gfx_triangle_strip_add_segment_immediate(vertices);
+}
+
+static void widget_manipulate_rotate(Transform &transform) {
+    const CameraEntity &camEntity = *db_get_camera_entity(0);
+    const Transform *cameraTransform = db_get_transform(camEntity.transformIndex);
+    const Camera *camera = db_get_camera(camEntity.cameraIndex);
+
+    const float constantSizeScale = 1.0f * (glm::distance(cameraTransform->position, transform.position) / tanf(camera->fov) / 2.0f);
+    const mat4 model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(glm::mat4(1.0f), vec3f(-constantSizeScale));
+    constexpr uint32_t RGBA_BLUE = 0x3333FFFF;
+    constexpr uint32_t RGBA_BLUE_LOW_ALPHA = 0x3333FF80;
+
+    constexpr uint32_t RGBA_GREEN = 0x33FF33FF;
+    constexpr uint32_t RGBA_GREEN_LOW_ALPHA = 0x33FF3380;
+
+    constexpr uint32_t RGBA_RED = 0xFF3333FF;
+    constexpr uint32_t RGBA_RED_LOW_ALPHA = 0xFF333380;
+
+    //TODO: I would like to do some dot product test against the camera -> transform and if we are over some threshold we should re-orient the gizmo.
+    draw_arc({}, 1.0f, RGBA_GREEN, model, 0.25f, 0.0f, 36, 3.0f);
+    draw_arc({}, 0.9f, RGBA_GREEN, model, 0.25f, 0.0f, 36, 3.0f);
+    draw_arc_polyline({}, 0.95f, RGBA_GREEN_LOW_ALPHA, model, 0.25f, 0.0f, 36, 0.1f, false);
+
+    mat4 model2 = rotate(model, glm::pi<float>() / 2.0f, vec3f(0, -1.0f, 0));
+    draw_arc({}, 1.0f, RGBA_RED, model2, 0.25f, 0.0f, 36, 3.0f);
+    draw_arc({}, 0.9f, RGBA_RED, model2, 0.25f, 0.0f, 36, 3.0f);
+    draw_arc_polyline({}, 0.95f, RGBA_RED_LOW_ALPHA, model2, 0.25f, 0.0f, 36, 0.1f, false);
+
+    mat4 model3 = rotate(model, glm::pi<float>() / 2.0f, vec3f(1.0f, 0, 0));
+    draw_arc({}, 1.0f, RGBA_BLUE, model3, 0.25f, 0.0f, 36, 3.0f);
+    draw_arc({}, 0.9f, RGBA_BLUE, model3, 0.25f, 0.0f, 36, 3.0f);
+    draw_arc_polyline({}, 0.95f, RGBA_BLUE_LOW_ALPHA, model3, 0.25f, 0.0f, 36, 0.1f, false);
+}
+
 
 static void widget_manipulate_transform(Transform &transform) {
     constexpr uint32_t BOX_GREEN_RGB = 0x33FF3300; // 0 Alpha lowers opacity when line is behind geo
@@ -460,7 +609,51 @@ static void widget_manipulate_transform(Transform &transform) {
 //======================================================================================================================
 
 //===API================================================================================================================
+
+
 void widget_manipulate_update(bool &enabled) {
+    constexpr uint32_t RGBA_GREEN = 0x33FF33FF;
+    constexpr uint32_t RGBA_GREEN_LOW_ALPHA = 0x33FF3380;
+    mat4 model({});
+    draw_arc({}, 1.0f, RGBA_GREEN, model, 0.25f, 0.0f, 36, 3.0f);
+    draw_arc({}, 0.9f, RGBA_GREEN, model, 0.25f, 0.0f, 36, 3.0f);
+//    draw_arc_polyline({}, 0.95f, RGBA_GREEN_LOW_ALPHA, model, 0.25f, 0.0f, 300, 18.0f);
+
+    glm::vec3 center(0.0f, 0.0f, 0.0f);
+    float radius = 1.0f;
+    uint32_t color = 0xFFFFFFFF;
+    glm::mat4 modelTransform(1.0f);
+    static float arcPercent = 0.75f;
+    static float startOffsetPercent = 0.0f;
+    static int segments = 36;
+    static bool closedLoop = false;
+
+    ImGui::SliderInt("segments", &segments, 3, 100);
+    ImGui::SliderFloat("arcFill", &arcPercent, 0.0f, 1.0f);
+    ImGui::SliderFloat("startOffsetPercent", &startOffsetPercent, 0.0f, 1.0f);
+    ImGui::Checkbox("closedLoop", &closedLoop);
+
+    draw_arc_polyline(center, radius, color, modelTransform, arcPercent, startOffsetPercent, segments, .1f, closedLoop);
+
+//
+//    float lineWidth = 0.1f;
+//    float miterLimit = 2.0f;
+//
+//    std::vector<glm::vec2> points = {
+//            {0.0f, 0.0f},
+//            {1.0f, 1.0f},
+//            {2.0f, 0.5f},
+//            {3.0f, 1.5f},
+//            {4.0f, 0.0f}
+//    };
+//
+//
+//    std::vector<LinePoint3D> vertices = generateThickPolyline(points, lineWidth);
+//
+//
+//
+////    gfx_triangle_strip_add_segment_immediate(vertices);
+
     if (!enabled) {
         return;
     }
@@ -471,25 +664,26 @@ void widget_manipulate_update(bool &enabled) {
 
     if (poolType != SELECTED_POOL_NONE && poolIndex != -1) {
         Transform *currentTransform = nullptr;
-        if (s_manipulator == Manipulator_Translate) {
-            switch (poolType) {
-                case SELECTED_POOL_LIT_ENT: {
-                    const LitEntity &litEntity = *db_get_lit_entity(poolIndex);
-                    currentTransform = db_get_transform(litEntity.transformIndex);
-                    widget_manipulate_transform(*currentTransform);
-                    break;
-                }
-                case SELECTED_POOL_CAMERA_ENT: {
-                    const CameraEntity &camEntity = *db_get_camera_entity(poolIndex);
-                    currentTransform = db_get_transform(camEntity.transformIndex);
-                    widget_manipulate_transform(*currentTransform);
-                    break;
-                }
-                case SELECTED_POOL_NONE: {
-                    break;
-                }
+        switch (poolType) {
+            case SELECTED_POOL_LIT_ENT: {
+                const LitEntity &litEntity = *db_get_lit_entity(poolIndex);
+                currentTransform = db_get_transform(litEntity.transformIndex);
+                break;
             }
+            case SELECTED_POOL_CAMERA_ENT: {
+                const CameraEntity &camEntity = *db_get_camera_entity(poolIndex);
+                currentTransform = db_get_transform(camEntity.transformIndex);
+                break;
+            }
+            case SELECTED_POOL_NONE: {
+                break;
+            }
+        }
+
+        if (s_manipulator == Manipulator_Translate) {
+            widget_manipulate_transform(*currentTransform);
         } else if (s_manipulator == Manipulator_Rotate) {
+            widget_manipulate_rotate(*currentTransform);
         } else if (s_manipulator == Manipulator_Scale) {
         } else if (s_manipulator == Manipulator_None) {
         } else {

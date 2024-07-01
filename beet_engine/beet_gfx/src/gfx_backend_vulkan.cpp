@@ -23,6 +23,7 @@
 #include <beet_gfx/db_asset.h>
 #include <beet_gfx/gfx_converter.h>
 #include <beet_gfx/gfx_line.h>
+#include <beet_gfx/gfx_triangle_strip.h>
 
 #include <beet_math/quat.h>
 #include <beet_math/utilities.h>
@@ -1250,6 +1251,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
             gfx_sky_draw(cmdBuffer);
             gfx_lit_draw(cmdBuffer);
             gfx_line_draw(cmdBuffer);
+            gfx_triangle_strip_draw(cmdBuffer);
 #if BEET_GFX_IMGUI
             gfx_imgui_draw(cmdBuffer);
 #endif // BEET_GFX_IMGUI
@@ -1343,11 +1345,13 @@ void gfx_create(void *windowHandle) {
     gfx_create_sky();
     gfx_create_lit();
     gfx_create_line();
+    gfx_create_triangle_strip();
 }
 
 void gfx_cleanup() {
     gfx_cleanup_uniform_buffers();
 
+    gfx_cleanup_triangle_strip();
     gfx_cleanup_line();
     gfx_cleanup_lit();
     gfx_cleanup_sky();

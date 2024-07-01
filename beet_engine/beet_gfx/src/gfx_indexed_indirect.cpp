@@ -34,13 +34,15 @@ static void gfx_indexed_indirect_update_material_descriptor(VkDescriptorSet &out
     ASSERT(allocDescRes == VK_SUCCESS);
     // TODO:    Update this to a buffer of textures so we can modify the contents without needing to rebuild descriptors
     //          runtime packages will not need this as the content won't change.
-    std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
+
+    constexpr uint32_t descriptorSetSize = 2;
+    const VkWriteDescriptorSet writeDescriptorSets[descriptorSetSize] = {
             // Binding 0: Vertex shader uniform buffer
             // Binding 1: albedoTexture // TODO: Add a per package loaded texture array
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &albedoTexture.descriptor, 1)
     };
-    vkUpdateDescriptorSets(g_vulkanBackend.device, uint32_t(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+    vkUpdateDescriptorSets(g_vulkanBackend.device, descriptorSetSize, &writeDescriptorSets[0], 0, nullptr);
 }
 //======================================================================================================================
 
@@ -207,7 +209,6 @@ void gfx_cleanup_indexed_indirect_commands() {
     vkDestroyBuffer(g_vulkanBackend.device, g_vulkanBackend.indirectCommandsBuffer.buffer, nullptr);
     vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.indirectCommandsBuffer.memory, nullptr);
 }
-
 
 
 void gfx_build_indexed_indirect_instance_data() {

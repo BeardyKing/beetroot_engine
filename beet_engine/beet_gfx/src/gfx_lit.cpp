@@ -196,13 +196,15 @@ void gfx_lit_update_material_descriptor(VkDescriptorSet &outDescriptorSet, const
     ASSERT(allocDescRes == VK_SUCCESS);
     // TODO:    Update this to a buffer of textures so we can modify the contents without needing to rebuild descriptors
     //          runtime packages will not need this as the content won't change.
-    std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
+
+    constexpr uint32_t descriptorSetSize = 2;
+    const VkWriteDescriptorSet writeDescriptorSets[descriptorSetSize] = {
             // Binding 0: Vertex shader uniform buffer
             // Binding 1: albedoTexture // TODO: Add a per package loaded texture array
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &albedoTexture.descriptor, 1)
     };
-    vkUpdateDescriptorSets(g_vulkanBackend.device, uint32_t(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+    vkUpdateDescriptorSets(g_vulkanBackend.device, descriptorSetSize, &writeDescriptorSets[0], 0, nullptr);
 }
 
 bool gfx_rebuild_lit_pipeline() {

@@ -4,13 +4,6 @@
 #include <beet_gfx/gfx_types.h>
 #include <vulkan/vulkan_core.h>
 
-//===MUST_MIRROR_line/line.vert=========================================================================================
-struct LinePoint3D {
-    vec3f position;
-    uint32_t color;
-};
-//======================================================================================================================
-
 //===API================================================================================================================
 void gfx_line_add_segment_immediate(const LinePoint3D &start, const LinePoint3D &end, const float lineWidth = 1.0f);
 

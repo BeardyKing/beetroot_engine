@@ -12,7 +12,7 @@
 //===INTERNAL_FUNCTIONS=================================================================================================
 static void primary_camera_entity_create() {
     const CameraEntity cameraEntity{
-            .transformIndex = db_add_transform({.position{0, 0, -1}}),
+            .transformIndex = db_add_transform({.position{1, 0.75f, 3}}),
             .cameraIndex = db_add_camera({.fov = 65, .zFar = 6000}),
     };
     db_add_camera_entity(cameraEntity);
