@@ -17,9 +17,10 @@
 #include <beet_gfx/gfx_interface.h>
 #include <beet_gfx/db_asset.h>
 #include <beet_gfx/IconsFontAwesome5.h>
+#include <beet_gfx/gfx_triangle_strip.h>
+#include <beet_gfx/gfx_generate_geometry.h>
 
 #include <cstdint>
-#include "beet_gfx/gfx_triangle_strip.h"
 
 //===INTERNAL_STRUCTS===================================================================================================
 enum Manipulator : uint32_t {
@@ -144,7 +145,40 @@ static bool ray_oob_intersection(const Ray &ray, const OOBB &oobb, float &tMin, 
     return true;
 }
 
-static void draw_box(const mat4 &model, const vec3f &halfSizes, const uint32_t color, const float lineWidth) {
+void draw_line_square(const glm::vec3 &center, float size, uint32_t color, const glm::mat4 &modelTransform, float lineWidth = 1.0f) {
+    const float halfSize = size * 0.5f;
+    vec3f vertices[4] = {
+            glm::vec3(-halfSize, -halfSize, 0.0f),
+            glm::vec3(halfSize, -halfSize, 0.0f),
+            glm::vec3(halfSize, halfSize, 0.0f),
+            glm::vec3(-halfSize, halfSize, 0.0f)
+    };
+
+    for (uint32_t i = 0; i < 4; ++i) {
+        vertices[i] = glm::vec3(modelTransform * glm::vec4(vertices[i] + center, 1.0f));
+    }
+
+    const uint32_t edges[4][2] = {
+            {0, 1},
+            {1, 2},
+            {2, 3},
+            {3, 0}
+    };
+
+    for (uint32_t i = 0; i < 4; ++i) {
+        const LinePoint3D start = {
+                .position = vertices[edges[i][0]],
+                .color = color,
+        };
+        const LinePoint3D end = {
+                .position = vertices[edges[i][1]],
+                .color = color,
+        };
+        gfx_line_add_segment_immediate(start, end, lineWidth);
+    }
+}
+
+static void draw_line_box(const mat4 &model, const vec3f &halfSizes, const uint32_t color, const float lineWidth) {
     constexpr uint32_t vertCount = 8;
     glm::vec3 vertices[vertCount] = {
             vec3(model * vec4(vec3(-halfSizes.x, -halfSizes.y, -halfSizes.z), 1)),
@@ -283,54 +317,6 @@ void draw_arc(const vec3f &center,
     }
 }
 
-std::vector<LinePoint3D> generate_thick_polyline(const std::vector<vec2f> &points, const float lineWidth, const uint32_t color, const bool closedLoop = false) {
-    std::vector<LinePoint3D> outVertices;
-    outVertices.reserve(points.size() * 2);
-
-    ASSERT_MSG(points.size() > 2, "Err: Not enough points to create a polyline")
-    if (points.size() < 2) {
-        return {};
-    }
-
-    const vec2 firstDir = glm::normalize(points[1] - points[0]);
-    const vec2 firstNormal = vec2f(-firstDir.y, firstDir.x);
-    const vec2 firstOffset = firstNormal * (lineWidth / 2.0f);
-
-    outVertices.push_back({vec3f(points[0] + firstOffset, 0.0f), color});
-    outVertices.push_back({vec3f(points[0] - firstOffset, 0.0f), color});
-
-    for (size_t i = 1; i < points.size() - 1; ++i) {
-        const vec2f prevDir = glm::normalize(points[i] - points[i - 1]);
-        const vec2f nextDir = glm::normalize(points[i + 1] - points[i]);
-
-        const vec2f prevNormal = vec2f(-prevDir.y, prevDir.x);
-        const vec2f nextNormal = vec2f(-nextDir.y, nextDir.x);
-
-        const vec2f joinDir = prevNormal + nextNormal;
-        const vec2f joinNormal = glm::normalize(joinDir);
-
-        const vec2f bevelOffset = joinNormal * (lineWidth / 2.0f);
-
-        outVertices.push_back({vec3f(points[i] + bevelOffset, 0.0f), color});
-        outVertices.push_back({vec3f(points[i] - bevelOffset, 0.0f), color});
-    }
-
-    const size_t lastIndex = points.size() - 1;
-    const vec2f lastDir = glm::normalize(points[lastIndex] - points[lastIndex - 1]);
-    const vec2f lastNormal = vec2f(-lastDir.y, lastDir.x);
-    const vec2f lastOffset = lastNormal * (lineWidth / 2.0f);
-
-    outVertices.push_back({vec3f(points[lastIndex] + lastOffset, 0.0f), color});
-    outVertices.push_back({vec3f(points[lastIndex] - lastOffset, 0.0f), color});
-
-    if (closedLoop) {
-        outVertices.push_back({vec3f(points[0] + firstOffset, 0.0f), color});
-        outVertices.push_back({vec3f(points[0] - firstOffset, 0.0f), color});
-    }
-
-    return outVertices;
-}
-
 void draw_arc_polyline(const vec3f &center,
                        const float radius,
                        const uint32_t color,
@@ -354,9 +340,17 @@ void draw_arc_polyline(const vec3f &center,
         points.emplace_back(x, y);
     }
 
-    std::vector<LinePoint3D> vertices = generate_thick_polyline(points, lineWidth, color, closedLoop);
+    std::vector<LinePoint3D> vertices = gfx_generate_geometry_thick_polyline(points, lineWidth, color, closedLoop);
     for (auto &p: vertices) {
-        p.position = vec3(modelTransform * vec4(p.position, 1));
+        p.position = vec3f(modelTransform * vec4f(p.position, 1));
+    }
+    gfx_triangle_strip_add_segment_immediate(vertices);
+}
+
+void draw_cone(const vec3f &baseCenter, const float radius, const float height, const uint32_t color, const mat4 &modelTransform, const uint32_t segments) {
+    std::vector<LinePoint3D> vertices = gfx_generate_geometry_cone(baseCenter, radius, height, color, segments);
+    for (auto &p: vertices) {
+        p.position = vec3f(modelTransform * vec4f(p.position, 1));
     }
     gfx_triangle_strip_add_segment_immediate(vertices);
 }
@@ -394,6 +388,131 @@ static void widget_manipulate_rotate(Transform &transform) {
 }
 
 
+std::vector<LinePoint3D> gfx_generate_geometry_cylinder(const glm::vec3 &baseCenter, float radius, float height, uint32_t color, int segments, bool cappedEnds = true) {
+    std::vector<LinePoint3D> vertices;
+
+    const glm::vec3 topCenter = baseCenter + glm::vec3(0.0f, height, 0.0f);
+
+    if (cappedEnds) {
+        for (uint32_t i = 0; i <= segments; ++i) {
+            const float angle = glm::two_pi<float>() * float(i) / float(segments);
+            const float x = radius * glm::cos(angle);
+            const float z = radius * glm::sin(angle);
+
+            glm::vec3 bottomVertex(baseCenter.x + x, baseCenter.y, baseCenter.z + z);
+            vertices.push_back({baseCenter, color});
+            vertices.push_back({bottomVertex, color});
+        }
+    }
+
+    for (uint32_t i = 0; i <= segments; ++i) {
+        const float angle = glm::two_pi<float>() * float(i) / float(segments);
+        const float x = radius * glm::cos(angle);
+        const float z = radius * glm::sin(angle);
+
+        glm::vec3 bottomVertex(baseCenter.x + x, baseCenter.y, baseCenter.z + z);
+        glm::vec3 topVertex(topCenter.x + x, topCenter.y, topCenter.z + z);
+
+        vertices.push_back({bottomVertex, color});
+        vertices.push_back({topVertex, color});
+
+    }
+
+    if (cappedEnds) {
+        for (uint32_t i = 0; i <= segments; ++i) {
+            const float angle = glm::two_pi<float>() * float(i) / float(segments);
+            const float x = radius * glm::cos(angle);
+            const float z = radius * glm::sin(angle);
+
+            glm::vec3 topVertex(topCenter.x + x, topCenter.y, topCenter.z + z);
+
+            vertices.push_back({topVertex, color});
+            vertices.push_back({topCenter, color});
+        }
+    }
+
+    return vertices;
+}
+
+void draw_cylinder(const glm::vec3 &baseCenter, float radius, float height, uint32_t color, const mat4 &modelTransform, int segments) {
+    std::vector<LinePoint3D> vertices = gfx_generate_geometry_cylinder(baseCenter, radius, height, color, segments);
+    for (auto &p: vertices) {
+        p.position = vec3f(modelTransform * vec4f(p.position, 1));
+    }
+    gfx_triangle_strip_add_segment_immediate(vertices);
+}
+
+std::vector<LinePoint3D> generateSphere(const glm::vec3 &center, float radius, uint32_t color, int segments, int rings) {
+    std::vector<LinePoint3D> vertices;
+
+    for (int i = 0; i < rings; ++i) {
+        float theta1 = glm::pi<float>() * static_cast<float>(i) / static_cast<float>(rings);
+        float theta2 = glm::pi<float>() * static_cast<float>(i + 1) / static_cast<float>(rings);
+        float sinTheta1 = glm::sin(theta1);
+        float cosTheta1 = glm::cos(theta1);
+        float sinTheta2 = glm::sin(theta2);
+        float cosTheta2 = glm::cos(theta2);
+
+        for (int j = 0; j <= segments; ++j) {
+            float phi = glm::two_pi<float>() * static_cast<float>(j) / static_cast<float>(segments);
+            float sinPhi = glm::sin(phi);
+            float cosPhi = glm::cos(phi);
+
+            glm::vec3 position1(
+                    center.x + radius * sinTheta1 * cosPhi,
+                    center.y + radius * cosTheta1,
+                    center.z + radius * sinTheta1 * sinPhi
+            );
+
+            glm::vec3 position2(
+                    center.x + radius * sinTheta2 * cosPhi,
+                    center.y + radius * cosTheta2,
+                    center.z + radius * sinTheta2 * sinPhi
+            );
+
+            vertices.push_back({position1, color});
+            vertices.push_back({position2, color});
+        }
+    }
+
+    return vertices;
+}
+
+void draw_sphere(const glm::vec3 &center, float radius, uint32_t color, const mat4 &modelTransform, int segments = 36, int rings = 18) {
+    std::vector<LinePoint3D> vertices = generateSphere(center, radius, color, segments, rings);
+
+    for (auto &p: vertices) {
+        p.position = vec3f(modelTransform * vec4f(p.position, 1));
+    }
+    gfx_triangle_strip_add_segment_immediate(vertices);
+}
+
+std::vector<LinePoint3D> generateSquare(const glm::vec3 &center, float size, uint32_t color) {
+    std::vector<LinePoint3D> vertices;
+
+    float halfSize = size / 2.0f;
+
+    glm::vec3 topLeft = glm::vec3(center.x - halfSize, center.y + halfSize, center.z);
+    glm::vec3 topRight = glm::vec3(center.x + halfSize, center.y + halfSize, center.z);
+    glm::vec3 bottomLeft = glm::vec3(center.x - halfSize, center.y - halfSize, center.z);
+    glm::vec3 bottomRight = glm::vec3(center.x + halfSize, center.y - halfSize, center.z);
+
+    vertices.push_back({bottomLeft, color});
+    vertices.push_back({topLeft, color});
+    vertices.push_back({bottomRight, color});
+    vertices.push_back({topRight, color});
+
+    return vertices;
+}
+
+void draw_square(const glm::vec3 &center, float size, uint32_t color, const mat4 &modelTransform) {
+    std::vector<LinePoint3D> vertices = generateSquare(center, size, color);
+    for (auto &p: vertices) {
+        p.position = vec3f(modelTransform * vec4f(p.position, 1));
+    }
+    gfx_triangle_strip_add_segment_immediate(vertices);
+}
+
 static void widget_manipulate_transform(Transform &transform) {
     constexpr uint32_t BOX_GREEN_RGB = 0x33FF3300; // 0 Alpha lowers opacity when line is behind geo
 
@@ -415,6 +534,14 @@ static void widget_manipulate_transform(Transform &transform) {
 
     float constantSizeScale = 1.0f * (glm::distance(cameraTransform->position, transform.position) / tanf(camera->fov) / 2.0f);
     const mat4 model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
+    const mat4 model1 = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
+
+    mat4 rot2 = rotate((toMat4(quat(transform.rotation))), glm::pi<float>() / 2.0f, vec3f(0.0f, 0.0f, 1.0f));
+    const mat4 model2 = translate(mat4(1.0f), transform.position) * rot2 * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
+
+    mat4 rot3 = rotate((toMat4(quat(transform.rotation))), glm::pi<float>() / 2.0f, vec3f(-1.0f, 0.0f, 0.0f));
+    const mat4 model3 = translate(mat4(1.0f), transform.position) * rot3 * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
+
 
     const OOBB oobb = {
             .center = transform.position,
@@ -461,7 +588,7 @@ static void widget_manipulate_transform(Transform &transform) {
                 forwardHovered = true;
                 forwardIsSelected = input_mouse_pressed(MouseButton::Left);
             }
-            draw_box(modelForward, scaleForward, BOX_GREEN_RGB, 1);
+            draw_line_box(modelForward, scaleForward, BOX_GREEN_RGB, 1);
         }
     }
 
@@ -479,7 +606,7 @@ static void widget_manipulate_transform(Transform &transform) {
             upHovered = true;
             upIsSelected = input_mouse_pressed(MouseButton::Left);
         }
-        draw_box(modelUp, scaleUp, BOX_GREEN_RGB, 1);
+        draw_line_box(modelUp, scaleUp, BOX_GREEN_RGB, 1);
     }
 
     bool rightHovered = false;
@@ -496,133 +623,62 @@ static void widget_manipulate_transform(Transform &transform) {
             rightHovered = true;
             rightIsSelected = input_mouse_pressed(MouseButton::Left);
         }
-        draw_box(modelRight, scaleRight, BOX_GREEN_RGB, 1);
+        draw_line_box(modelRight, scaleRight, BOX_GREEN_RGB, 1);
     }
 
     gizmo_translate_object(transform, ray, WORLD_UP, upIsSelected, gizmoInUse);
     gizmo_translate_object(transform, ray, WORLD_RIGHT, rightIsSelected, gizmoInUse);
     gizmo_translate_object(transform, ray, WORLD_FORWARD, forwardIsSelected, gizmoInUse);
 
-    draw_box(glm::translate(glm::mat4(1.0f), transform.position) * glm::toMat4(glm::quat(transform.rotation)), transform.scale * glm::vec3(0.5f), BOX_GREEN_RGB,
-             GIZMO_LINE_THICKNESS);
+    draw_line_box(glm::translate(glm::mat4(1.0f), transform.position) * glm::toMat4(glm::quat(transform.rotation)), transform.scale * glm::vec3(0.5f), BOX_GREEN_RGB,
+                  GIZMO_LINE_THICKNESS);
 
     LinePoint3D rayStart = {ray.origin, RGBA_WHITE};
     LinePoint3D rayEnd = {ray.origin + ray.direction * ((tMin == 0.0f) ? 1000.0f : tMin), RGBA_WHITE};
     gfx_line_add_segment_immediate(rayStart, rayEnd, GIZMO_LINE_THICKNESS);
 
+    const uint32_t UP_GIZMO_COLOUR = upHovered ? RGBA_GREEN_HOVERED : RGBA_GREEN;
+    const uint32_t FORWARD_GIZMO_COLOUR = forwardHovered ? RGBA_BLUE_HOVERED : RGBA_BLUE;
+    const uint32_t RIGHT_GIZMO_COLOUR = rightHovered ? RGBA_RED_HOVERED : RGBA_RED;
+
+    draw_sphere({0, 0, 0}, 0.07, 0xFFFFFFFF, model, 12, 10);
     {
-        uint32_t UP_GIZMO_COLOUR = upHovered ? RGBA_GREEN_HOVERED : RGBA_GREEN;
-        UP_GIZMO_COLOUR = upIsSelected ? RGBA_WHITE : UP_GIZMO_COLOUR;
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(vec3{0.0, 0.0, 0.0}, 1)), .color = UP_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(WORLD_UP, 1)), .color = UP_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
-
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(vec3{0.0, 1.0, 0.0}, 1)), .color = UP_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(vec3{0.1, 0.9, 0.0}, 1)), .color = UP_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
-
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(vec3{0.0, 1.0, 0.0}, 1)), .color = UP_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(vec3{0.0, 0.9, 0.1}, 1)), .color = UP_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
-
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(vec3{0.0, 1.0, 0.0}, 1)), .color = UP_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(vec3{0.0, 0.9, -0.1}, 1)), .color = UP_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(vec3{0.0, 1.0, 0.0}, 1)), .color = UP_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(vec3{-0.1, 0.9, 0.0}, 1)), .color = UP_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
+        draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, UP_GIZMO_COLOUR, model1, 12);
+        draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, UP_GIZMO_COLOUR, model1, 12);
     }
-
     {
-        uint32_t FORWARD_GIZMO_COLOUR = forwardHovered ? RGBA_BLUE_HOVERED : RGBA_BLUE;
-        FORWARD_GIZMO_COLOUR = forwardIsSelected ? RGBA_WHITE : FORWARD_GIZMO_COLOUR;
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(vec3{0.0, 0.0, 0.0}, 1)), .color = FORWARD_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(WORLD_FORWARD, 1)), .color = FORWARD_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
-
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(WORLD_FORWARD, 1)), .color = FORWARD_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(vec3{0.0, 0.1, -0.9}, 1)), .color = FORWARD_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(WORLD_FORWARD, 1)), .color = FORWARD_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(vec3{0.0, -0.1, -0.9}, 1)), .color = FORWARD_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(WORLD_FORWARD, 1)), .color = FORWARD_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(vec3{0.1, 0.0, -0.9}, 1)), .color = FORWARD_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(WORLD_FORWARD, 1)), .color = FORWARD_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(vec3{-0.1, 0.0, -0.9}, 1)), .color = FORWARD_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
+        draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, RIGHT_GIZMO_COLOUR, model2, 12);
+        draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, RIGHT_GIZMO_COLOUR, model2, 12);
     }
-
     {
-        uint32_t RIGHT_GIZMO_COLOUR = rightHovered ? RGBA_RED_HOVERED : RGBA_RED;
-        RIGHT_GIZMO_COLOUR = rightIsSelected ? RGBA_WHITE : RIGHT_GIZMO_COLOUR;
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(vec3{0.0, 0.0, 0.0}, 1)), .color = RIGHT_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(WORLD_RIGHT, 1)), .color = RIGHT_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
-
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(WORLD_RIGHT, 1)), .color = RIGHT_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(vec3{-0.9, 0.1, 0.0}, 1)), .color = RIGHT_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(WORLD_RIGHT, 1)), .color = RIGHT_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(vec3{-0.9, -0.1, 0.0}, 1)), .color = RIGHT_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(WORLD_RIGHT, 1)), .color = RIGHT_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(vec3{-0.9, 0.0, 0.1}, 1)), .color = RIGHT_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
-        gfx_line_add_segment_immediate(
-                {.position = vec3(model * vec4(WORLD_RIGHT, 1)), .color = RIGHT_GIZMO_COLOUR},
-                {.position = vec3(model * vec4(vec3{-0.9, 0.0, -0.1}, 1)), .color = RIGHT_GIZMO_COLOUR},
-                GIZMO_LINE_THICKNESS
-        );
+        draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, FORWARD_GIZMO_COLOUR, model3, 12);
+        draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, FORWARD_GIZMO_COLOUR, model3, 12);
     }
-
 }
 //======================================================================================================================
 
 //===API================================================================================================================
-
-
 void widget_manipulate_update(bool &enabled) {
+    constexpr uint32_t RGBA_BLUE = 0x3333FFFF;
+    constexpr uint32_t RGBA_BLUE_LOW_ALPHA = 0x3333FF80;
+
     constexpr uint32_t RGBA_GREEN = 0x33FF33FF;
     constexpr uint32_t RGBA_GREEN_LOW_ALPHA = 0x33FF3380;
-    mat4 model({});
-    draw_arc({}, 1.0f, RGBA_GREEN, model, 0.25f, 0.0f, 36, 3.0f);
-    draw_arc({}, 0.9f, RGBA_GREEN, model, 0.25f, 0.0f, 36, 3.0f);
+
+    constexpr uint32_t RGBA_RED = 0xFF3333FF;
+    constexpr uint32_t RGBA_RED_LOW_ALPHA = 0xFF333380;
+
+    mat4 model1(1.0f);
+    mat4 model2 = rotate(model1, glm::pi<float>() / 2.0f, vec3f(0, 0.0f, 1));
+    mat4 model3 = rotate(model1, glm::pi<float>() / 2.0f, vec3f(-1.0f, 0, 0));
+    mat4 model4 = rotate(model1, glm::pi<float>() / 2.0f, vec3f(0.0f, -1, 0));
+//    draw_arc({}, 1.0f, RGBA_GREEN, model1, 0.25f, 0.0f, 36, 3.0f);
+//    draw_arc({}, 0.9f, RGBA_GREEN, model1, 0.25f, 0.0f, 36, 3.0f);
 //    draw_arc_polyline({}, 0.95f, RGBA_GREEN_LOW_ALPHA, model, 0.25f, 0.0f, 300, 18.0f);
 
     glm::vec3 center(0.0f, 0.0f, 0.0f);
     float radius = 1.0f;
     uint32_t color = 0xFFFFFFFF;
-    glm::mat4 modelTransform(1.0f);
     static float arcPercent = 0.75f;
     static float startOffsetPercent = 0.0f;
     static int segments = 36;
@@ -633,26 +689,37 @@ void widget_manipulate_update(bool &enabled) {
     ImGui::SliderFloat("startOffsetPercent", &startOffsetPercent, 0.0f, 1.0f);
     ImGui::Checkbox("closedLoop", &closedLoop);
 
-    draw_arc_polyline(center, radius, color, modelTransform, arcPercent, startOffsetPercent, segments, .1f, closedLoop);
+    const uint32_t UP_GIZMO_COLOUR = RGBA_GREEN;
+    const uint32_t FORWARD_GIZMO_COLOUR = RGBA_BLUE;
+    const uint32_t RIGHT_GIZMO_COLOUR = RGBA_RED;
 
-//
-//    float lineWidth = 0.1f;
-//    float miterLimit = 2.0f;
-//
-//    std::vector<glm::vec2> points = {
-//            {0.0f, 0.0f},
-//            {1.0f, 1.0f},
-//            {2.0f, 0.5f},
-//            {3.0f, 1.5f},
-//            {4.0f, 0.0f}
-//    };
-//
-//
-//    std::vector<LinePoint3D> vertices = generateThickPolyline(points, lineWidth);
-//
-//
-//
-////    gfx_triangle_strip_add_segment_immediate(vertices);
+    const uint32_t UP_RIGHT_GIZMO_COLOUR = RGBA_BLUE;
+    const uint32_t FORWARD_RIGHT_GIZMO_COLOUR = RGBA_GREEN;
+    const uint32_t FORWARD_UP_GIZMO_COLOUR = RGBA_RED;
+
+    const uint32_t UP_RIGHT_GIZMO_COLOUR_ALPHA = 0x0000FF60;
+    const uint32_t FORWARD_RIGHT_GIZMO_COLOUR_ALPHA = 0x00FF0060;
+    const uint32_t FORWARD_UP_GIZMO_COLOUR_ALPHA = 0xFF000060;
+
+    draw_sphere({0, 0, 0}, 0.07, 0xEEEEEEFF, model1, 12, 10);
+    {
+        draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, UP_GIZMO_COLOUR, model1, 12);
+        draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, UP_GIZMO_COLOUR, model1, 12);
+    }
+    draw_square({-0.35, 0.35, 0}, 0.15f, UP_RIGHT_GIZMO_COLOUR_ALPHA, model1);
+    draw_line_square({-0.35, 0.35, 0}, 0.15f, UP_RIGHT_GIZMO_COLOUR, model1, 2.0f);
+    {
+        draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, RIGHT_GIZMO_COLOUR, model2, 12);
+        draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, RIGHT_GIZMO_COLOUR, model2, 12);
+    }
+    draw_square({-0.35, 0.35, 0}, 0.15f, FORWARD_RIGHT_GIZMO_COLOUR_ALPHA, model3);
+    draw_line_square({-0.35, 0.35, 0}, 0.15f, FORWARD_RIGHT_GIZMO_COLOUR, model3, 2.0f);
+    {
+        draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, FORWARD_GIZMO_COLOUR, model3, 12);
+        draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, FORWARD_GIZMO_COLOUR, model3, 12);
+    }
+    draw_square({-0.35, 0.35, 0}, 0.15f, FORWARD_UP_GIZMO_COLOUR_ALPHA, model4);
+    draw_line_square({-0.35, 0.35, 0}, 0.15f, FORWARD_UP_GIZMO_COLOUR, model4, 2.0f);
 
     if (!enabled) {
         return;

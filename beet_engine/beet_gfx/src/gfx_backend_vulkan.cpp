@@ -1250,8 +1250,8 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 
             gfx_sky_draw(cmdBuffer);
             gfx_lit_draw(cmdBuffer);
-            gfx_line_draw(cmdBuffer);
             gfx_triangle_strip_draw(cmdBuffer);
+            gfx_line_draw(cmdBuffer);
 #if BEET_GFX_IMGUI
             gfx_imgui_draw(cmdBuffer);
 #endif // BEET_GFX_IMGUI

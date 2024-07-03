@@ -50,6 +50,8 @@ add_library(beet_gfx
         inc/beet_gfx/IconsFontAwesome5.h
         inc/beet_gfx/gfx_triangle_strip.h
         src/gfx_triangle_strip.cpp
+        inc/beet_gfx/gfx_generate_geometry.h
+        src/gfx_generate_geometry.cpp
 )
 
 target_include_directories(beet_gfx
