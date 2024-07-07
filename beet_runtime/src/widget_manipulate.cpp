@@ -128,7 +128,7 @@ void draw_grid(const vec3f &planePoint, const glm::vec3 &planeNormal, float grid
 
     const float halfSize = gridSize * numLines / 2.0f;
 
-    for (uint32_t i = -numLines / 2; i <= numLines / 2; ++i) {
+    for (int32_t i = -numLines / 2; i <= numLines / 2; ++i) {
         const vec3f localStartX = glm::vec3(-halfSize, i * gridSize, 0);
         const vec3f localEndX = glm::vec3(halfSize, i * gridSize, 0);
 
@@ -138,7 +138,7 @@ void draw_grid(const vec3f &planePoint, const glm::vec3 &planeNormal, float grid
         gfx_line_add_segment_immediate({startX, color}, {endX, color}, lineWidth);
     }
 
-    for (uint32_t i = -numLines / 2; i <= numLines / 2; ++i) {
+    for (int32_t i = -numLines / 2; i <= numLines / 2; ++i) {
         const vec3f localStartY = glm::vec3(i * gridSize, -halfSize, 0);
         const vec3f localEndY = glm::vec3(i * gridSize, halfSize, 0);
 
@@ -149,42 +149,102 @@ void draw_grid(const vec3f &planePoint, const glm::vec3 &planeNormal, float grid
     }
 }
 
-static bool ray_plane_intersection(const Ray &ray, const vec3f &planePoint, const vec3f &planeNormal, float &distance, vec3f &intersectionPoint) {
-    draw_grid(planePoint, planeNormal, 3, 30, 1, 0x99999900); // TODO: DEBUG
+struct Hit {
+    bool collided = false;
+    float distance = 0.0f;
+    vec3f intersectionPoint = vec3f{0.0f, 0.0f, 0.0f};
+};
 
+static bool ray_plane_intersection(const Ray &ray, const vec3f &planePoint, const vec3f &planeNormal, Hit &outHit) {
     const float denom = glm::dot(ray.direction, planeNormal);
 
     if (glm::abs(denom) < std::numeric_limits<float>::epsilon()) {
         return false;
     }
 
-    distance = glm::dot(planePoint - ray.origin, planeNormal) / denom;
+    outHit.distance = glm::dot(planePoint - ray.origin, planeNormal) / denom;
 
-    if (distance < 0) {
-        return false;
+    if (outHit.distance < 0) {
+        return (outHit.collided = false);
     }
-    intersectionPoint = ray.origin + distance * ray.direction;
-    return true;
+
+    outHit.intersectionPoint = ray.origin + outHit.distance * ray.direction;
+    return (outHit.collided = true);
 }
 
-static bool ray_rect_intersection(const Ray &ray, const BeetRect &rect, float &t, vec3f &intersectionPoint) {
-    if (!ray_plane_intersection(ray, rect.center, rect.normal, t, intersectionPoint)) {
-        return false;
-    }
+void draw_line_rect(const BeetRect &rect, bool intersection) {
+    ASSERT_MSG(rect.normal != rect.up, "Err: normal & rect can't match, if they do right will be NaN i.e. normalize(vec3f(0,0,0) == vec3f(NaN,NaN,NaN)");
     const vec3f right = glm::normalize(glm::cross(rect.normal, rect.up));
     const vec3f up = glm::normalize(glm::cross(right, rect.normal));
 
-    const vec3f localPoint = intersectionPoint - rect.center;
-    const float localX = glm::dot(localPoint, right);
-    const float localY = glm::dot(localPoint, up);
+    const vec3f corners[4] = {
+            {rect.center + right * rect.halfExtents.x + up * rect.halfExtents.y},
+            {rect.center - right * rect.halfExtents.x + up * rect.halfExtents.y},
+            {rect.center - right * rect.halfExtents.x - up * rect.halfExtents.y},
+            {rect.center + right * rect.halfExtents.x - up * rect.halfExtents.y},
+    };
 
-    if (std::abs(localX) > rect.halfExtents.x || std::abs(localY) > rect.halfExtents.y) {
-        return false;
+    constexpr uint32_t RGBA_HIT = 0x00FF00FF;
+    constexpr uint32_t RGBA_MISS = 0xFF0000FF;
+    const uint32_t color = intersection ? RGBA_HIT : RGBA_MISS;
+
+    for (uint32_t i = 0; i < 4; ++i) {
+        gfx_line_add_segment_immediate({corners[i], color}, {corners[(i + 1) % 4], color}, 3.0f);
     }
-    return true;
 }
 
-static bool ray_oob_intersection(const Ray &ray, const OOBB &oobb, float &tMin, glm::vec3 &intersectionPoint) {
+void draw_line_rect(const BeetRect &rect, uint32_t color) {
+    ASSERT_MSG(rect.normal != rect.up, "Err: normal & rect can't match, if they do right will be NaN i.e. normalize(vec3f(0,0,0) == vec3f(NaN,NaN,NaN)");
+    const vec3f right = glm::normalize(glm::cross(rect.normal, rect.up));
+    const vec3f up = glm::normalize(glm::cross(right, rect.normal));
+
+    const vec3f corners[4] = {
+            {rect.center + right * rect.halfExtents.x + up * rect.halfExtents.y},
+            {rect.center - right * rect.halfExtents.x + up * rect.halfExtents.y},
+            {rect.center - right * rect.halfExtents.x - up * rect.halfExtents.y},
+            {rect.center + right * rect.halfExtents.x - up * rect.halfExtents.y},
+    };
+
+    for (uint32_t i = 0; i < 4; ++i) {
+        gfx_line_add_segment_immediate({corners[i], color}, {corners[(i + 1) % 4], color}, 3.0f);
+    }
+}
+
+void draw_poly_rect(const BeetRect &rect, uint32_t color) {
+    ASSERT_MSG(rect.normal != rect.up, "Err: normal & rect can't match, if they do right will be NaN i.e. normalize(vec3f(0,0,0) == vec3f(NaN,NaN,NaN)");
+    const vec3f right = glm::normalize(glm::cross(rect.normal, rect.up));
+    const vec3f up = glm::normalize(glm::cross(right, rect.normal));
+
+    const std::vector<LinePoint3D> corners = {
+            {{rect.center + right * rect.halfExtents.x + up * rect.halfExtents.y}, color},
+            {{rect.center - right * rect.halfExtents.x + up * rect.halfExtents.y}, color},
+            {{rect.center + right * rect.halfExtents.x - up * rect.halfExtents.y}, color},
+            {{rect.center - right * rect.halfExtents.x - up * rect.halfExtents.y}, color},
+    };
+
+    for (uint32_t i = 0; i < 4; ++i) {
+        gfx_triangle_strip_add_segment_immediate(corners);
+    }
+}
+
+
+static bool ray_rect_intersection(const Ray &ray, const BeetRect &rect, Hit &outHit) {
+    if (ray_plane_intersection(ray, rect.center, rect.normal, outHit)) {
+        ASSERT_MSG(rect.normal != rect.up, "Err: normal & rect can't match, if they do right will be NaN i.e. normalize(vec3f(0,0,0) == vec3f(NaN,NaN,NaN)");
+        const vec3f right = glm::normalize(glm::cross(rect.normal, rect.up));
+        const vec3f up = glm::normalize(glm::cross(right, rect.normal));
+
+        const vec3f localPoint = outHit.intersectionPoint - rect.center;
+        const float localX = glm::dot(localPoint, right);
+        const float localY = glm::dot(localPoint, up);
+
+        outHit.collided = (std::abs(localX) > rect.halfExtents.x || std::abs(localY) > rect.halfExtents.y) ? false : true;
+    }
+    return outHit.collided;
+}
+
+
+static bool ray_oob_intersection(const Ray &ray, const OOBB &oobb, Hit &outHit) {
     glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), oobb.center) * glm::mat4_cast(oobb.orientation);
     glm::mat4 invModelMatrix = glm::inverse(modelMatrix);
     glm::vec3 localOrigin = glm::vec3(invModelMatrix * glm::vec4(ray.origin, 1.0f));
@@ -193,12 +253,13 @@ static bool ray_oob_intersection(const Ray &ray, const OOBB &oobb, float &tMin, 
     glm::vec3 min = -oobb.extents;
     glm::vec3 max = oobb.extents;
 
-    tMin = 0.0f;
+    outHit.distance = 0.0f;
     float tMax = FLT_MAX;
 
     for (int i = 0; i < 3; ++i) {
         if (glm::abs(localDirection[i]) < std::numeric_limits<float>::epsilon()) {
             if (localOrigin[i] < min[i] || localOrigin[i] > max[i]) {
+                outHit.collided = false;
                 return false;
             }
         } else {
@@ -207,16 +268,18 @@ static bool ray_oob_intersection(const Ray &ray, const OOBB &oobb, float &tMin, 
             float t2 = (max[i] - localOrigin[i]) * ood;
             if (t1 > t2) std::swap(t1, t2);
 
-            tMin = fmax(tMin, t1);
+            outHit.distance = fmax(outHit.distance, t1);
             tMax = fmin(tMax, t2);
 
-            if (tMin > tMax) {
+            if (outHit.distance > tMax) {
+                outHit.collided = false;
                 return false;
             }
         }
     }
 
-    intersectionPoint = ray.origin + ray.direction * tMin;
+    outHit.intersectionPoint = ray.origin + ray.direction * outHit.distance;
+    outHit.collided = true;
     return true;
 }
 
@@ -314,7 +377,7 @@ screen_to_ray(const int32_t mouseX, const int32_t mouseY, const int32_t screenWi
     return {.origin = cameraTransform.position, .direction = direction};
 }
 
-static vec3f closest_point_on_line_from_ray(const vec3f &rayOrigin, const vec3f &rayDirection, const vec3f &linePoint, const vec3f &lineDirection) {
+static vec3f closest_point_on_line_segment_from_ray(const vec3f &rayOrigin, const vec3f &rayDirection, const vec3f &linePoint, const vec3f &lineDirection, float maxLength) {
     const vec3f r = rayOrigin - linePoint;
     const float a = glm::dot(rayDirection, rayDirection);
     const float b = glm::dot(rayDirection, lineDirection);
@@ -329,13 +392,37 @@ static vec3f closest_point_on_line_from_ray(const vec3f &rayOrigin, const vec3f 
 
     const float t2 = (a * e - b * d) / denominator;
     const vec3f closestPoint = linePoint + t2 * lineDirection;
-
     return closestPoint;
 }
 
-static void gizmo_translate_object(Transform &transform, Ray &ray, const vec3f moveAxisConstraint, const bool isGizmoSelected, bool isGrabbing) {
+static void gizmo_translate_object_2_axis(Transform &transform, const Ray &ray, const vec3f &planeNormal, const bool isGizmoSelected, bool &isGrabbing) {
+    static vec3f initialOffset = {};
+    static vec3f initialPosition = {};
+
+    if (isGizmoSelected) {
+        if (!isGrabbing) {
+            initialOffset = {};
+            initialPosition = {};
+            isGrabbing = true;
+            Hit hitResult = {};
+            if (ray_plane_intersection(ray, transform.position, planeNormal, hitResult)) {
+                initialOffset = transform.position - hitResult.intersectionPoint;
+                initialPosition = transform.position;
+            }
+        }
+
+        Hit hitResult = {};
+        if (ray_plane_intersection(ray, transform.position, planeNormal, hitResult)) {
+            transform.position = hitResult.intersectionPoint + initialOffset;
+            gfx_line_add_segment_immediate({initialPosition, 0xFFFFFF00}, {transform.position, 0xFFFFFF00});
+        }
+    }
+}
+
+static void gizmo_translate_object_1_axis(Transform &transform, const Ray &ray, const vec3f moveAxisConstraint, const bool isGizmoSelected, bool isGrabbing) {
     if (isGizmoSelected) {
         static vec3f initialOffset = {};
+        static vec3f initialPosition = {};
         if (!isGrabbing) {
             initialOffset = {};
             isGrabbing = true;
@@ -343,16 +430,25 @@ static void gizmo_translate_object(Transform &transform, Ray &ray, const vec3f m
             rotation = glm::normalize(rotation);
             const vec3f forwardDirection = glm::normalize(rotation * moveAxisConstraint);
             const vec3f forwardStart = transform.position;
-            const vec3f closestPoint = closest_point_on_line_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection);
-            initialOffset = transform.position - closestPoint;
+            const vec3f closestPoint = closest_point_on_line_segment_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection, 10.0f);
+            if (forwardStart != closestPoint) {
+                initialOffset = transform.position - closestPoint;
+                initialPosition = transform.position;
+            }
         }
 
         const quat rotation = transform.rotation;
         const vec3f forwardDirection = glm::normalize(rotation * moveAxisConstraint);
         const vec3f forwardStart = transform.position;
-        const vec3f closestPoint = closest_point_on_line_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection);
+        const vec3f closestPoint = closest_point_on_line_segment_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection, 10.0f);
         const vec3f projectedPoint = forwardStart + forwardDirection * glm::dot(closestPoint - forwardStart, forwardDirection);
-        transform.position = projectedPoint + initialOffset;
+        gfx_line_add_segment_immediate({initialPosition, 0xAAAAAAC0}, {initialPosition + (forwardDirection * 100.0f), 0xAAAAAA01});
+        gfx_line_add_segment_immediate({initialPosition, 0xAAAAAAC0}, {initialPosition - (forwardDirection * 100.0f), 0xAAAAAA01});
+
+        if (forwardStart != closestPoint) {
+            transform.position = projectedPoint + initialOffset;
+            gfx_line_add_segment_immediate({initialPosition, 0xFFFFFF00}, {transform.position, 0xFFFFFF00});
+        }
     }
 }
 
@@ -588,51 +684,96 @@ void draw_square(const glm::vec3 &center, float size, uint32_t color, const mat4
     gfx_triangle_strip_add_segment_immediate(vertices);
 }
 
-static void widget_manipulate_transform(Transform &transform) {
-    constexpr uint32_t BOX_GREEN_RGB = 0x33FF3300; // 0 Alpha lowers opacity when line is behind geo
+bool orientation_dot_test(const glm::vec3 &gizmoPosition, const glm::vec3 &cameraPosition, const vec3f referenceDirection) {
+    glm::vec3 gizmoToCamera = glm::normalize(cameraPosition - gizmoPosition);
+    const float dotProduct = glm::dot(referenceDirection, gizmoToCamera);
+    return (dotProduct > 0.0f) ? true : false;
+}
 
-    constexpr uint32_t RGBA_RED = 0xFF3333FF;
-    constexpr uint32_t RGBA_RED_HOVERED = 0xFF9999FF;
+void set_closest_hovered(const Hit &hitResultForward,
+                         const Hit &hitResultUp,
+                         const Hit &hitResultRight,
+                         const Hit &hitResultUpRight,
+                         const Hit &hitResultForwardUp,
+                         const Hit &hitResultForwardRight,
+                         bool &forwardHovered,
+                         bool &upHovered,
+                         bool &rightHovered,
+                         bool &upRightHovered,
+                         bool &forwardRightHovered,
+                         bool &forwardUpHovered
+) {
+    forwardHovered = false;
+    upHovered = false;
+    rightHovered = false;
+    upRightHovered = false;
+    forwardRightHovered = false;
+    forwardUpHovered = false;
 
-    constexpr uint32_t RGBA_GREEN = 0x33FF33FF;
-    constexpr uint32_t RGBA_GREEN_HOVERED = 0x99FF99FF;
-
-    constexpr uint32_t RGBA_BLUE = 0x3333FFFF;
-    constexpr uint32_t RGBA_BLUE_HOVERED = 0x9999FFFF;
-
-    constexpr uint32_t RGBA_WHITE = 0xFFFFFFFF;
-    constexpr float GIZMO_LINE_THICKNESS = 2.0f;
-
-    const CameraEntity &camEntity = *db_get_camera_entity(0);
-    Transform *cameraTransform = db_get_transform(camEntity.transformIndex);
-    Camera *camera = db_get_camera(camEntity.cameraIndex);
-
-    float constantSizeScale = 1.0f * (glm::distance(cameraTransform->position, transform.position) / tanf(camera->fov) / 2.0f);
-
-    const mat4 model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
-    const mat4 model1 = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
-    mat4 rot2 = rotate((toMat4(quat(transform.rotation))), glm::pi<float>() / 2.0f, vec3f(0.0f, 0.0f, 1.0f));
-    const mat4 model2 = translate(mat4(1.0f), transform.position) * rot2 * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
-    mat4 rot3 = rotate((toMat4(quat(transform.rotation))), glm::pi<float>() / 2.0f, vec3f(-1.0f, 0.0f, 0.0f));
-    const mat4 model3 = translate(mat4(1.0f), transform.position) * rot3 * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
-    mat4 model4 = rotate(model1, glm::pi<float>() / 2.0f, vec3f(0.0f, -1, 0));
-
-    const OOBB oobb = {
-            .center = transform.position,
-            .extents = transform.scale * 0.5f,
-            .orientation = glm::quat(transform.rotation),
+    struct HitHoverSelection {
+        const Hit &hit;
+        bool &isHovered;
     };
 
-    vec2i mousePos = input_mouse_position();
-    float tMin = {};
-    Ray ray = {};
+    std::vector<HitHoverSelection> hoverHitTests = {
+            {hitResultForward,      forwardHovered},
+            {hitResultUp,           upHovered},
+            {hitResultRight,        rightHovered},
+            {hitResultUpRight,      upRightHovered},
+            {hitResultForwardUp,    forwardUpHovered},
+            {hitResultForwardRight, forwardRightHovered}
+    };
+
+    float minDistance = FLT_MAX;
+    HitHoverSelection *closestHit = nullptr;
+
+    for (auto &hitResult: hoverHitTests) {
+        if (hitResult.hit.collided && hitResult.hit.distance < minDistance) {
+            minDistance = hitResult.hit.distance;
+            closestHit = &hitResult;
+        }
+    }
+
+    if (closestHit) {
+        closestHit->isHovered = true;
+    }
+}
+
+static void widget_manipulate_transform(Transform &transform) {
+    ImGui::Begin("IN_DEV_VARS");
+    static bool worldSpace = false;
+    ImGui::Checkbox("Toggle translate in world space", &worldSpace);
+    ImGui::End();
+
+    const CameraEntity &camEntity = *db_get_camera_entity(0);
+    const Transform &cameraTransform = *db_get_transform(camEntity.transformIndex);
+    const Camera &camera = *db_get_camera(camEntity.cameraIndex);
+
+    const float constantSizeScale = 1.0f * (glm::distance(cameraTransform.position, transform.position) / tanf(camera.fov) / 2.0f);
+    mat4 model = mat4(1.0f);
+
+    if (worldSpace) {
+        model = translate(mat4(1.0f), transform.position) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
+    } else {
+        model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
+    }
+
+    const vec3f forwardUpRectNormal = glm::normalize(vec3f(model * vec4f(1.0f, 0.0f, 0.0f, 0.0f)));
+    const vec3f upRightRectNormal = glm::normalize(vec3f(model * vec4f(0.0f, 0.0f, 1.0f, 0.0f)));
+    const vec3f forwardRightRectNormal = glm::normalize(vec3f(model * vec4f(0.0f, 1.0f, 0.0f, 0.0f)));
+
+    const bool flipUp = orientation_dot_test(transform.position, cameraTransform.position, -mat4f_extract_up(model));
+    const bool flipRight = orientation_dot_test(transform.position, cameraTransform.position, mat4f_extract_right(model));
+    const bool flipForward = orientation_dot_test(transform.position, cameraTransform.position, mat4f_extract_forward(model));
 
     static bool forwardIsSelected = false;
     static bool upIsSelected = false;
     static bool rightIsSelected = false;
     static bool upRightIsSelected = false;
+    static bool forwardRightIsSelected = false;
+    static bool forwardUpIsSelected = false;
 
-    bool gizmoInUse = (forwardIsSelected || upIsSelected || rightIsSelected || upRightIsSelected);
+    bool gizmoInUse = (forwardIsSelected || upIsSelected || rightIsSelected || upRightIsSelected || forwardRightIsSelected || forwardUpIsSelected);
 
     if (input_mouse_released(MouseButton::Left)) {
         gizmoInUse = false;
@@ -640,142 +781,218 @@ static void widget_manipulate_transform(Transform &transform) {
         upIsSelected = false;
         rightIsSelected = false;
         upRightIsSelected = false;
+        forwardRightIsSelected = false;
+        forwardUpIsSelected = false;
     }
 
     if (input_mouse_down(MouseButton::Right)) {
         gizmoInUse = true;
     }
 
-    const vec2i screenSize = gfx_screen_size();
-    ray = screen_to_ray(mousePos.x, mousePos.y, screenSize.x, screenSize.y, *camera, *cameraTransform);
-
     bool forwardHovered = false;
-    {
-        if (!gizmoInUse) {
-            const mat4 modelForward = translate(model, ((WORLD_FORWARD * 0.5f)));
-            const vec3 scaleForward = {0.1f, 0.1f, 0.5f};
-            OOBB forwardBound = {
-                    .center = glm::vec3(modelForward[3]), // I don't want to decompose the whole thing
-                    .extents = scaleForward * vec3(glm::length(vec3(modelForward[0])), glm::length(vec3(modelForward[1])), glm::length(vec3(modelForward[2]))),
-                    .orientation = glm::quat(transform.rotation),
-            };
-            glm::vec3 intersectionPoint;
-            if (ray_oob_intersection(ray, forwardBound, tMin, intersectionPoint)) {
-                forwardHovered = true;
-                forwardIsSelected = input_mouse_pressed(MouseButton::Left);
-            }
-            draw_line_box(modelForward, scaleForward, BOX_GREEN_RGB, 1);
-        }
-    }
-
     bool upHovered = false;
-    if (!gizmoInUse) {
-        mat4 modelUp = translate(model, ((WORLD_UP * 0.5f)));
-        const vec3 scaleUp = {0.1f, 0.5f, 0.1f};
-        OOBB upBound = {
-                .center = glm::vec3(modelUp[3]), // I don't want to decompose the whole thing
-                .extents = scaleUp * vec3(glm::length(vec3(modelUp[0])), glm::length(vec3(modelUp[1])), glm::length(vec3(modelUp[2]))),
-                .orientation = glm::quat(transform.rotation),
-        };
-        glm::vec3 intersectionPoint;
-        if (ray_oob_intersection(ray, upBound, tMin, intersectionPoint)) {
-            upHovered = true;
-            upIsSelected = input_mouse_pressed(MouseButton::Left);
-        }
-        draw_line_box(modelUp, scaleUp, BOX_GREEN_RGB, 1);
-    }
-
     bool rightHovered = false;
-    if (!gizmoInUse) {
-        mat4 modelRight = translate(model, ((WORLD_RIGHT * 0.5f)));
-        const vec3 scaleRight = {0.5f, 0.1f, 0.1f};
-        OOBB upBound = {
-                .center = glm::vec3(modelRight[3]), // I don't want to decompose the whole thing
-                .extents = scaleRight * vec3(glm::length(vec3(modelRight[0])), glm::length(vec3(modelRight[1])), glm::length(vec3(modelRight[2]))),
-                .orientation = glm::quat(transform.rotation),
-        };
-        glm::vec3 intersectionPoint;
-        if (ray_oob_intersection(ray, upBound, tMin, intersectionPoint)) {
-            rightHovered = true;
-            rightIsSelected = input_mouse_pressed(MouseButton::Left);
-        }
-        draw_line_box(modelRight, scaleRight, BOX_GREEN_RGB, 1);
-    }
 
     bool upRightHovered = false;
+    bool forwardRightHovered = false;
+    bool forwardUpHovered = false;
+
+    const vec2i mousePos = input_mouse_position();
+    const vec2i screenSize = gfx_screen_size();
+    float tMin = {};
+
+    const Ray ray = screen_to_ray(mousePos.x, mousePos.y, screenSize.x, screenSize.y, camera, cameraTransform);
+
+    Hit hitResultForward = {};
+    Hit hitResultUp = {};
+    Hit hitResultRight = {};
+    Hit hitResultUpRight = {};
+    Hit hitResultForwardUp = {};
+    Hit hitResultForwardRight = {};
+
+    static BeetRect lastHitRect = {};
+
+    const mat4 modelForward = translate(model, (((WORLD_FORWARD * (flipForward ? -1.0f : 1.0f)) * 0.5f)));
+    const vec3 scaleForward = {0.1f, 0.1f, 0.5f};
+    const OOBB forwardOOBB = {
+            .center = mat4f_extract_position(modelForward),
+            .extents = scaleForward * mat4f_extract_scale(modelForward),
+            .orientation = mat4f_extract_rotation_quat(modelForward),
+    };
+
+    const mat4 modelUp = translate(model, (((WORLD_UP * (flipUp ? -1.0f : 1.0f)) * 0.5f)));
+    const vec3 scaleUp = {0.1f, 0.5f, 0.1f};
+    const OOBB upOOBB = {
+            .center = mat4f_extract_position(modelUp),
+            .extents = scaleUp * mat4f_extract_scale(modelUp),
+            .orientation = mat4f_extract_rotation_quat(modelUp),
+    };
+
+
+    const mat4 modelRight = translate(model, (((WORLD_RIGHT * (flipRight ? -1.0f : 1.0f)) * 0.5f)));
+    const vec3 scaleRight = {0.5f, 0.1f, 0.1f};
+    const OOBB rightOOBB = {
+            .center = mat4f_extract_position(modelRight),
+            .extents = scaleRight * mat4f_extract_scale(modelRight),
+            .orientation = mat4f_extract_rotation_quat(modelRight),
+    };
+
+
+    const float upRightAngle = flipUp ? glm::pi<float>() : 0;
+    const vec3f upRightNormal = vec3f(1.0f, 0.0f, 0.0f);
+    const mat4 mdlUp = rotate(model, upRightAngle, upRightNormal);
+    const vec3f upRightOffset = vec3f{
+            flipRight ? 0.35f : -0.35f,
+            flipUp ? -0.35f : 0.35f,
+            0.0f
+    };
+    const BeetRect upRightRect{
+            .center = mat4f_extract_position(translate(model, upRightOffset)),
+            .halfExtents = vec2f{0.07f, 0.07f} * vec2f(glm::length(vec3(mdlUp[0])), glm::length(vec3(mdlUp[1]))),
+            .normal = upRightRectNormal,
+            .up = mat4f_extract_up(model),
+    };
+
+
+    const vec3f forwardUpNormal = vec3f(0.0f, 0.0f, 1.0f);
+    const float forwardUpAngle = flipRight ? ((glm::pi<float>() / 2) * 3) : (glm::pi<float>() / 2); // i.e. 3/4 TAU : 1/4 TAU
+    const mat4 mdlRight = rotate(model, forwardUpAngle, forwardUpNormal);
+    const vec3 forwardUpOffset = vec3f{
+            0.0f,
+            flipUp ? -0.35f : 0.35f,
+            flipForward ? 0.35f : -0.35f
+    };
+    const BeetRect forwardUpRect{
+            .center = mat4f_extract_position(translate(model, forwardUpOffset)),
+            .halfExtents = vec2f{0.07f, 0.07f} * vec2f(glm::length(vec3(mdlRight[0])), glm::length(vec3(mdlRight[1]))),
+            .normal = forwardUpRectNormal,
+            .up = mat4f_extract_up(model),
+    };
+
+
+    const vec3f forwardRightNormal = vec3f(1.0f, 0.0f, 0.0f);
+    const float forwardRightAngle = flipForward ? (glm::pi<float>() / 2) : ((glm::pi<float>() / 2) * 3); // i.e. 1/4 TAU : 3/4 TAU
+    const mat4 mdlForward = rotate(model, forwardRightAngle, forwardRightNormal);
+    const vec3 forwardRightOffset = vec3f{
+            flipRight ? 0.35f : -0.35f,
+            0.0f,
+            flipForward ? 0.35f : -0.35f
+    };
+    const BeetRect forwardRightRect{
+            .center = mat4f_extract_position(translate(model, forwardRightOffset)),
+            .halfExtents = vec2f{0.07f, 0.07f} * vec2f(glm::length(vec3(mdlForward[0])), glm::length(vec3(mdlForward[1]))),
+            .normal = forwardRightRectNormal,
+            .up = mat4f_extract_right(model),
+    };
+
+
     if (!gizmoInUse) {
-        mat4 modelRight = translate(model1, {-0.35, 0.35, 0});
-        const vec3 scaleRight = {0.07f, 0.07f, 0.01f}; // half size
-        OOBB upBound = {
-                .center = glm::vec3(modelRight[3]), // I don't want to decompose the whole thing
-                .extents = scaleRight * vec3(glm::length(vec3(modelRight[0])), glm::length(vec3(modelRight[1])), glm::length(vec3(modelRight[2]))),
-                .orientation = glm::quat(transform.rotation),
-        };
-        glm::vec3 intersectionPoint;
-        if (ray_oob_intersection(ray, upBound, tMin, intersectionPoint)) {
-            upRightHovered = true;
-            upRightIsSelected = input_mouse_pressed(MouseButton::Left);
-        }
-        draw_line_box(modelRight, scaleRight, 0xFFFFFFFF, 1);
+        ray_rect_intersection(ray, upRightRect, hitResultUpRight);
+        ray_rect_intersection(ray, forwardRightRect, hitResultForwardRight);
+        ray_rect_intersection(ray, forwardUpRect, hitResultForwardUp);
+        ray_oob_intersection(ray, rightOOBB, hitResultRight);
+        ray_oob_intersection(ray, upOOBB, hitResultUp);
+        ray_oob_intersection(ray, forwardOOBB, hitResultForward);
+
+        set_closest_hovered(
+                hitResultForward,
+                hitResultUp,
+                hitResultRight,
+                hitResultUpRight,
+                hitResultForwardUp,
+                hitResultForwardRight,
+                forwardHovered,
+                upHovered,
+                rightHovered,
+                upRightHovered,
+                forwardRightHovered,
+                forwardUpHovered
+        );
+
+        //DEBUG BOUNDS
+        //draw_line_box(modelRight, scaleRight, BOX_GREEN_RGB, 1);
+        //draw_line_box(modelUp, scaleUp, BOX_GREEN_RGB, 1);
+        //draw_line_box(modelForward, scaleForward, BOX_GREEN_RGB, 1);
     }
 
-    float intersectionDist = 0;
-    vec3f outPoint = {};
-
-    glm::vec3 transformedNormal = glm::normalize(glm::vec3(model1 * glm::vec4(0, 1, 0, 0.0f)));
-    const bool hit = ray_plane_intersection(ray, glm::vec3(model1[3]), transformedNormal, intersectionDist, outPoint);
-    if (hit) {
-        draw_line_box(translate(mat4(1.0f), outPoint), vec3f{0.1f, 0.1f, 0.1f}, 0xFFFFFFFF, 1);
+    if (upRightHovered) {
+        lastHitRect = upRightRect;
+        upRightIsSelected = input_mouse_pressed(MouseButton::Left);
+    }
+    if (forwardRightHovered) {
+        lastHitRect = forwardRightRect;
+        forwardRightIsSelected = input_mouse_pressed(MouseButton::Left);
+    }
+    if (forwardUpHovered) {
+        lastHitRect = forwardUpRect;
+        forwardUpIsSelected = input_mouse_pressed(MouseButton::Left);
+    }
+    if (rightHovered) {
+        rightIsSelected = input_mouse_pressed(MouseButton::Left);
+    }
+    if (upHovered) {
+        upIsSelected = input_mouse_pressed(MouseButton::Left);
+    }
+    if (forwardHovered) {
+        forwardIsSelected = input_mouse_pressed(MouseButton::Left);
     }
 
-    gizmo_translate_object(transform, ray, WORLD_UP, upIsSelected, gizmoInUse);
-    gizmo_translate_object(transform, ray, WORLD_RIGHT, rightIsSelected, gizmoInUse);
-    gizmo_translate_object(transform, ray, WORLD_FORWARD, forwardIsSelected, gizmoInUse);
-
-    //TODO: Replace with Ray : Plane intersection
-    gizmo_translate_object(transform, ray, WORLD_UP, upRightIsSelected, gizmoInUse);
-    gizmo_translate_object(transform, ray, WORLD_RIGHT, upRightIsSelected, gizmoInUse);
-
-    draw_line_box(glm::translate(glm::mat4(1.0f), transform.position) * glm::toMat4(glm::quat(transform.rotation)), transform.scale * glm::vec3(0.5f), BOX_GREEN_RGB,
-                  GIZMO_LINE_THICKNESS);
-
-    LinePoint3D rayStart = {ray.origin, RGBA_WHITE};
-    LinePoint3D rayEnd = {ray.origin + ray.direction * ((tMin == 0.0f) ? 1000.0f : tMin), RGBA_WHITE};
-    gfx_line_add_segment_immediate(rayStart, rayEnd, GIZMO_LINE_THICKNESS);
+    constexpr uint32_t BOX_GREEN_RGB = 0x66FF6600; // 0 Alpha lowers opacity when line is behind geo
+    constexpr uint32_t RGBA_RED = 0xFF3333FF;
+    constexpr uint32_t RGBA_RED_HOVERED = 0xFF9999FF;
+    constexpr uint32_t RGBA_GREEN = 0x33FF33FF;
+    constexpr uint32_t RGBA_GREEN_HOVERED = 0x99FF99FF;
+    constexpr uint32_t RGBA_BLUE = 0x3333FFFF;
+    constexpr uint32_t RGBA_BLUE_HOVERED = 0x9999FFFF;
+    constexpr uint32_t RGBA_WHITE = 0xFFFFFFFF;
+    constexpr float GIZMO_LINE_THICKNESS = 2.0f;
 
     const uint32_t UP_GIZMO_COLOUR = upHovered ? RGBA_GREEN_HOVERED : RGBA_GREEN;
     const uint32_t FORWARD_GIZMO_COLOUR = forwardHovered ? RGBA_BLUE_HOVERED : RGBA_BLUE;
     const uint32_t RIGHT_GIZMO_COLOUR = rightHovered ? RGBA_RED_HOVERED : RGBA_RED;
 
     const uint32_t UP_RIGHT_GIZMO_COLOUR = upRightHovered ? RGBA_BLUE_HOVERED : RGBA_BLUE;
-    const uint32_t FORWARD_RIGHT_GIZMO_COLOUR = RGBA_GREEN;
-    const uint32_t FORWARD_UP_GIZMO_COLOUR = RGBA_RED;
+    const uint32_t UP_RIGHT_GIZMO_COLOUR_ALPHA = upRightHovered ? 0x6666FFFF : 0x0000FFFF;
+    const uint32_t FORWARD_RIGHT_GIZMO_COLOUR = forwardRightHovered ? RGBA_GREEN : RGBA_GREEN_HOVERED;
+    const uint32_t FORWARD_RIGHT_GIZMO_COLOUR_ALPHA = forwardRightHovered ? 0x66FF6660 : 0x00FF0060;
+    const uint32_t FORWARD_UP_GIZMO_COLOUR = forwardUpHovered ? RGBA_RED : RGBA_RED_HOVERED;
+    const uint32_t FORWARD_UP_GIZMO_COLOUR_ALPHA = forwardUpHovered ? 0xFF666660 : 0xFF000060;
 
-    const uint32_t UP_RIGHT_GIZMO_COLOUR_ALPHA = upRightHovered ? 0x6666FF60 : 0x0000FF60;
-    const uint32_t FORWARD_RIGHT_GIZMO_COLOUR_ALPHA = 0x00FF0060;
-    const uint32_t FORWARD_UP_GIZMO_COLOUR_ALPHA = 0xFF000060;
-
-    draw_sphere({0, 0, 0}, 0.07, 0xEEEEEEFF, model1, 12, 10);
-    {
-        draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, UP_GIZMO_COLOUR, model1, 12);
-        draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, UP_GIZMO_COLOUR, model1, 12);
+    if (gizmoInUse) {
+        if (upRightIsSelected) {
+            draw_grid(lastHitRect.center, lastHitRect.normal, 1, 60, 1, 0xAAAAAA70);
+        }
+        if (forwardRightIsSelected) {
+            draw_grid(lastHitRect.center, lastHitRect.normal, 1, 60, 1, 0xAAAAAA70);
+        }
+        if (forwardUpIsSelected) {
+            draw_grid(lastHitRect.center, lastHitRect.normal, 1, 60, 1, 0xAAAAAA70);
+        }
     }
-    draw_square({-0.35, 0.35, 0}, 0.15f, UP_RIGHT_GIZMO_COLOUR_ALPHA, model1);
-    draw_line_square({-0.35, 0.35, 0}, 0.15f, UP_RIGHT_GIZMO_COLOUR, model1, 2.0f);
-    {
-        draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, RIGHT_GIZMO_COLOUR, model2, 12);
-        draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, RIGHT_GIZMO_COLOUR, model2, 12);
-    }
-    draw_square({-0.35, 0.35, 0}, 0.15f, FORWARD_RIGHT_GIZMO_COLOUR_ALPHA, model3);
-    draw_line_square({-0.35, 0.35, 0}, 0.15f, FORWARD_RIGHT_GIZMO_COLOUR, model3, 2.0f);
-    {
-        draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, FORWARD_GIZMO_COLOUR, model3, 12);
-        draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, FORWARD_GIZMO_COLOUR, model3, 12);
-    }
-    draw_square({-0.35, 0.35, 0}, 0.15f, FORWARD_UP_GIZMO_COLOUR_ALPHA, model4);
-    draw_line_square({-0.35, 0.35, 0}, 0.15f, FORWARD_UP_GIZMO_COLOUR, model4, 2.0f);
+
+    draw_sphere({0, 0, 0}, 0.07, 0xEEEEEEFF, model, 12, 10);
+
+    draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, UP_GIZMO_COLOUR, mdlUp, 12);
+    draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, UP_GIZMO_COLOUR, mdlUp, 12);
+    draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, FORWARD_GIZMO_COLOUR, mdlForward, 12);
+    draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, FORWARD_GIZMO_COLOUR, mdlForward, 12);
+    draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, RIGHT_GIZMO_COLOUR, mdlRight, 12);
+    draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, RIGHT_GIZMO_COLOUR, mdlRight, 12);
+
+    draw_line_rect(upRightRect, UP_RIGHT_GIZMO_COLOUR);
+    draw_poly_rect(upRightRect, UP_RIGHT_GIZMO_COLOUR_ALPHA);
+    draw_line_rect(forwardRightRect, FORWARD_RIGHT_GIZMO_COLOUR);
+    draw_poly_rect(forwardRightRect, FORWARD_RIGHT_GIZMO_COLOUR_ALPHA);
+    draw_line_rect(forwardUpRect, FORWARD_UP_GIZMO_COLOUR);
+    draw_poly_rect(forwardUpRect, FORWARD_UP_GIZMO_COLOUR_ALPHA);
 
 
+    gizmo_translate_object_2_axis(transform, ray, upRightRectNormal, upRightIsSelected, gizmoInUse);
+    gizmo_translate_object_2_axis(transform, ray, forwardUpRectNormal, forwardUpIsSelected, gizmoInUse);
+    gizmo_translate_object_2_axis(transform, ray, forwardRightRectNormal, forwardRightIsSelected, gizmoInUse);
+    gizmo_translate_object_1_axis(transform, ray, WORLD_UP, upIsSelected, gizmoInUse);
+    gizmo_translate_object_1_axis(transform, ray, WORLD_RIGHT, rightIsSelected, gizmoInUse);
+    gizmo_translate_object_1_axis(transform, ray, WORLD_FORWARD, forwardIsSelected, gizmoInUse);
 }
 //======================================================================================================================
 
@@ -789,27 +1006,6 @@ void widget_manipulate_update(bool &enabled) {
 
     constexpr uint32_t RGBA_RED = 0xFF3333FF;
     constexpr uint32_t RGBA_RED_LOW_ALPHA = 0xFF333380;
-
-    mat4 model1(1.0f);
-    mat4 model2 = rotate(model1, glm::pi<float>() / 2.0f, vec3f(0, 0.0f, 1));
-    mat4 model3 = rotate(model1, glm::pi<float>() / 2.0f, vec3f(-1.0f, 0, 0));
-    mat4 model4 = rotate(model1, glm::pi<float>() / 2.0f, vec3f(0.0f, -1, 0));
-//    draw_arc({}, 1.0f, RGBA_GREEN, model1, 0.25f, 0.0f, 36, 3.0f);
-//    draw_arc({}, 0.9f, RGBA_GREEN, model1, 0.25f, 0.0f, 36, 3.0f);
-//    draw_arc_polyline({}, 0.95f, RGBA_GREEN_LOW_ALPHA, model, 0.25f, 0.0f, 300, 18.0f);
-
-    glm::vec3 center(0.0f, 0.0f, 0.0f);
-    float radius = 1.0f;
-    uint32_t color = 0xFFFFFFFF;
-    static float arcPercent = 0.75f;
-    static float startOffsetPercent = 0.0f;
-    static int segments = 36;
-    static bool closedLoop = false;
-
-    ImGui::SliderInt("segments", &segments, 3, 100);
-    ImGui::SliderFloat("arcFill", &arcPercent, 0.0f, 1.0f);
-    ImGui::SliderFloat("startOffsetPercent", &startOffsetPercent, 0.0f, 1.0f);
-    ImGui::Checkbox("closedLoop", &closedLoop);
 
     if (!enabled) {
         return;
@@ -848,6 +1044,5 @@ void widget_manipulate_update(bool &enabled) {
         }
         //do gizmo draw
     }
-
 }
 //======================================================================================================================

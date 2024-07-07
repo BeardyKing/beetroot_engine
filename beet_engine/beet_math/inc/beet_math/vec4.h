@@ -6,10 +6,10 @@
 
 //===PUBLIC_STRUCTS=====================================================================================================
 using namespace glm;
-using vec4i = vec<4, int32_t>;
-using vec4u = vec<4, uint32_t>;
-using vec4f = vec<4, float>;
-using vec4d = vec<4, double>;
+using vec4i = vec<4, int32_t, glm::defaultp>;
+using vec4u = vec<4, uint32_t, glm::defaultp>;
+using vec4f = vec<4, float, glm::defaultp>;
+using vec4d = vec<4, double, glm::defaultp>;
 //======================================================================================================================
 
 //===API================================================================================================================
