@@ -29,11 +29,18 @@ enum Manipulator : uint32_t {
     Manipulator_Rotate = 2,
     Manipulator_Scale = 3,
 };
+
 static Manipulator s_manipulator = Manipulator_None;
+static bool s_manipulatorIsWorldSpace = true;
+static bool s_gizmoInUse = false;
 //======================================================================================================================
 
 //===INTERNAL_FUNCTIONS=================================================================================================
 static void widget_switch_between_manipulators() {
+
+    if (s_gizmoInUse) {
+        return;
+    }
 
     if (input_key_down(KeyCode::N1)) {
         s_manipulator = Manipulator_None;
@@ -46,6 +53,9 @@ static void widget_switch_between_manipulators() {
     }
     if (input_key_down(KeyCode::N4)) {
         s_manipulator = Manipulator_Scale;
+    }
+    if (input_key_pressed(KeyCode::T)) {
+        s_manipulatorIsWorldSpace = !s_manipulatorIsWorldSpace;
     }
 
     const ImGuiStyle style = ImGui::GetStyle();
@@ -63,7 +73,7 @@ static void widget_switch_between_manipulators() {
     DEFER([] { ImGui::PopStyleColor(2); });
 
     const float iconSize = ImGui::CalcTextSize("A").y;
-    const uint32_t itemCount = 5;
+    const uint32_t itemCount = 7;
     const ImVec2 toolbarItemSize = ImVec2{iconSize * 2.0f, iconSize * 2.0f};
     const ImVec2 toolbarSize = {toolbarItemSize.x + windowPadding * 2.0f, toolbarItemSize.y * itemCount + windowPadding * 2.0f};
     ImGui::SetNextWindowSize(toolbarSize);
@@ -93,6 +103,14 @@ static void widget_switch_between_manipulators() {
 
         if (ImGui::Selectable(ICON_FA_EXPAND_ALT, s_manipulator == Manipulator_Scale, selectableFlags, toolbarItemSize)) {
             s_manipulator = Manipulator_Scale;
+        };
+
+        ImGui::NewLine();
+        ImGui::Separator();
+        ImGui::NewLine();
+
+        if (ImGui::Selectable(s_manipulatorIsWorldSpace ? ICON_FA_GLOBE_AFRICA : ICON_FA_CUBE, false, selectableFlags, toolbarItemSize)) {
+            s_manipulatorIsWorldSpace = !s_manipulatorIsWorldSpace;
         };
     }
     ImGui::End();
@@ -426,9 +444,7 @@ static void gizmo_translate_object_1_axis(Transform &transform, const Ray &ray, 
         if (!isGrabbing) {
             initialOffset = {};
             isGrabbing = true;
-            glm::quat rotation = transform.rotation;
-            rotation = glm::normalize(rotation);
-            const vec3f forwardDirection = glm::normalize(rotation * moveAxisConstraint);
+            const vec3f forwardDirection = moveAxisConstraint;
             const vec3f forwardStart = transform.position;
             const vec3f closestPoint = closest_point_on_line_segment_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection, 10.0f);
             if (forwardStart != closestPoint) {
@@ -437,8 +453,7 @@ static void gizmo_translate_object_1_axis(Transform &transform, const Ray &ray, 
             }
         }
 
-        const quat rotation = transform.rotation;
-        const vec3f forwardDirection = glm::normalize(rotation * moveAxisConstraint);
+        const vec3f forwardDirection = moveAxisConstraint;
         const vec3f forwardStart = transform.position;
         const vec3f closestPoint = closest_point_on_line_segment_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection, 10.0f);
         const vec3f projectedPoint = forwardStart + forwardDirection * glm::dot(closestPoint - forwardStart, forwardDirection);
@@ -740,11 +755,6 @@ void set_closest_hovered(const Hit &hitResultForward,
 }
 
 static void widget_manipulate_transform(Transform &transform) {
-    ImGui::Begin("IN_DEV_VARS");
-    static bool worldSpace = false;
-    ImGui::Checkbox("Toggle translate in world space", &worldSpace);
-    ImGui::End();
-
     const CameraEntity &camEntity = *db_get_camera_entity(0);
     const Transform &cameraTransform = *db_get_transform(camEntity.transformIndex);
     const Camera &camera = *db_get_camera(camEntity.cameraIndex);
@@ -752,7 +762,7 @@ static void widget_manipulate_transform(Transform &transform) {
     const float constantSizeScale = 1.0f * (glm::distance(cameraTransform.position, transform.position) / tanf(camera.fov) / 2.0f);
     mat4 model = mat4(1.0f);
 
-    if (worldSpace) {
+    if (s_manipulatorIsWorldSpace) {
         model = translate(mat4(1.0f), transform.position) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
     } else {
         model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
@@ -761,6 +771,10 @@ static void widget_manipulate_transform(Transform &transform) {
     const vec3f forwardUpRectNormal = glm::normalize(vec3f(model * vec4f(1.0f, 0.0f, 0.0f, 0.0f)));
     const vec3f upRightRectNormal = glm::normalize(vec3f(model * vec4f(0.0f, 0.0f, 1.0f, 0.0f)));
     const vec3f forwardRightRectNormal = glm::normalize(vec3f(model * vec4f(0.0f, 1.0f, 0.0f, 0.0f)));
+
+    const vec3f upTranslateNormal = glm::normalize(mat4f_extract_rotation_quat(model) * WORLD_UP);
+    const vec3f rightTranslateNormal = glm::normalize(mat4f_extract_rotation_quat(model) * WORLD_RIGHT);
+    const vec3f forwardTranslateNormal = glm::normalize(mat4f_extract_rotation_quat(model) * WORLD_FORWARD);
 
     const bool flipUp = orientation_dot_test(transform.position, cameraTransform.position, -mat4f_extract_up(model));
     const bool flipRight = orientation_dot_test(transform.position, cameraTransform.position, mat4f_extract_right(model));
@@ -773,20 +787,16 @@ static void widget_manipulate_transform(Transform &transform) {
     static bool forwardRightIsSelected = false;
     static bool forwardUpIsSelected = false;
 
-    bool gizmoInUse = (forwardIsSelected || upIsSelected || rightIsSelected || upRightIsSelected || forwardRightIsSelected || forwardUpIsSelected);
+    s_gizmoInUse = (forwardIsSelected || upIsSelected || rightIsSelected || upRightIsSelected || forwardRightIsSelected || forwardUpIsSelected);
 
     if (input_mouse_released(MouseButton::Left)) {
-        gizmoInUse = false;
+        s_gizmoInUse = false;
         forwardIsSelected = false;
         upIsSelected = false;
         rightIsSelected = false;
         upRightIsSelected = false;
         forwardRightIsSelected = false;
         forwardUpIsSelected = false;
-    }
-
-    if (input_mouse_down(MouseButton::Right)) {
-        gizmoInUse = true;
     }
 
     bool forwardHovered = false;
@@ -799,8 +809,8 @@ static void widget_manipulate_transform(Transform &transform) {
 
     const vec2i mousePos = input_mouse_position();
     const vec2i screenSize = gfx_screen_size();
-    float tMin = {};
 
+    float tMin = {};
     const Ray ray = screen_to_ray(mousePos.x, mousePos.y, screenSize.x, screenSize.y, camera, cameraTransform);
 
     Hit hitResultForward = {};
@@ -886,7 +896,7 @@ static void widget_manipulate_transform(Transform &transform) {
     };
 
 
-    if (!gizmoInUse) {
+    if (!s_gizmoInUse) {
         ray_rect_intersection(ray, upRightRect, hitResultUpRight);
         ray_rect_intersection(ray, forwardRightRect, hitResultForwardRight);
         ray_rect_intersection(ray, forwardUpRect, hitResultForwardUp);
@@ -958,7 +968,7 @@ static void widget_manipulate_transform(Transform &transform) {
     const uint32_t FORWARD_UP_GIZMO_COLOUR = forwardUpHovered ? RGBA_RED : RGBA_RED_HOVERED;
     const uint32_t FORWARD_UP_GIZMO_COLOUR_ALPHA = forwardUpHovered ? 0xFF666660 : 0xFF000060;
 
-    if (gizmoInUse) {
+    if (s_gizmoInUse) {
         if (upRightIsSelected) {
             draw_grid(lastHitRect.center, lastHitRect.normal, 1, 60, 1, 0xAAAAAA70);
         }
@@ -987,12 +997,13 @@ static void widget_manipulate_transform(Transform &transform) {
     draw_poly_rect(forwardUpRect, FORWARD_UP_GIZMO_COLOUR_ALPHA);
 
 
-    gizmo_translate_object_2_axis(transform, ray, upRightRectNormal, upRightIsSelected, gizmoInUse);
-    gizmo_translate_object_2_axis(transform, ray, forwardUpRectNormal, forwardUpIsSelected, gizmoInUse);
-    gizmo_translate_object_2_axis(transform, ray, forwardRightRectNormal, forwardRightIsSelected, gizmoInUse);
-    gizmo_translate_object_1_axis(transform, ray, WORLD_UP, upIsSelected, gizmoInUse);
-    gizmo_translate_object_1_axis(transform, ray, WORLD_RIGHT, rightIsSelected, gizmoInUse);
-    gizmo_translate_object_1_axis(transform, ray, WORLD_FORWARD, forwardIsSelected, gizmoInUse);
+    gizmo_translate_object_2_axis(transform, ray, upRightRectNormal, upRightIsSelected, s_gizmoInUse);
+    gizmo_translate_object_2_axis(transform, ray, forwardUpRectNormal, forwardUpIsSelected, s_gizmoInUse);
+    gizmo_translate_object_2_axis(transform, ray, forwardRightRectNormal, forwardRightIsSelected, s_gizmoInUse);
+
+    gizmo_translate_object_1_axis(transform, ray, upTranslateNormal, upIsSelected, s_gizmoInUse);
+    gizmo_translate_object_1_axis(transform, ray, rightTranslateNormal, rightIsSelected, s_gizmoInUse);
+    gizmo_translate_object_1_axis(transform, ray, forwardTranslateNormal, forwardIsSelected, s_gizmoInUse);
 }
 //======================================================================================================================
 
