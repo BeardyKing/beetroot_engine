@@ -245,6 +245,81 @@ void draw_poly_rect(const BeetRect &rect, uint32_t color) {
     }
 }
 
+struct BeetCircle {
+    vec3f origin;
+    float radius;
+    vec3f normal;
+    vec3f up;
+};
+
+
+void draw_arc(const vec3f &center,
+              float radius, uint32_t color,
+              const mat4 &modelTransform,
+              const float arcPercent = 1.0f,
+              const float startOffsetPercent = 0.0f,
+              const uint32_t segments = 36,
+              const float lineWidth = 1.0f) {
+
+    const float arcPercentClamped = glm::clamp(arcPercent, 0.0f, 1.0f);
+    const float startOffsetPercentClamped = glm::clamp(startOffsetPercent, 0.0f, 1.0f);
+
+    const uint32_t arcSegments = uint32_t(segments * arcPercentClamped);
+    const float startAngle = 2.0f * glm::pi<float>() * startOffsetPercentClamped;
+    const float endAngle = startAngle + 2.0f * glm::pi<float>() * arcPercentClamped;
+
+    std::vector<vec3f> arcPoints(arcSegments + 1);
+    for (uint32_t i = 0; i <= arcSegments; ++i) {
+        const float theta = startAngle + (endAngle - startAngle) * float(i) / float(arcSegments);
+        const float x = radius * cos(theta);
+        const float y = radius * sin(theta);
+        arcPoints[i] = vec3f(x, y, 0.0f);
+    }
+
+    for (uint32_t i = 0; i < arcSegments; ++i) {
+        const LinePoint3D start = {
+                .position = glm::vec3(modelTransform * glm::vec4(arcPoints[i] + center, 1.0f)),
+                .color = color
+        };
+        const LinePoint3D end = {
+                .position = glm::vec3(modelTransform * glm::vec4(arcPoints[i + 1] + center, 1.0f)),
+                .color = color
+        };
+        gfx_line_add_segment_immediate(start, end, lineWidth);
+    }
+}
+
+
+void draw_arc_polyline(const vec3f &center,
+                       const float radius,
+                       const uint32_t color,
+                       const mat4 &modelTransform,
+                       const float arcPercent = 1.0f,
+                       const float startOffsetPercent = 0.0f,
+                       const uint32_t segments = 36,
+                       const float lineWidth = 1.0f,
+                       const bool closedLoop = false) {
+
+    std::vector<vec2f> points;
+    points.reserve(segments + 1);
+
+    const float startAngle = glm::tau<float>() * startOffsetPercent;
+    const float endAngle = glm::tau<float>() * arcPercent + startAngle;
+
+    for (uint32_t i = 0; i <= segments; ++i) {
+        const float angle = startAngle + (endAngle - startAngle) * float(i) / float(segments);
+        const float x = center.x + radius * glm::cos(angle);
+        const float y = center.y + radius * glm::sin(angle);
+        points.emplace_back(x, y);
+    }
+
+    std::vector<LinePoint3D> vertices = gfx_generate_geometry_thick_polyline(points, lineWidth, color, closedLoop);
+    for (auto &p: vertices) {
+        p.position = vec3f(modelTransform * vec4f(p.position, 1));
+    }
+    gfx_triangle_strip_add_segment_immediate(vertices);
+}
+
 
 static bool ray_rect_intersection(const Ray &ray, const BeetRect &rect, Hit &outHit) {
     if (ray_plane_intersection(ray, rect.center, rect.normal, outHit)) {
@@ -258,9 +333,34 @@ static bool ray_rect_intersection(const Ray &ray, const BeetRect &rect, Hit &out
 
         outHit.collided = (std::abs(localX) > rect.halfExtents.x || std::abs(localY) > rect.halfExtents.y) ? false : true;
     }
+    draw_line_rect(rect, outHit.collided);
     return outHit.collided;
 }
 
+static bool ray_circle_in_rect_intersection(const Ray &ray, const BeetRect &rect, const BeetCircle &circle, Hit &outHit) {
+    if (ray_rect_intersection(ray, rect, outHit)) {
+        vec3f intersectionPoint = outHit.intersectionPoint;
+
+        ASSERT_MSG(rect.normal != rect.up, "Err: normal & rect can't match, if they do right will be NaN i.e. normalize(vec3f(0,0,0) == vec3f(NaN,NaN,NaN)");
+        const vec3f right = glm::normalize(glm::cross(rect.normal, rect.up));
+        const vec3f up = glm::normalize(glm::cross(right, rect.normal));
+
+        const vec3f localPoint = intersectionPoint - rect.center;
+        const float localX = glm::dot(localPoint, right);
+        const float localY = glm::dot(localPoint, up);
+
+        vec2f circleLocalPoint(localX - circle.origin.x, localY - circle.origin.y);
+        if (glm::length(circleLocalPoint) <= circle.radius) {
+            outHit.collided = true;
+        } else {
+            outHit.collided = false;
+        }
+    } else {
+        outHit.collided = false;
+    }
+
+    return outHit.collided;
+}
 
 static bool ray_oob_intersection(const Ray &ray, const OOBB &oobb, Hit &outHit) {
     glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), oobb.center) * glm::mat4_cast(oobb.orientation);
@@ -467,71 +567,6 @@ static void gizmo_translate_object_1_axis(Transform &transform, const Ray &ray, 
     }
 }
 
-void draw_arc(const vec3f &center,
-              float radius, uint32_t color,
-              const mat4 &modelTransform,
-              const float arcPercent = 1.0f,
-              const float startOffsetPercent = 0.0f,
-              const uint32_t segments = 36,
-              const float lineWidth = 1.0f) {
-
-    const float arcPercentClamped = glm::clamp(arcPercent, 0.0f, 1.0f);
-    const float startOffsetPercentClamped = glm::clamp(startOffsetPercent, 0.0f, 1.0f);
-
-    const uint32_t arcSegments = uint32_t(segments * arcPercentClamped);
-    const float startAngle = 2.0f * glm::pi<float>() * startOffsetPercentClamped;
-    const float endAngle = startAngle + 2.0f * glm::pi<float>() * arcPercentClamped;
-
-    std::vector<vec3f> arcPoints(arcSegments + 1);
-    for (uint32_t i = 0; i <= arcSegments; ++i) {
-        const float theta = startAngle + (endAngle - startAngle) * float(i) / float(arcSegments);
-        const float x = radius * cos(theta);
-        const float y = radius * sin(theta);
-        arcPoints[i] = vec3f(x, y, 0.0f);
-    }
-
-    for (uint32_t i = 0; i < arcSegments; ++i) {
-        const LinePoint3D start = {
-                .position = glm::vec3(modelTransform * glm::vec4(arcPoints[i] + center, 1.0f)),
-                .color = color
-        };
-        const LinePoint3D end = {
-                .position = glm::vec3(modelTransform * glm::vec4(arcPoints[i + 1] + center, 1.0f)),
-                .color = color
-        };
-        gfx_line_add_segment_immediate(start, end, lineWidth);
-    }
-}
-
-void draw_arc_polyline(const vec3f &center,
-                       const float radius,
-                       const uint32_t color,
-                       const mat4 &modelTransform,
-                       const float arcPercent = 1.0f,
-                       const float startOffsetPercent = 0.0f,
-                       const uint32_t segments = 36,
-                       const float lineWidth = 1.0f,
-                       const bool closedLoop = false) {
-
-    std::vector<vec2f> points;
-    points.reserve(segments + 1);
-
-    const float startAngle = glm::tau<float>() * startOffsetPercent;
-    const float endAngle = glm::tau<float>() * arcPercent + startAngle;
-
-    for (uint32_t i = 0; i <= segments; ++i) {
-        const float angle = startAngle + (endAngle - startAngle) * float(i) / float(segments);
-        const float x = center.x + radius * glm::cos(angle);
-        const float y = center.y + radius * glm::sin(angle);
-        points.emplace_back(x, y);
-    }
-
-    std::vector<LinePoint3D> vertices = gfx_generate_geometry_thick_polyline(points, lineWidth, color, closedLoop);
-    for (auto &p: vertices) {
-        p.position = vec3f(modelTransform * vec4f(p.position, 1));
-    }
-    gfx_triangle_strip_add_segment_immediate(vertices);
-}
 
 void draw_cone(const vec3f &baseCenter, const float radius, const float height, const uint32_t color, const mat4 &modelTransform, const uint32_t segments) {
     std::vector<LinePoint3D> vertices = gfx_generate_geometry_cone(baseCenter, radius, height, color, segments);
@@ -539,38 +574,6 @@ void draw_cone(const vec3f &baseCenter, const float radius, const float height, 
         p.position = vec3f(modelTransform * vec4f(p.position, 1));
     }
     gfx_triangle_strip_add_segment_immediate(vertices);
-}
-
-static void widget_manipulate_rotate(Transform &transform) {
-    const CameraEntity &camEntity = *db_get_camera_entity(0);
-    const Transform *cameraTransform = db_get_transform(camEntity.transformIndex);
-    const Camera *camera = db_get_camera(camEntity.cameraIndex);
-
-    const float constantSizeScale = 1.0f * (glm::distance(cameraTransform->position, transform.position) / tanf(camera->fov) / 2.0f);
-    const mat4 model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(glm::mat4(1.0f), vec3f(-constantSizeScale));
-    constexpr uint32_t RGBA_BLUE = 0x3333FFFF;
-    constexpr uint32_t RGBA_BLUE_LOW_ALPHA = 0x3333FF80;
-
-    constexpr uint32_t RGBA_GREEN = 0x33FF33FF;
-    constexpr uint32_t RGBA_GREEN_LOW_ALPHA = 0x33FF3380;
-
-    constexpr uint32_t RGBA_RED = 0xFF3333FF;
-    constexpr uint32_t RGBA_RED_LOW_ALPHA = 0xFF333380;
-
-    //TODO: I would like to do some dot product test against the camera -> transform and if we are over some threshold we should re-orient the gizmo.
-    draw_arc({}, 1.0f, RGBA_GREEN, model, 0.25f, 0.0f, 36, 3.0f);
-    draw_arc({}, 0.9f, RGBA_GREEN, model, 0.25f, 0.0f, 36, 3.0f);
-    draw_arc_polyline({}, 0.95f, RGBA_GREEN_LOW_ALPHA, model, 0.25f, 0.0f, 36, 0.1f, false);
-
-    mat4 model2 = rotate(model, glm::pi<float>() / 2.0f, vec3f(0, -1.0f, 0));
-    draw_arc({}, 1.0f, RGBA_RED, model2, 0.25f, 0.0f, 36, 3.0f);
-    draw_arc({}, 0.9f, RGBA_RED, model2, 0.25f, 0.0f, 36, 3.0f);
-    draw_arc_polyline({}, 0.95f, RGBA_RED_LOW_ALPHA, model2, 0.25f, 0.0f, 36, 0.1f, false);
-
-    mat4 model3 = rotate(model, glm::pi<float>() / 2.0f, vec3f(1.0f, 0, 0));
-    draw_arc({}, 1.0f, RGBA_BLUE, model3, 0.25f, 0.0f, 36, 3.0f);
-    draw_arc({}, 0.9f, RGBA_BLUE, model3, 0.25f, 0.0f, 36, 3.0f);
-    draw_arc_polyline({}, 0.95f, RGBA_BLUE_LOW_ALPHA, model3, 0.25f, 0.0f, 36, 0.1f, false);
 }
 
 
@@ -752,6 +755,191 @@ void set_closest_hovered(const Hit &hitResultForward,
     if (closestHit) {
         closestHit->isHovered = true;
     }
+}
+
+static void widget_manipulate_rotate(Transform &transform) {
+
+    constexpr uint32_t RGBA_BLUE = 0x3333FFFF;
+    constexpr uint32_t RGBA_BLUE_LOW_ALPHA = 0x3333FF80;
+
+    constexpr uint32_t RGBA_GREEN = 0x33FF33FF;
+    constexpr uint32_t RGBA_GREEN_LOW_ALPHA = 0x33FF3380;
+
+    constexpr uint32_t RGBA_RED = 0xFF3333FF;
+    constexpr uint32_t RGBA_RED_LOW_ALPHA = 0xFF333380;
+
+    const CameraEntity &camEntity = *db_get_camera_entity(0);
+    const Transform &cameraTransform = *db_get_transform(camEntity.transformIndex);
+    const Camera &camera = *db_get_camera(camEntity.cameraIndex);
+
+    const float constantSizeScale = 1.0f * (glm::distance(cameraTransform.position, transform.position) / tanf(camera.fov) / 2.0f);
+    mat4 model = mat4(1.0f);
+
+    if (s_manipulatorIsWorldSpace) {
+        model = translate(mat4(1.0f), transform.position) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
+    } else {
+        model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
+    }
+
+    const vec3f forwardUpRectNormal = glm::normalize(vec3f(model * vec4f(1.0f, 0.0f, 0.0f, 0.0f)));
+    const vec3f upRightRectNormal = glm::normalize(vec3f(model * vec4f(0.0f, 0.0f, 1.0f, 0.0f)));
+    const vec3f forwardRightRectNormal = glm::normalize(vec3f(model * vec4f(0.0f, 1.0f, 0.0f, 0.0f)));
+
+    const bool flipUp = orientation_dot_test(transform.position, cameraTransform.position, -mat4f_extract_up(model));
+    const bool flipRight = orientation_dot_test(transform.position, cameraTransform.position, mat4f_extract_right(model));
+    const bool flipForward = orientation_dot_test(transform.position, cameraTransform.position, mat4f_extract_forward(model));
+
+    const vec2i mousePos = input_mouse_position();
+    const vec2i screenSize = gfx_screen_size();
+
+    float tMin = {};
+    const Ray ray = screen_to_ray(mousePos.x, mousePos.y, screenSize.x, screenSize.y, camera, cameraTransform);
+
+    Hit hitResultForwardOuter = {};
+    Hit hitResultUpOuter = {};
+    Hit hitResultRightOuter = {};
+
+    Hit hitResultForwardInner = {};
+    Hit hitResultUpInner = {};
+    Hit hitResultRightInner = {};
+
+    constexpr float rotateGizmoSize = 1.0f;
+    constexpr float rotateGizmoOffset = rotateGizmoSize * 0.5f;
+    constexpr vec2f gizmoRectHalfSize = vec2f{rotateGizmoSize, rotateGizmoSize} * 0.5f;
+
+    const float upRightAngle = flipUp ? glm::pi<float>() : 0;
+    const vec3f upRightNormal = vec3f(1.0f, 0.0f, 0.0f);
+    const mat4 mdlUp = rotate(model, upRightAngle, upRightNormal);
+    const vec3f upRightOffset = vec3f{
+            flipRight ? rotateGizmoOffset : -rotateGizmoOffset,
+            flipUp ? -rotateGizmoOffset : rotateGizmoOffset,
+            0.0f
+    };
+    const BeetRect upRightRect{
+            .center = mat4f_extract_position(translate(model, upRightOffset)),
+            .halfExtents = gizmoRectHalfSize * vec2f(glm::length(vec3(mdlUp[0])), glm::length(vec3(mdlUp[1]))),
+            .normal = upRightRectNormal,
+            .up = mat4f_extract_up(model),
+    };
+    const vec3f upCircleOffset = vec3f{
+            flipRight ? rotateGizmoOffset : -rotateGizmoOffset,
+            flipUp ? rotateGizmoOffset : -rotateGizmoOffset,
+            0.0f
+    };
+    const BeetCircle circleUpOuter{
+            .origin = vec3f(vec2f{upCircleOffset.x, upCircleOffset.y} * vec2f(glm::length(vec3(mdlUp[0])), glm::length(vec3(mdlUp[1]))), 0),
+            .radius = rotateGizmoSize * glm::length(vec3(mdlUp[0])),
+            .normal = upRightRect.normal,
+            .up = upRightRect.up,
+    };
+
+    const BeetCircle circleUpInner{
+            .origin = vec3f(vec2f{upCircleOffset.x, upCircleOffset.y} * vec2f(glm::length(vec3(mdlUp[0])), glm::length(vec3(mdlUp[1]))), 0),
+            .radius = (rotateGizmoSize - 0.1f) * glm::length(vec3(mdlUp[0])),
+            .normal = upRightRect.normal,
+            .up = upRightRect.up,
+    };
+
+
+    const vec3f forwardUpNormal = vec3f(0.0f, 0.0f, 1.0f);
+    const float forwardUpAngle = flipRight ? ((glm::pi<float>() / 2) * 3) : (glm::pi<float>() / 2); // i.e. 3/4 TAU : 1/4 TAU
+    const mat4 mdlRight = rotate(model, forwardUpAngle, forwardUpNormal);
+    const vec3 forwardUpOffset = vec3f{
+            0.0f,
+            flipUp ? -rotateGizmoOffset : rotateGizmoOffset,
+            flipForward ? rotateGizmoOffset : -rotateGizmoOffset
+    };
+    const BeetRect forwardUpRect{
+            .center = mat4f_extract_position(translate(model, forwardUpOffset)),
+            .halfExtents = gizmoRectHalfSize * vec2f(glm::length(vec3(mdlRight[0])), glm::length(vec3(mdlRight[1]))),
+            .normal = forwardUpRectNormal,
+            .up = mat4f_extract_up(model),
+    };
+    const vec3f forwardCircleOffset = vec3f{
+            flipForward ? -rotateGizmoOffset : rotateGizmoOffset,
+            flipUp ? rotateGizmoOffset : -rotateGizmoOffset,
+            0.0f
+    };
+    const float forwardUpAngleCircle = !flipForward ? (glm::pi<float>() / 2) : ((glm::pi<float>() / 2) * 3); // i.e. 1/4 TAU : 3/4 TAU
+    const mat4 mdlRightCircle = rotate(model, forwardUpAngleCircle, {0, 1, 0});
+    const BeetCircle circleForwardOuter{
+            .origin = vec3f(vec2f{forwardCircleOffset.x, forwardCircleOffset.y} * vec2f(glm::length(vec3(mdlRightCircle[0])), glm::length(vec3(mdlRightCircle[1]))), 0),
+            .radius = rotateGizmoSize * glm::length(vec3(mdlRightCircle[0])),
+            .normal = forwardUpRect.normal,
+            .up = forwardUpRect.up,
+    };
+    const BeetCircle circleForwardInner{
+            .origin = vec3f(vec2f{forwardCircleOffset.x, forwardCircleOffset.y} * vec2f(glm::length(vec3(mdlRightCircle[0])), glm::length(vec3(mdlRightCircle[1]))), 0),
+            .radius = (rotateGizmoSize - 0.1f) * glm::length(vec3(mdlRightCircle[0])),
+            .normal = forwardUpRect.normal,
+            .up = forwardUpRect.up,
+    };
+
+
+    const vec3f forwardRightNormal = vec3f(1.0f, 0.0f, 0.0f);
+    const float forwardRightAngle = flipForward ? (glm::pi<float>() / 2) : ((glm::pi<float>() / 2) * 3); // i.e. 1/4 TAU : 3/4 TAU
+    const mat4 mdlForward = rotate(model, forwardRightAngle, forwardRightNormal);
+    const vec3 forwardRightOffset = vec3f{
+            flipRight ? rotateGizmoOffset : -rotateGizmoOffset,
+            0.0f,
+            flipForward ? rotateGizmoOffset : -rotateGizmoOffset
+    };
+    const BeetRect forwardRightRect{
+            .center = mat4f_extract_position(translate(model, forwardRightOffset)),
+            .halfExtents = gizmoRectHalfSize * vec2f(glm::length(vec3(mdlForward[0])), glm::length(vec3(mdlForward[1]))),
+            .normal = forwardRightRectNormal,
+            .up = mat4f_extract_right(model),
+    };
+    const vec3f rightCircleOffset = vec3f{
+            flipForward ? rotateGizmoOffset : -rotateGizmoOffset,
+            flipRight ? -rotateGizmoOffset : rotateGizmoOffset,
+            0.0f
+    };
+    const mat4 mdlUpCircle = mdlForward;
+    const BeetCircle circleRightOuter{
+            .origin = vec3f(vec2f{rightCircleOffset.x, rightCircleOffset.y} * vec2f(glm::length(vec3(mdlUpCircle[0])), glm::length(vec3(mdlUpCircle[1]))), 0),
+            .radius = rotateGizmoSize * glm::length(vec3(mdlUpCircle[0])),
+            .normal = forwardRightRect.normal,
+            .up = forwardRightRect.up,
+    };
+    const BeetCircle circleRightInner{
+            .origin = vec3f(vec2f{rightCircleOffset.x, rightCircleOffset.y} * vec2f(glm::length(vec3(mdlUpCircle[0])), glm::length(vec3(mdlUpCircle[1]))), 0),
+            .radius = (rotateGizmoSize - 0.1f) * glm::length(vec3(mdlUpCircle[0])),
+            .normal = forwardRightRect.normal,
+            .up = forwardRightRect.up,
+    };
+
+
+    ray_circle_in_rect_intersection(ray, forwardRightRect, circleRightOuter, hitResultRightOuter);
+    ray_circle_in_rect_intersection(ray, forwardRightRect, circleRightInner, hitResultRightInner);
+
+    ray_circle_in_rect_intersection(ray, forwardUpRect, circleForwardOuter, hitResultForwardOuter);
+    ray_circle_in_rect_intersection(ray, forwardUpRect, circleForwardInner, hitResultForwardInner);
+
+    ray_circle_in_rect_intersection(ray, upRightRect, circleUpOuter, hitResultUpOuter);
+    ray_circle_in_rect_intersection(ray, upRightRect, circleUpInner, hitResultUpInner);
+
+    bool isInsideRightArc = !hitResultRightInner.collided && hitResultRightOuter.collided;
+    bool isRightInsideArc = !hitResultForwardInner.collided && hitResultForwardOuter.collided;
+    bool isUpInsideArc = !hitResultUpInner.collided && hitResultUpOuter.collided;
+
+    const uint32_t LineArcSelected = isInsideRightArc ? 0x88FF88FF : RGBA_GREEN;
+    const uint32_t PolylineArcSelected = isInsideRightArc ? 0x88FF8880 : RGBA_GREEN_LOW_ALPHA;
+    draw_arc({}, 1.0f, LineArcSelected, mdlUpCircle, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
+    draw_arc({}, 0.9f, LineArcSelected, mdlUpCircle, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
+    draw_arc_polyline({}, 0.95f, PolylineArcSelected, mdlUpCircle, 0.25f, flipRight ? 0.0f : 0.25f, 36, 0.1f, false);
+
+    const uint32_t rightLineArcSelected = isRightInsideArc ? 0xFF8888FF : RGBA_RED;
+    const uint32_t rightPolylineArcSelected = isRightInsideArc ? 0xFF888880 : RGBA_RED_LOW_ALPHA;
+    draw_arc({}, 1.0f, rightLineArcSelected, mdlRightCircle, 0.25f, flipUp ? 0.75f : 0.0f, 36, 3.0f);
+    draw_arc({}, 0.9f, rightLineArcSelected, mdlRightCircle, 0.25f, flipUp ? 0.75f : 0.0f, 36, 3.0f);
+    draw_arc_polyline({}, 0.95f, rightPolylineArcSelected, mdlRightCircle, 0.25f, !flipUp ? 0.0f : 0.75f, 36, 0.1f, false);
+
+    const uint32_t upLineArcSelected = isUpInsideArc ? 0x8888FFFF : RGBA_BLUE;
+    const uint32_t upPolylineArcSelected = isUpInsideArc ? 0x8888FF80 : RGBA_BLUE_LOW_ALPHA;
+    draw_arc({}, 1.0f, upLineArcSelected, mdlUp, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
+    draw_arc({}, 0.9f, upLineArcSelected, mdlUp, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
+    draw_arc_polyline({}, 0.95f, upPolylineArcSelected, mdlUp, 0.25f, flipRight ? 0.0f : 0.25f, 36, 0.1f, false);
 }
 
 static void widget_manipulate_transform(Transform &transform) {
