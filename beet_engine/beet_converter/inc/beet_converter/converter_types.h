@@ -4,9 +4,15 @@
 #include <string>
 
 //===PUBLIC_STRUCTS=====================================================================================================
-struct ConverterFileLocations {
+struct ConverterLocations {
     std::string rawAssetDir = {};
     std::string targetAssetDir = {};
+
+    std::string vulkanSDKDir = {};
+    std::string compressonatorSDKDir = {};
+
+    std::string compressonatorCLI = {};
+    std::string glslValidatorCLI = {};
 };
 
 struct ConverterOptions {

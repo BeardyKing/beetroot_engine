@@ -11,7 +11,7 @@
 #include <glslang/Public/resource_limits_c.h>
 
 //===INTERNAL_STRUCTS===================================================================================================
-extern ConverterFileLocations g_converterDirs;
+extern ConverterLocations g_converterLocations;
 
 struct SpirVBinary {
     uint32_t *words;
@@ -104,42 +104,18 @@ static glslang_stage_t glsl_stage_from_path(const char *inPath) {
 
 //===API================================================================================================================
 bool convert_shader_spv(const char *localAssetDir) {
-    char inPath[256] = {};
-    sprintf(inPath, "%s%s", g_converterDirs.rawAssetDir.c_str(), localAssetDir);
-    char outPath[256] = {};
-    sprintf(outPath, "%s%s", g_converterDirs.targetAssetDir.c_str(), localAssetDir);
+    const std::string inPath = std::format("{}{}", g_converterLocations.rawAssetDir, localAssetDir);
+    const std::string outPath = std::format("{}{}", g_converterLocations.targetAssetDir, localAssetDir);
+    const std::string cmd = std::format("{} {} {} {}", g_converterLocations.glslValidatorCLI, "-V -o", outPath, inPath);
 
-    if (!fs_file_exists(inPath)) {
+    if (!fs_file_exists(inPath.c_str())) {
         return false;
     }
 
-    if (!converter_cache_check_needs_convert(outPath, inPath)) {
-        return true;
+    if (converter_cache_check_needs_convert(outPath.c_str(), inPath.c_str())) {
+        log_info(MSG_CONVERTER, "shader: %s \n", outPath.c_str());
+        system(cmd.c_str());
     }
-
-    if (FILE *fp = fopen(inPath, "r")) {
-        size_t fileSize = fs_file_size(inPath);
-        char *shader = (char *) mem_zalloc(fileSize);
-        fread(shader, fileSize, 1, fp);
-        fclose(fp);
-        fp = nullptr;
-
-        const glslang_stage_t stage = glsl_stage_from_path(localAssetDir);
-        glslang_initialize_process();
-        SpirVBinary spvCode = {.words = nullptr, .size = 0};
-        spvCode = compile_shader_to_SPIRV_vulkan_alloc(stage, shader, localAssetDir);
-        glslang_finalize_process();
-        mem_free(shader);
-        if (spvCode.words) {
-            fs_mkdir_recursive(outPath);
-            fp = fopen(outPath, "wb");
-            fwrite((char *) spvCode.words, spvCode.size * sizeof(*spvCode.words), 1, fp);
-            fclose(fp);
-            fp = nullptr;
-            mem_free(spvCode.words);
-            return true;
-        }
-    }
-    return false;
+    return true;
 }
 //======================================================================================================================

@@ -25,7 +25,6 @@ target_include_directories(beet_pipeline
 add_subdirectory(third/fmt)
 
 
-
 #===C_GLTF
 project(c_gltf)
 add_library(c_gltf INTERFACE)
@@ -36,12 +35,14 @@ set(ISPC_COMPILER_LOCATION $ENV{ISPC_COMPILER_LOCATION})
 set(ISPC_COMPILER_TARGET "avx2")
 add_subdirectory(third/ispc_texture_compressor_cmake)
 
+#===COMPRESSONATOR
+
+
 target_link_libraries(beet_pipeline
         beet_shared
         beet_converter
         ispc_texture_compressor
         c_gltf
-        rapidjson
         fmt::fmt
 )
 

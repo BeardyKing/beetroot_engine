@@ -7,7 +7,7 @@
 
 #include <beet_pipeline/pipeline_commandlines.h>
 #include <beet_shared/assert.h>
-#include <beet_pipeline/shader_compile.h>
+#include <beet_shared/texture_formats.h>
 #include <beet_converter/converter_interface.h>
 
 // investigate https://github.com/floooh/sokol-samples/blob/master/sapp/cgltf-sapp.c
@@ -43,17 +43,23 @@ void gltf_parsing_tests() {
     }
 }
 
-void build_spv_from_source() {
-    {
-        ASSERT(convert_shader_spv("assets/shaders/indirectdraw/indirectdraw.frag"));
-        ASSERT(convert_shader_spv("assets/shaders/indirectdraw/indirectdraw.vert"));
+void convert_required_shaders() {
+    ASSERT(convert_shader_spv("assets/shaders/lit/lit.frag"));
+    ASSERT(convert_shader_spv("assets/shaders/lit/lit.vert"));
 
-        ASSERT(convert_shader_spv("assets/shaders/lit/lit.frag"));
-        ASSERT(convert_shader_spv("assets/shaders/lit/lit.vert"));
+    ASSERT(convert_shader_spv("assets/shaders/sky/sky.frag"));
+    ASSERT(convert_shader_spv("assets/shaders/sky/sky.vert"));
 
-        ASSERT(convert_shader_spv("assets/shaders/sky/sky.frag"));
-        ASSERT(convert_shader_spv("assets/shaders/sky/sky.vert"));
-    }
+    ASSERT(convert_shader_spv("assets/shaders/line/line.frag"));
+    ASSERT(convert_shader_spv("assets/shaders/line/line.vert"));
+
+    ASSERT(convert_shader_spv("assets/shaders/triangle_strip/triangle_strip.frag"));
+    ASSERT(convert_shader_spv("assets/shaders/triangle_strip/triangle_strip.vert"));
+}
+
+void convert_required_textures() {
+    convert_texture_dds("assets/textures/UV_Grid/UV_Grid_test", ".png", TextureFormat::BC7);
+    convert_texture_dds("assets/textures/sky/herkulessaulen_2k", ".exr", TextureFormat::BC6H);
 }
 
 int main(int argc, char **argv) {
@@ -65,5 +71,6 @@ int main(int argc, char **argv) {
     converter_init(BEET_CMAKE_PIPELINE_ASSETS_DIR, BEET_CMAKE_RUNTIME_ASSETS_DIR);
     converter_option_set_ignore_cache(commandline_get_arg(CLArgs::ignoreConvertCache).enabled);
 
-    build_spv_from_source();
+//    convert_required_shaders();
+    convert_required_textures();
 }

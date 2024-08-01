@@ -7,16 +7,24 @@
 #include <string>
 
 //===INTERNAL_STRUCTS===================================================================================================
-ConverterFileLocations g_converterDirs;
+ConverterLocations g_converterLocations;
 ConverterOptions g_converterOptions;
 //======================================================================================================================
 
 //===API================================================================================================================
 bool converter_init(const char *rawAssetDir, const char *targetAssetDir) {
-    g_converterDirs.rawAssetDir = rawAssetDir;
-    g_converterDirs.targetAssetDir = targetAssetDir;
+    g_converterLocations.rawAssetDir = rawAssetDir;
+    g_converterLocations.targetAssetDir = targetAssetDir;
+    g_converterLocations.compressonatorSDKDir = getenv("COMPRESSONATOR_ROOT");
+    g_converterLocations.vulkanSDKDir = getenv("VULKAN_SDK");
 
-    if (g_converterDirs.rawAssetDir.empty() || g_converterDirs.targetAssetDir.empty()) {
+    g_converterLocations.compressonatorCLI = std::format("{}{}", g_converterLocations.compressonatorSDKDir, "\\bin\\CLI\\compressonatorcli.exe");
+    g_converterLocations.glslValidatorCLI = std::format("{}{}", g_converterLocations.vulkanSDKDir, "\\Bin\\glslangValidator.exe");
+
+    if (g_converterLocations.rawAssetDir.empty() ||
+        g_converterLocations.targetAssetDir.empty() ||
+        g_converterLocations.compressonatorSDKDir.empty() ||
+        g_converterLocations.vulkanSDKDir.empty()) {
         SANITY_CHECK();
         return false;
     }

@@ -15,9 +15,9 @@ oct_map_test
     Author:        Kingsley Hopking
 
 Herkulessäulen
-    File:          herkulessaulen_4k
+    File:          herkulessaulen_2k
     Dir:           assets/textures/sky/
-    Format:        .hdr
+    Format:        .exr
     Licence:       CC0
     Licence link:  https://polyhaven.com/license
     Download link: https://polyhaven.com/a/herkulessaulen
