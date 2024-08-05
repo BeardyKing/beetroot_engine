@@ -14,15 +14,6 @@
 	path = beet_engine/beet_gfx/third/imgui
 	url = https://github.com/ocornut/imgui.git
 	branch = docking
-[submodule "beet_engine/beet_converter/third/glslang"]
-	path = beet_engine/beet_converter/third/glslang
-	url = https://github.com/KhronosGroup/glslang.git
-[submodule "beet_engine/beet_converter/third/SPIRV-Headers"]
-	path = beet_engine/beet_converter/third/SPIRV-Headers
-	url = https://github.com/KhronosGroup/SPIRV-Headers.git
-[submodule "beet_engine/beet_converter/third/SPIRV-Tools"]
-	path = beet_engine/beet_converter/third/SPIRV-Tools
-	url = https://github.com/KhronosGroup/SPIRV-Tools.git
 [submodule "beet_pipeline/third/rapidjson"]
 	path = beet_pipeline/third/rapidjson
 	url = https://github.com/Tencent/rapidjson.git
