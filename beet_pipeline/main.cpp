@@ -59,7 +59,8 @@ void convert_required_shaders() {
 
 void convert_required_textures() {
     convert_texture_dds("assets/textures/UV_Grid/UV_Grid_test", ".png", TextureFormat::BC7);
-    convert_texture_dds("assets/textures/sky/herkulessaulen_2k", ".exr", TextureFormat::BC6H);
+    convert_texture_dds("assets/textures/oct_map/oct_map_test", ".png", TextureFormat::BC7);
+    convert_texture_dds("assets/textures/sky/herkulessaulen_4k-octahedral", ".exr", TextureFormat::BC6H);
 }
 
 int main(int argc, char **argv) {

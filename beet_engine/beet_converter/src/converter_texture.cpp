@@ -48,6 +48,7 @@ bool convert_texture_dds(const char *localAssetDir, const char *inFileFormat, co
     const std::string inPath = std::format("{}{}{}", g_converterLocations.rawAssetDir, localAssetDir, inFileFormat);
     const std::string outPath = std::format("{}{}.dds", g_converterLocations.targetAssetDir, localAssetDir);
 
+    fs_mkdir_recursive(outPath.c_str());
     const std::string cmd = std::format(
             "{} -fd {} {} {} {} {} {} {}",
             g_converterLocations.compressonatorCLI,

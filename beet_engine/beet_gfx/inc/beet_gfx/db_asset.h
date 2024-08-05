@@ -5,6 +5,9 @@
 #include <beet_gfx/gfx_types.h>
 #include <beet_shared/beet_types.h>
 
+void db_cleanup_pools();
+void db_dump_pool_alloc_table();
+
 //===CAMERA=============================================================================================================
 #define MAX_DB_CAMERAS 1
 

@@ -107,6 +107,7 @@ bool convert_shader_spv(const char *localAssetDir) {
     const std::string inPath = std::format("{}{}", g_converterLocations.rawAssetDir, localAssetDir);
     const std::string outPath = std::format("{}{}", g_converterLocations.targetAssetDir, localAssetDir);
     const std::string cmd = std::format("{} {} {} {}", g_converterLocations.glslValidatorCLI, "-V -o", outPath, inPath);
+    fs_mkdir_recursive(outPath.c_str());
 
     if (!fs_file_exists(inPath.c_str())) {
         return false;

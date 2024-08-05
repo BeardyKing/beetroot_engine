@@ -94,7 +94,7 @@ static void lit_entities_create() {
 
     //===ENTITY_MESH==============================================
     {
-        const Transform transform = {.position{2, 0, -8}};
+        const Transform transform = {.position{2, 0, -8}, .rotation{0,45,0}};
         const LitEntity defaultCube = {
                 .transformIndex = db_add_transform(transform),
                 .meshIndex = cubeID,

@@ -3,11 +3,13 @@
 #include <beet_gfx/gfx_samplers.h>
 #include <beet_gfx/gfx_utils.h>
 #include <beet_gfx/gfx_command.h>
+#include <beet_gfx/gfx_converter.h>
 
 #include <beet_shared/texture_formats.h>
 #include <beet_shared/dds_loader.h>
 #include <beet_shared/assert.h>
 #include <beet_shared/memory.h>
+#include <beet_shared/filesystem.h>
 
 #include <vulkan/vulkan_core.h>
 
@@ -140,6 +142,10 @@ static void set_image_layout(
 
 //===API================================================================================================================
 void gfx_texture_create_immediate_dds(const char *path, GfxTexture &inOutTexture) {
+#if BEET_CONVERT_ON_DEMAND
+    gfx_convert_texture_dds(path);
+#endif
+
     if(inOutTexture.imageSamplerType == TextureSamplerType::Invalid){
         inOutTexture.imageSamplerType = TextureSamplerType::LinearRepeat;
     }

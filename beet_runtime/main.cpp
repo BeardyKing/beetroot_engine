@@ -7,6 +7,7 @@
 
 #include <beet_gfx/gfx_interface.h>
 #include <beet_gfx/gfx_imgui.h>
+#include <beet_gfx/db_asset.h>
 
 #include <runtime/entity_builder.h>
 #include <runtime/script_camera.h>
@@ -35,7 +36,6 @@ int main() {
     input_create();
     gfx_create(window_get_handle());
     entities_create();
-
     log_info(MSG_RUNTIME, "hello beetroot engine\n");
     while (window_is_open()) {
         time_tick();
@@ -53,6 +53,7 @@ int main() {
     input_cleanup();
     time_cleanup();
     window_cleanup();
+    db_cleanup_pools();
 #if BEET_MEMORY_DEBUG
     mem_dump_memory_info();
     mem_validate_empty();

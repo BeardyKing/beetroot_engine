@@ -8,6 +8,7 @@
 //===API================================================================================================================
 void gfx_converter_init(const char *rawAssetDir, const char *targetAssetDir);
 bool gfx_convert_shader_spv(const char *localAssetPath);
+bool gfx_convert_texture_dds(const char *localAssetPath);
 //======================================================================================================================
 #endif //BEET_CONVERT_ON_DEMAND
 
