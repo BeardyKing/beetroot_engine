@@ -913,11 +913,11 @@ static void gfx_update_uniform_buffers() {
     const vec3f camForward = glm::quat(camTransform.rotation) * WORLD_FORWARD;
     const vec3f lookTarget = camTransform.position + camForward;
 
-    const mat4 view = lookAt(camTransform.position, lookTarget, WORLD_UP);
+    const mat4f view = lookAt(camTransform.position, lookTarget, WORLD_UP);
     const vec2f screen = {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
-    mat4 proj = perspective(as_radians(camera.fov), (float) screen.x / (float) screen.y, camera.zNear, camera.zFar);
+    mat4f proj = perspective(as_radians(camera.fov), (float) screen.x / (float) screen.y, camera.zNear, camera.zFar);
     proj[1][1] *= -1; // flip view proj, need to switch to the vulkan glm define to fix this.
-    mat4 viewProj = proj * view;
+    mat4f viewProj = proj * view;
 
     const SceneUBO uniformBuffData{
             .projection = proj,

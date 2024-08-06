@@ -11,6 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 using mat4f = mat<4, 4, float, glm::defaultp>;
+constexpr mat4f MAT4F_IDENTITY = glm::identity<mat4f>();
 
 //===API================================================================================================================
 vec3f mat4f_extract_up(const mat4f &matrix);

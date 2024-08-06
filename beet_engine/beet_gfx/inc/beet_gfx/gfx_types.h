@@ -18,8 +18,8 @@
 //===GPU_TYPES========================================================================================================
 //TODO: add infra to include this type in shader code.
 struct SceneUBO {
-    mat4 projection;
-    mat4 view;
+    mat4f projection;
+    mat4f view;
     vec3f position;
     float unused_0;
 };

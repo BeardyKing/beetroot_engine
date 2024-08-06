@@ -31,12 +31,6 @@ struct CameraEntity {
 #endif //BEET_DEBUG
 };
 
-struct Transform {
-    vec3f position{0.0f, 0.0f, 0.0f};
-    vec3f rotation{0.0f, 0.0f, 0.0f};
-    vec3f scale{1.0f, 1.0f, 1.0f};
-};
-
 struct Camera {
     float fov{60.0f};
     float zNear{0.1f};

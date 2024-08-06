@@ -11,6 +11,7 @@
 
 #include <beet_shared/defer.h>
 #include <beet_shared/beet_types.h>
+#include <beet_shared/shared_utils.h>
 #include <beet_shared/assert.h>
 
 #include <beet_gfx/gfx_line.h>
@@ -254,7 +255,8 @@ struct BeetCircle {
 
 
 void draw_arc(const vec3f &center,
-              float radius, uint32_t color,
+              float radius,
+              uint32_t color,
               const mat4 &modelTransform,
               const float arcPercent = 1.0f,
               const float startOffsetPercent = 0.0f,
@@ -320,8 +322,7 @@ void draw_arc_polyline(const vec3f &center,
     gfx_triangle_strip_add_segment_immediate(vertices);
 }
 
-
-static bool ray_rect_intersection(const Ray &ray, const BeetRect &rect, Hit &outHit) {
+static bool ray_rect_intersection(const Ray &ray, const BeetRect &rect, Hit &outHit, bool drawDebug = false) {
     if (ray_plane_intersection(ray, rect.center, rect.normal, outHit)) {
         ASSERT_MSG(rect.normal != rect.up, "Err: normal & rect can't match, if they do right will be NaN i.e. normalize(vec3f(0,0,0) == vec3f(NaN,NaN,NaN)");
         const vec3f right = glm::normalize(glm::cross(rect.normal, rect.up));
@@ -333,7 +334,9 @@ static bool ray_rect_intersection(const Ray &ray, const BeetRect &rect, Hit &out
 
         outHit.collided = (std::abs(localX) > rect.halfExtents.x || std::abs(localY) > rect.halfExtents.y) ? false : true;
     }
-    draw_line_rect(rect, outHit.collided);
+    if (drawDebug) {
+        draw_line_rect(rect, outHit.collided);
+    }
     return outHit.collided;
 }
 
@@ -758,7 +761,6 @@ void set_closest_hovered(const Hit &hitResultForward,
 }
 
 static void widget_manipulate_rotate(Transform &transform) {
-
     constexpr uint32_t RGBA_BLUE = 0x3333FFFF;
     constexpr uint32_t RGBA_BLUE_LOW_ALPHA = 0x3333FF80;
 
@@ -773,13 +775,14 @@ static void widget_manipulate_rotate(Transform &transform) {
     const Camera &camera = *db_get_camera(camEntity.cameraIndex);
 
     const float constantSizeScale = 1.0f * (glm::distance(cameraTransform.position, transform.position) / tanf(camera.fov) / 2.0f);
-    mat4 model = mat4(1.0f);
+    mat4f model = MAT4F_IDENTITY;
 
     if (s_manipulatorIsWorldSpace) {
-        model = translate(mat4(1.0f), transform.position) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
+        model = transform_model_matrix_no_rotation(transform);
     } else {
-        model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
+        model = transform_model_matrix(transform);
     }
+    model = scale(model, vec3(-constantSizeScale));
 
     const vec3f forwardUpRectNormal = glm::normalize(vec3f(model * vec4f(1.0f, 0.0f, 0.0f, 0.0f)));
     const vec3f upRightRectNormal = glm::normalize(vec3f(model * vec4f(0.0f, 0.0f, 1.0f, 0.0f)));
@@ -919,27 +922,84 @@ static void widget_manipulate_rotate(Transform &transform) {
     ray_circle_in_rect_intersection(ray, upRightRect, circleUpOuter, hitResultUpOuter);
     ray_circle_in_rect_intersection(ray, upRightRect, circleUpInner, hitResultUpInner);
 
-    bool isInsideRightArc = !hitResultRightInner.collided && hitResultRightOuter.collided;
-    bool isRightInsideArc = !hitResultForwardInner.collided && hitResultForwardOuter.collided;
+    bool isRightInsideArc = !hitResultRightInner.collided && hitResultRightOuter.collided;
+    bool isForwardInsideArc = !hitResultForwardInner.collided && hitResultForwardOuter.collided;
     bool isUpInsideArc = !hitResultUpInner.collided && hitResultUpOuter.collided;
 
-    const uint32_t LineArcSelected = isInsideRightArc ? 0x88FF88FF : RGBA_GREEN;
-    const uint32_t PolylineArcSelected = isInsideRightArc ? 0x88FF8880 : RGBA_GREEN_LOW_ALPHA;
-    draw_arc({}, 1.0f, LineArcSelected, mdlUpCircle, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
-    draw_arc({}, 0.9f, LineArcSelected, mdlUpCircle, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
-    draw_arc_polyline({}, 0.95f, PolylineArcSelected, mdlUpCircle, 0.25f, flipRight ? 0.0f : 0.25f, 36, 0.1f, false);
+    static bool isRotating = false;
+    if (input_mouse_released(MouseButton::Left)) {
+        isRotating = false;
+    }
+    static vec3f rotationAxis = {};
+    static vec2i mousePositionOnClick = {};
+    static Transform transformOnClick = {};
+    static uint32_t selectedLineColour = 0xFF00FF00;
 
-    const uint32_t rightLineArcSelected = isRightInsideArc ? 0xFF8888FF : RGBA_RED;
-    const uint32_t rightPolylineArcSelected = isRightInsideArc ? 0xFF888880 : RGBA_RED_LOW_ALPHA;
-    draw_arc({}, 1.0f, rightLineArcSelected, mdlRightCircle, 0.25f, flipUp ? 0.75f : 0.0f, 36, 3.0f);
-    draw_arc({}, 0.9f, rightLineArcSelected, mdlRightCircle, 0.25f, flipUp ? 0.75f : 0.0f, 36, 3.0f);
-    draw_arc_polyline({}, 0.95f, rightPolylineArcSelected, mdlRightCircle, 0.25f, !flipUp ? 0.0f : 0.75f, 36, 0.1f, false);
+    if (!isRotating) {
+        const uint32_t LineArcSelected = isRightInsideArc ? 0x88FF88FF : RGBA_GREEN;
+        const uint32_t PolylineArcSelected = isRightInsideArc ? 0x88FF8880 : RGBA_GREEN_LOW_ALPHA;
+        draw_arc({}, 1.0f, LineArcSelected, mdlUpCircle, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
+        draw_arc({}, 0.9f, LineArcSelected, mdlUpCircle, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
+        draw_arc_polyline({}, 0.95f, PolylineArcSelected, mdlUpCircle, 0.25f, flipRight ? 0.0f : 0.25f, 36, 0.1f, false);
 
-    const uint32_t upLineArcSelected = isUpInsideArc ? 0x8888FFFF : RGBA_BLUE;
-    const uint32_t upPolylineArcSelected = isUpInsideArc ? 0x8888FF80 : RGBA_BLUE_LOW_ALPHA;
-    draw_arc({}, 1.0f, upLineArcSelected, mdlUp, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
-    draw_arc({}, 0.9f, upLineArcSelected, mdlUp, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
-    draw_arc_polyline({}, 0.95f, upPolylineArcSelected, mdlUp, 0.25f, flipRight ? 0.0f : 0.25f, 36, 0.1f, false);
+        const uint32_t rightLineArcSelected = isForwardInsideArc ? 0xFF8888FF : RGBA_RED;
+        const uint32_t rightPolylineArcSelected = isForwardInsideArc ? 0xFF888880 : RGBA_RED_LOW_ALPHA;
+        draw_arc({}, 1.0f, rightLineArcSelected, mdlRightCircle, 0.25f, flipUp ? 0.75f : 0.0f, 36, 3.0f);
+        draw_arc({}, 0.9f, rightLineArcSelected, mdlRightCircle, 0.25f, flipUp ? 0.75f : 0.0f, 36, 3.0f);
+        draw_arc_polyline({}, 0.95f, rightPolylineArcSelected, mdlRightCircle, 0.25f, !flipUp ? 0.0f : 0.75f, 36, 0.1f, false);
+
+        const uint32_t upLineArcSelected = isUpInsideArc ? 0x8888FFFF : RGBA_BLUE;
+        const uint32_t upPolylineArcSelected = isUpInsideArc ? 0x8888FF80 : RGBA_BLUE_LOW_ALPHA;
+        draw_arc({}, 1.0f, upLineArcSelected, mdlUp, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
+        draw_arc({}, 0.9f, upLineArcSelected, mdlUp, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
+        draw_arc_polyline({}, 0.95f, upPolylineArcSelected, mdlUp, 0.25f, flipRight ? 0.0f : 0.25f, 36, 0.1f, false);
+    } else {
+        const float circleSize = 1 * constantSizeScale;
+        const float lineSize = 1.2f * constantSizeScale;
+
+        Transform tmp = transformOnClick;
+        Transform tmpCurrent = transform;
+        transform_rotate(tmp, 90, rotationAxis, s_manipulatorIsWorldSpace);
+        transform_rotate(tmpCurrent, 90, rotationAxis, s_manipulatorIsWorldSpace);
+        draw_arc({}, circleSize, 0xFFFFFF3F, transform_model_matrix(tmp), 1, 0, 90, 1.0f);
+        draw_arc({}, circleSize, 0xFFFFFF00, transform_model_matrix(tmpCurrent), 1, 0, 90, 1.0f);
+        draw_line_box(transform_model_matrix(tmp), vec3f{0, lineSize, 0}, colour_set_alpha(selectedLineColour, 0x1F), 3.0f);
+        draw_line_box(transform_model_matrix(tmpCurrent), vec3f{0, lineSize, 0}, selectedLineColour, 3.0f);
+    }
+
+    constexpr float rotationSpeed = 0.25f; // TODO:EDITOR: Expose this value
+    constexpr float rotationSnappingDegrees = 15.0f; // TODO:EDITOR: Expose this value
+    if (isRotating) {
+        float xDiff = float(input_mouse_position().x - mousePositionOnClick.x);
+        float yDiff = float(input_mouse_position().y - mousePositionOnClick.y);
+        float xyDiff = (xDiff + yDiff) * rotationSpeed;
+        if (input_key_down(KeyCode::Control)) {
+            xyDiff = align_to(xyDiff, rotationSnappingDegrees);
+        }
+        Transform tmp = transformOnClick;
+        transform_rotate(tmp, xyDiff, rotationAxis, s_manipulatorIsWorldSpace);
+        transform.rotation = tmp.rotation;
+    }
+
+    if (input_mouse_pressed(MouseButton::Left)) {
+        mousePositionOnClick = input_mouse_position();
+        transformOnClick = transform;
+        if (isRightInsideArc) {
+            rotationAxis = WORLD_UP;
+            isRotating = true;
+            selectedLineColour = RGBA_GREEN_LOW_ALPHA;
+        }
+        if (isForwardInsideArc) {
+            rotationAxis = WORLD_RIGHT;
+            isRotating = true;
+            selectedLineColour = RGBA_RED_LOW_ALPHA;
+        }
+        if (isUpInsideArc) {
+            rotationAxis = WORLD_FORWARD;
+            isRotating = true;
+            selectedLineColour = RGBA_BLUE_LOW_ALPHA;
+        }
+    }
 }
 
 static void widget_manipulate_transform(Transform &transform) {
@@ -949,12 +1009,12 @@ static void widget_manipulate_transform(Transform &transform) {
 
     const float constantSizeScale = 1.0f * (glm::distance(cameraTransform.position, transform.position) / tanf(camera.fov) / 2.0f);
     mat4 model = mat4(1.0f);
-
     if (s_manipulatorIsWorldSpace) {
-        model = translate(mat4(1.0f), transform.position) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
+        model = transform_model_matrix_no_rotation(transform);
     } else {
-        model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(glm::mat4(1.0f), vec3(-constantSizeScale));
+        model = transform_model_matrix(transform);
     }
+    model = scale(model, vec3(-constantSizeScale));
 
     const vec3f forwardUpRectNormal = glm::normalize(vec3f(model * vec4f(1.0f, 0.0f, 0.0f, 0.0f)));
     const vec3f upRightRectNormal = glm::normalize(vec3f(model * vec4f(0.0f, 0.0f, 1.0f, 0.0f)));

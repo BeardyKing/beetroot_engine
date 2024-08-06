@@ -9,12 +9,13 @@
 #include <beet_shared/beet_types.h>
 
 #include <beet_math/quat.h>
+#include <beet_math/transform.h>
 
 #include <vulkan/vulkan_core.h>
 
 //===INTERNAL_STRUCTS===================================================================================================
 struct LitPushConstantBuffer {
-    mat4 model;
+    mat4f model;
 };
 
 static struct VulkanLit {
@@ -177,7 +178,7 @@ void gfx_lit_draw(VkCommandBuffer &cmdBuffer) {
         vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxLit.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
 
-        const mat4 model = translate(mat4(1.0f), transform.position) * toMat4(quat(transform.rotation)) * scale(mat4(1.0f), transform.scale);
+        const mat4f model = transform_model_matrix(transform);
         const LitPushConstantBuffer pushConstantBuffer = {model};
         vkCmdPushConstants(cmdBuffer, g_gfxLit.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(LitPushConstantBuffer), &pushConstantBuffer);
 

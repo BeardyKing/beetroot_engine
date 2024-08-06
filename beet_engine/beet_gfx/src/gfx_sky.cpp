@@ -16,7 +16,7 @@
 
 //===INTERNAL_STRUCTS===================================================================================================
 struct SkyPushConstantBuffer {
-    mat4 model;
+    mat4f model;
 };
 
 static struct VulkanLit {
@@ -205,7 +205,7 @@ void gfx_sky_draw(VkCommandBuffer &cmdBuffer) {
         vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxSky.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
         vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_gfxSky.pipeline);
 
-        const mat4 model = glm::identity<mat4>(); // TODO: remove push constants from sky and add identity matrix to shader.
+        const mat4f model = MAT4F_IDENTITY; // TODO: remove push constants from sky and add identity matrix to shader.
         const SkyPushConstantBuffer pushConstantBuffer = {model};
         vkCmdPushConstants(cmdBuffer, g_gfxSky.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SkyPushConstantBuffer), &pushConstantBuffer);
 

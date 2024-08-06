@@ -4,6 +4,7 @@
 #include <vulkan/vulkan_core.h>
 #include <beet_gfx/gfx_types.h>
 #include <beet_shared/beet_types.h>
+#include <beet_math/transform.h>
 
 void db_cleanup_pools();
 void db_dump_pool_alloc_table();
