@@ -1,16 +1,42 @@
 #include <beet_math/transform.h>
 
-mat4 transform_model_matrix(const Transform &transform) {
-    return mat4{
+mat4f transform_model_matrix_position(const Transform &transform) {
+    return mat4f{translate(MAT4F_IDENTITY, transform.position)};
+}
+
+mat4f transform_model_matrix_rotation(const Transform &transform) {
+    return mat4f{translate(MAT4F_IDENTITY, transform.position)};
+}
+
+mat4f transform_model_matrix_scale(const Transform &transform) {
+    return mat4{scale(MAT4F_IDENTITY, transform.scale)};
+}
+
+mat4f transform_model_matrix(const Transform &transform) {
+    return mat4f{
             translate(MAT4F_IDENTITY, transform.position) *
             toMat4(quat(radians(transform.rotation))) *
             scale(MAT4F_IDENTITY, transform.scale)
     };
 }
 
-mat4 transform_model_matrix_no_rotation(const Transform &transform) {
+mat4f transform_model_matrix_no_rotation(const Transform &transform) {
+    return mat4f{
+            translate(MAT4F_IDENTITY, transform.position) *
+            scale(MAT4F_IDENTITY, transform.scale)
+    };
+}
+
+mat4f transform_model_matrix_no_scale(const Transform &transform) {
     return mat4{
             translate(MAT4F_IDENTITY, transform.position) *
+            toMat4(quat(radians(transform.rotation)))
+    };
+}
+
+mat4f transform_model_matrix_no_position(const Transform &transform) {
+    return mat4{
+            toMat4(quat(radians(transform.rotation))) *
             scale(MAT4F_IDENTITY, transform.scale)
     };
 }

@@ -16,6 +16,15 @@ float align_to(float value, float alignment) {
     return aligned_value;
 }
 
+vec3f align_to(vec3f value, float alignment) {
+    ASSERT_MSG(alignment > 0, "Err: Alignment must be a positive non-zero value")
+    return vec3f{
+            align_to(value.x, alignment),
+            align_to(value.y, alignment),
+            align_to(value.z, alignment),
+    };
+}
+
 uint32_t count_set_bits(const uint32_t n) {
     uint32_t target = n;
     uint32_t count = 0;

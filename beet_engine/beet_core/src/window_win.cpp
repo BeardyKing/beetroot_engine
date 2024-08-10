@@ -76,11 +76,19 @@ static LRESULT CALLBACK window_procedure_callback(HWND hwnd, UINT uMsg, WPARAM w
         }
             //input
         case WM_KEYDOWN: {
-            input_key_down_callback((char) wParam);
+            input_key_down_callback((int32_t) wParam);
             break;
         };
         case WM_KEYUP: {
-            input_key_up_callback((char) wParam);
+            input_key_up_callback((int32_t) wParam);
+            break;
+        };
+        case WM_SYSKEYDOWN : {
+            input_key_down_callback((int32_t) wParam);
+            break;
+        };
+        case WM_SYSKEYUP : {
+            input_key_up_callback((int32_t) wParam);
             break;
         };
         case WM_INPUT: {

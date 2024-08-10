@@ -1,11 +1,13 @@
 #ifndef BEETROOT_SHARED_UTILS_H
 #define BEETROOT_SHARED_UTILS_H
 
+#include <beet_math/vec3.h>
 #include <cstdint>
 
 //===API================================================================================================================
 size_t align_to(size_t value, size_t alignment);
 float align_to(float value, float alignment);
+vec3f align_to(vec3f value, float alignment);
 
 uint32_t count_set_bits(uint32_t n);
 

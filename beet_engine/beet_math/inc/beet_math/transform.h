@@ -16,8 +16,13 @@ void transform_rotate(Transform &transform, float angleDegrees, const vec3f &axi
 void transform_rotate_local(Transform &transform, float angleDegrees, const vec3f &axis);
 void transform_rotate_world(Transform &transform, float angleDegrees, const vec3f &axis);
 
-mat4 transform_model_matrix(const Transform &transform);
-mat4 transform_model_matrix_no_rotation(const Transform &transform);
+mat4f transform_model_matrix(const Transform &transform);
+mat4f transform_model_matrix_position(const Transform &transform);
+mat4f transform_model_matrix_rotation(const Transform &transform);
+mat4f transform_model_matrix_scale(const Transform &transform);
+mat4f transform_model_matrix_no_position(const Transform &transform);
+mat4f transform_model_matrix_no_rotation(const Transform &transform);
+mat4f transform_model_matrix_no_scale(const Transform &transform);
 //======================================================================================================================
 
 #endif //BEETROOT_TRANSFORM_H

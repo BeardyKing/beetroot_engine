@@ -32,31 +32,45 @@ enum Manipulator : uint32_t {
 };
 
 static Manipulator s_manipulator = Manipulator_None;
+static bool s_translateGizmoInUse = false;
+static bool s_rotateGizmoInUse = false;
+
 static bool s_manipulatorIsWorldSpace = true;
-static bool s_gizmoInUse = false;
+
+static bool s_manipulatorIsSnapping = false;
+static float s_manipulatorSnappingAmount = 0.25f;
+
+static bool s_manipulatorIsAngleSnapping = false;
+static float s_manipulatorAngleSnappingAmount = 5.0f;
 //======================================================================================================================
 
 //===INTERNAL_FUNCTIONS=================================================================================================
 static void widget_switch_between_manipulators() {
-
-    if (s_gizmoInUse) {
-        return;
+    if (input_key_pressed(KeyCode::Control) || input_key_released(KeyCode::Control)) {
+        s_manipulatorIsSnapping = !s_manipulatorIsSnapping;
+        s_manipulatorIsAngleSnapping = !s_manipulatorIsAngleSnapping;
     }
-
-    if (input_key_down(KeyCode::N1)) {
-        s_manipulator = Manipulator_None;
-    }
-    if (input_key_down(KeyCode::N2)) {
-        s_manipulator = Manipulator_Translate;
-    }
-    if (input_key_down(KeyCode::N3)) {
-        s_manipulator = Manipulator_Rotate;
-    }
-    if (input_key_down(KeyCode::N4)) {
         s_manipulator = Manipulator_Scale;
+    if (!s_translateGizmoInUse) {
+        //TODO:EDITOR: Switching between local & global does not work correctly for the translate gizmo.
+        if (input_key_pressed(KeyCode::T)) {
+            s_manipulatorIsWorldSpace = !s_manipulatorIsWorldSpace;
+        }
     }
-    if (input_key_pressed(KeyCode::T)) {
-        s_manipulatorIsWorldSpace = !s_manipulatorIsWorldSpace;
+
+    if (!s_translateGizmoInUse && !s_rotateGizmoInUse) {
+        if (input_key_down(KeyCode::N1)) {
+            s_manipulator = Manipulator_None;
+        }
+        if (input_key_down(KeyCode::N2)) {
+            s_manipulator = Manipulator_Translate;
+        }
+        if (input_key_down(KeyCode::N3)) {
+            s_manipulator = Manipulator_Rotate;
+        }
+        if (input_key_down(KeyCode::N4)) {
+            s_manipulator = Manipulator_Scale;
+        }
     }
 
     const ImGuiStyle style = ImGui::GetStyle();
@@ -74,7 +88,7 @@ static void widget_switch_between_manipulators() {
     DEFER([] { ImGui::PopStyleColor(2); });
 
     const float iconSize = ImGui::CalcTextSize("A").y;
-    const uint32_t itemCount = 7;
+    const uint32_t itemCount = 11;
     const ImVec2 toolbarItemSize = ImVec2{iconSize * 2.0f, iconSize * 2.0f};
     const ImVec2 toolbarSize = {toolbarItemSize.x + windowPadding * 2.0f, toolbarItemSize.y * itemCount + windowPadding * 2.0f};
     ImGui::SetNextWindowSize(toolbarSize);
@@ -113,6 +127,37 @@ static void widget_switch_between_manipulators() {
         if (ImGui::Selectable(s_manipulatorIsWorldSpace ? ICON_FA_GLOBE_AFRICA : ICON_FA_CUBE, false, selectableFlags, toolbarItemSize)) {
             s_manipulatorIsWorldSpace = !s_manipulatorIsWorldSpace;
         };
+
+        ImGui::NewLine();
+        ImGui::Separator();
+        ImGui::NewLine();
+
+        if (ImGui::Selectable(ICON_FA_RULER_COMBINED, s_manipulatorIsSnapping, selectableFlags, toolbarItemSize)) {
+            s_manipulatorIsSnapping = !s_manipulatorIsSnapping;
+        };
+
+        {
+            constexpr ImVec4 IMGUI_GREY_TEXT_COLOUR = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(ImGui::GetStyle().FramePadding.x, 0.0f));
+            DEFER([] { ImGui::PopStyleVar(); });
+            if (s_manipulatorIsSnapping) {
+                ImGui::DragFloat("##widget_input_snapping_amount", &s_manipulatorSnappingAmount, 0.05f, 0.05f, FLT_MAX);
+            } else {
+                ImGui::TextColored(IMGUI_GREY_TEXT_COLOUR, "%.2f", s_manipulatorSnappingAmount);
+            }
+
+            if (ImGui::Selectable(ICON_FA_DRAFTING_COMPASS, s_manipulatorIsAngleSnapping, selectableFlags, toolbarItemSize)) {
+                s_manipulatorIsAngleSnapping = !s_manipulatorIsAngleSnapping;
+            };
+            if (s_manipulatorIsAngleSnapping) {
+                ImGui::DragFloat("##widget_input_rotation_snapping_amount", &s_manipulatorAngleSnappingAmount, 0.05f, 0.05f, FLT_MAX);
+            } else {
+                ImGui::TextColored(IMGUI_GREY_TEXT_COLOUR, "%.2f", s_manipulatorAngleSnappingAmount);
+            }
+        }
+        ImGui::NewLine();
+        ImGui::Separator();
+        ImGui::NewLine();
     }
     ImGui::End();
 }
@@ -174,10 +219,11 @@ struct Hit {
     vec3f intersectionPoint = vec3f{0.0f, 0.0f, 0.0f};
 };
 
-static bool ray_plane_intersection(const Ray &ray, const vec3f &planePoint, const vec3f &planeNormal, Hit &outHit) {
+static bool ray_plane_intersection(const Ray &ray, const vec3f &planePoint, const vec3f &planeNormal, Hit &outHit, const bool isSnapping,
+                                   const float snappingAmount) {
     const float denom = glm::dot(ray.direction, planeNormal);
 
-    if (glm::abs(denom) < std::numeric_limits<float>::epsilon()) {
+    if (abs(denom) < std::numeric_limits<float>::epsilon()) {
         return false;
     }
 
@@ -188,6 +234,13 @@ static bool ray_plane_intersection(const Ray &ray, const vec3f &planePoint, cons
     }
 
     outHit.intersectionPoint = ray.origin + outHit.distance * ray.direction;
+
+    if (isSnapping) {
+        outHit.intersectionPoint.x = round(outHit.intersectionPoint.x / snappingAmount) * snappingAmount;
+        outHit.intersectionPoint.y = round(outHit.intersectionPoint.y / snappingAmount) * snappingAmount;
+        outHit.intersectionPoint.z = round(outHit.intersectionPoint.z / snappingAmount) * snappingAmount;
+    }
+
     return (outHit.collided = true);
 }
 
@@ -323,7 +376,7 @@ void draw_arc_polyline(const vec3f &center,
 }
 
 static bool ray_rect_intersection(const Ray &ray, const BeetRect &rect, Hit &outHit, bool drawDebug = false) {
-    if (ray_plane_intersection(ray, rect.center, rect.normal, outHit)) {
+    if (ray_plane_intersection(ray, rect.center, rect.normal, outHit, false, 0.0f)) {
         ASSERT_MSG(rect.normal != rect.up, "Err: normal & rect can't match, if they do right will be NaN i.e. normalize(vec3f(0,0,0) == vec3f(NaN,NaN,NaN)");
         const vec3f right = glm::normalize(glm::cross(rect.normal, rect.up));
         const vec3f up = glm::normalize(glm::cross(right, rect.normal));
@@ -498,7 +551,9 @@ screen_to_ray(const int32_t mouseX, const int32_t mouseY, const int32_t screenWi
     return {.origin = cameraTransform.position, .direction = direction};
 }
 
-static vec3f closest_point_on_line_segment_from_ray(const vec3f &rayOrigin, const vec3f &rayDirection, const vec3f &linePoint, const vec3f &lineDirection, float maxLength) {
+static vec3f closest_point_on_line_segment_from_ray(const vec3f &rayOrigin, const vec3f &rayDirection, const vec3f &linePoint, const vec3f &lineDirection, float maxLength,
+                                                    const bool applySnapping,
+                                                    const float snappingAmount) {
     const vec3f r = rayOrigin - linePoint;
     const float a = glm::dot(rayDirection, rayDirection);
     const float b = glm::dot(rayDirection, lineDirection);
@@ -511,12 +566,16 @@ static vec3f closest_point_on_line_segment_from_ray(const vec3f &rayOrigin, cons
         return linePoint;
     }
 
-    const float t2 = (a * e - b * d) / denominator;
+    float t2 = (a * e - b * d) / denominator;
+    if (applySnapping) {
+        t2 = align_to(t2, snappingAmount);
+    }
     const vec3f closestPoint = linePoint + t2 * lineDirection;
     return closestPoint;
 }
 
-static void gizmo_translate_object_2_axis(Transform &transform, const Ray &ray, const vec3f &planeNormal, const bool isGizmoSelected, bool &isGrabbing) {
+static void gizmo_translate_object_2_axis(Transform &transform, const Ray &ray, const vec3f &planeNormal, const bool isGizmoSelected, bool &isGrabbing, const bool isSnapping,
+                                          const float snappingAmount) {
     static vec3f initialOffset = {};
     static vec3f initialPosition = {};
 
@@ -526,31 +585,35 @@ static void gizmo_translate_object_2_axis(Transform &transform, const Ray &ray, 
             initialPosition = {};
             isGrabbing = true;
             Hit hitResult = {};
-            if (ray_plane_intersection(ray, transform.position, planeNormal, hitResult)) {
+            if (ray_plane_intersection(ray, transform.position, planeNormal, hitResult, isSnapping, snappingAmount)) {
                 initialOffset = transform.position - hitResult.intersectionPoint;
                 initialPosition = transform.position;
             }
         }
 
         Hit hitResult = {};
-        if (ray_plane_intersection(ray, transform.position, planeNormal, hitResult)) {
+        if (ray_plane_intersection(ray, transform.position, planeNormal, hitResult, isSnapping, snappingAmount)) {
             transform.position = hitResult.intersectionPoint + initialOffset;
             gfx_line_add_segment_immediate({initialPosition, 0xFFFFFF00}, {transform.position, 0xFFFFFF00});
         }
     }
 }
 
-static void gizmo_translate_object_1_axis(Transform &transform, const Ray &ray, const vec3f moveAxisConstraint, const bool isGizmoSelected, bool isGrabbing) {
+static void gizmo_translate_object_1_axis(Transform &transform, const Ray &ray, const vec3f moveAxisConstraint, const bool isGizmoSelected, bool isGrabbing, const bool isSnapping,
+                                          const float snappingAmount) {
     if (isGizmoSelected) {
         static vec3f initialOffset = {};
+        static vec3f initialOffsetSnapped = {};
         static vec3f initialPosition = {};
         if (!isGrabbing) {
             initialOffset = {};
             isGrabbing = true;
             const vec3f forwardDirection = moveAxisConstraint;
             const vec3f forwardStart = transform.position;
-            const vec3f closestPoint = closest_point_on_line_segment_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection, 10.0f);
+            const vec3f closestPoint = closest_point_on_line_segment_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection, 10.0f, false, 0);
+            const vec3f closestPointSnapped = closest_point_on_line_segment_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection, 10.0f, true, snappingAmount);
             if (forwardStart != closestPoint) {
+                initialOffsetSnapped = transform.position - closestPointSnapped;
                 initialOffset = transform.position - closestPoint;
                 initialPosition = transform.position;
             }
@@ -558,13 +621,13 @@ static void gizmo_translate_object_1_axis(Transform &transform, const Ray &ray, 
 
         const vec3f forwardDirection = moveAxisConstraint;
         const vec3f forwardStart = transform.position;
-        const vec3f closestPoint = closest_point_on_line_segment_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection, 10.0f);
+        const vec3f closestPoint = closest_point_on_line_segment_from_ray(ray.origin, ray.direction, forwardStart, forwardDirection, 10.0f, isSnapping, snappingAmount);
         const vec3f projectedPoint = forwardStart + forwardDirection * glm::dot(closestPoint - forwardStart, forwardDirection);
         gfx_line_add_segment_immediate({initialPosition, 0xAAAAAAC0}, {initialPosition + (forwardDirection * 100.0f), 0xAAAAAA01});
         gfx_line_add_segment_immediate({initialPosition, 0xAAAAAAC0}, {initialPosition - (forwardDirection * 100.0f), 0xAAAAAA01});
 
         if (forwardStart != closestPoint) {
-            transform.position = projectedPoint + initialOffset;
+            transform.position = projectedPoint + (isSnapping ? initialOffsetSnapped : initialOffset);
             gfx_line_add_segment_immediate({initialPosition, 0xFFFFFF00}, {transform.position, 0xFFFFFF00});
         }
     }
@@ -778,9 +841,9 @@ static void widget_manipulate_rotate(Transform &transform) {
     mat4f model = MAT4F_IDENTITY;
 
     if (s_manipulatorIsWorldSpace) {
-        model = transform_model_matrix_no_rotation(transform);
+        model = transform_model_matrix_position(transform);
     } else {
-        model = transform_model_matrix(transform);
+        model = transform_model_matrix_no_scale(transform);
     }
     model = scale(model, vec3(-constantSizeScale));
 
@@ -926,16 +989,15 @@ static void widget_manipulate_rotate(Transform &transform) {
     bool isForwardInsideArc = !hitResultForwardInner.collided && hitResultForwardOuter.collided;
     bool isUpInsideArc = !hitResultUpInner.collided && hitResultUpOuter.collided;
 
-    static bool isRotating = false;
     if (input_mouse_released(MouseButton::Left)) {
-        isRotating = false;
+        s_rotateGizmoInUse = false;
     }
     static vec3f rotationAxis = {};
     static vec2i mousePositionOnClick = {};
     static Transform transformOnClick = {};
     static uint32_t selectedLineColour = 0xFF00FF00;
 
-    if (!isRotating) {
+    if (!s_rotateGizmoInUse) {
         const uint32_t LineArcSelected = isRightInsideArc ? 0x88FF88FF : RGBA_GREEN;
         const uint32_t PolylineArcSelected = isRightInsideArc ? 0x88FF8880 : RGBA_GREEN_LOW_ALPHA;
         draw_arc({}, 1.0f, LineArcSelected, mdlUpCircle, 0.25f, flipRight ? 0.0f : 0.25f, 36, 3.0f);
@@ -961,23 +1023,21 @@ static void widget_manipulate_rotate(Transform &transform) {
         Transform tmpCurrent = transform;
         transform_rotate(tmp, 90, rotationAxis, s_manipulatorIsWorldSpace);
         transform_rotate(tmpCurrent, 90, rotationAxis, s_manipulatorIsWorldSpace);
-        draw_arc({}, circleSize, 0xFFFFFF3F, transform_model_matrix(tmp), 1, 0, 90, 1.0f);
-        draw_arc({}, circleSize, 0xFFFFFF00, transform_model_matrix(tmpCurrent), 1, 0, 90, 1.0f);
-        draw_line_box(transform_model_matrix(tmp), vec3f{0, lineSize, 0}, colour_set_alpha(selectedLineColour, 0x1F), 3.0f);
-        draw_line_box(transform_model_matrix(tmpCurrent), vec3f{0, lineSize, 0}, selectedLineColour, 3.0f);
+        draw_arc({}, circleSize, 0xFFFFFF3F, transform_model_matrix_no_scale(tmp), 1, 0, 90, 1.0f);
+        draw_arc({}, circleSize, 0xFFFFFF00, transform_model_matrix_no_scale(tmpCurrent), 1, 0, 90, 1.0f);
+        draw_line_box(transform_model_matrix_no_scale(tmp), vec3f{0, lineSize, 0}, colour_set_alpha(selectedLineColour, 0x1F), 3.0f);
+        draw_line_box(transform_model_matrix_no_scale(tmpCurrent), vec3f{0, lineSize, 0}, selectedLineColour, 3.0f);
     }
 
-    constexpr float rotationSpeed = 0.25f; // TODO:EDITOR: Expose this value
-    constexpr float rotationSnappingDegrees = 15.0f; // TODO:EDITOR: Expose this value
-    if (isRotating) {
-        float xDiff = float(input_mouse_position().x - mousePositionOnClick.x);
-        float yDiff = float(input_mouse_position().y - mousePositionOnClick.y);
-        float xyDiff = (xDiff + yDiff) * rotationSpeed;
-        if (input_key_down(KeyCode::Control)) {
-            xyDiff = align_to(xyDiff, rotationSnappingDegrees);
+    constexpr float rotationSpeed = 0.25f;
+    if (s_rotateGizmoInUse) {
+        const float xDiff = float(input_mouse_position().x - mousePositionOnClick.x);
+        float rotationChange = xDiff * rotationSpeed;
+        if (s_manipulatorIsAngleSnapping) {
+            rotationChange = align_to(rotationChange, s_manipulatorAngleSnappingAmount);
         }
         Transform tmp = transformOnClick;
-        transform_rotate(tmp, xyDiff, rotationAxis, s_manipulatorIsWorldSpace);
+        transform_rotate(tmp, rotationChange, rotationAxis, s_manipulatorIsWorldSpace);
         transform.rotation = tmp.rotation;
     }
 
@@ -986,17 +1046,17 @@ static void widget_manipulate_rotate(Transform &transform) {
         transformOnClick = transform;
         if (isRightInsideArc) {
             rotationAxis = WORLD_UP;
-            isRotating = true;
+            s_rotateGizmoInUse = true;
             selectedLineColour = RGBA_GREEN_LOW_ALPHA;
         }
         if (isForwardInsideArc) {
             rotationAxis = WORLD_RIGHT;
-            isRotating = true;
+            s_rotateGizmoInUse = true;
             selectedLineColour = RGBA_RED_LOW_ALPHA;
         }
         if (isUpInsideArc) {
             rotationAxis = WORLD_FORWARD;
-            isRotating = true;
+            s_rotateGizmoInUse = true;
             selectedLineColour = RGBA_BLUE_LOW_ALPHA;
         }
     }
@@ -1010,9 +1070,9 @@ static void widget_manipulate_transform(Transform &transform) {
     const float constantSizeScale = 1.0f * (glm::distance(cameraTransform.position, transform.position) / tanf(camera.fov) / 2.0f);
     mat4 model = mat4(1.0f);
     if (s_manipulatorIsWorldSpace) {
-        model = transform_model_matrix_no_rotation(transform);
+        model = transform_model_matrix_position(transform);
     } else {
-        model = transform_model_matrix(transform);
+        model = transform_model_matrix_no_scale(transform);
     }
     model = scale(model, vec3(-constantSizeScale));
 
@@ -1035,10 +1095,10 @@ static void widget_manipulate_transform(Transform &transform) {
     static bool forwardRightIsSelected = false;
     static bool forwardUpIsSelected = false;
 
-    s_gizmoInUse = (forwardIsSelected || upIsSelected || rightIsSelected || upRightIsSelected || forwardRightIsSelected || forwardUpIsSelected);
+    s_translateGizmoInUse = (forwardIsSelected || upIsSelected || rightIsSelected || upRightIsSelected || forwardRightIsSelected || forwardUpIsSelected);
 
     if (input_mouse_released(MouseButton::Left)) {
-        s_gizmoInUse = false;
+        s_translateGizmoInUse = false;
         forwardIsSelected = false;
         upIsSelected = false;
         rightIsSelected = false;
@@ -1144,7 +1204,7 @@ static void widget_manipulate_transform(Transform &transform) {
     };
 
 
-    if (!s_gizmoInUse) {
+    if (!s_translateGizmoInUse) {
         ray_rect_intersection(ray, upRightRect, hitResultUpRight);
         ray_rect_intersection(ray, forwardRightRect, hitResultForwardRight);
         ray_rect_intersection(ray, forwardUpRect, hitResultForwardUp);
@@ -1216,7 +1276,7 @@ static void widget_manipulate_transform(Transform &transform) {
     const uint32_t FORWARD_UP_GIZMO_COLOUR = forwardUpHovered ? RGBA_RED : RGBA_RED_HOVERED;
     const uint32_t FORWARD_UP_GIZMO_COLOUR_ALPHA = forwardUpHovered ? 0xFF666660 : 0xFF000060;
 
-    if (s_gizmoInUse) {
+    if (s_translateGizmoInUse) {
         if (upRightIsSelected) {
             draw_grid(lastHitRect.center, lastHitRect.normal, 1, 60, 1, 0xAAAAAA70);
         }
@@ -1245,13 +1305,13 @@ static void widget_manipulate_transform(Transform &transform) {
     draw_poly_rect(forwardUpRect, FORWARD_UP_GIZMO_COLOUR_ALPHA);
 
 
-    gizmo_translate_object_2_axis(transform, ray, upRightRectNormal, upRightIsSelected, s_gizmoInUse);
-    gizmo_translate_object_2_axis(transform, ray, forwardUpRectNormal, forwardUpIsSelected, s_gizmoInUse);
-    gizmo_translate_object_2_axis(transform, ray, forwardRightRectNormal, forwardRightIsSelected, s_gizmoInUse);
+    gizmo_translate_object_2_axis(transform, ray, upRightRectNormal, upRightIsSelected, s_translateGizmoInUse, s_manipulatorIsSnapping, s_manipulatorSnappingAmount);
+    gizmo_translate_object_2_axis(transform, ray, forwardUpRectNormal, forwardUpIsSelected, s_translateGizmoInUse, s_manipulatorIsSnapping, s_manipulatorSnappingAmount);
+    gizmo_translate_object_2_axis(transform, ray, forwardRightRectNormal, forwardRightIsSelected, s_translateGizmoInUse, s_manipulatorIsSnapping, s_manipulatorSnappingAmount);
 
-    gizmo_translate_object_1_axis(transform, ray, upTranslateNormal, upIsSelected, s_gizmoInUse);
-    gizmo_translate_object_1_axis(transform, ray, rightTranslateNormal, rightIsSelected, s_gizmoInUse);
-    gizmo_translate_object_1_axis(transform, ray, forwardTranslateNormal, forwardIsSelected, s_gizmoInUse);
+    gizmo_translate_object_1_axis(transform, ray, upTranslateNormal, upIsSelected, s_translateGizmoInUse, s_manipulatorIsSnapping, s_manipulatorSnappingAmount);
+    gizmo_translate_object_1_axis(transform, ray, rightTranslateNormal, rightIsSelected, s_translateGizmoInUse, s_manipulatorIsSnapping, s_manipulatorSnappingAmount);
+    gizmo_translate_object_1_axis(transform, ray, forwardTranslateNormal, forwardIsSelected, s_translateGizmoInUse, s_manipulatorIsSnapping, s_manipulatorSnappingAmount);
 }
 //======================================================================================================================
 
@@ -1301,7 +1361,6 @@ void widget_manipulate_update(bool &enabled) {
         } else {
             NOT_IMPLEMENTED();
         }
-        //do gizmo draw
     }
 }
 //======================================================================================================================
