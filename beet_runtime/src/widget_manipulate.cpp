@@ -34,8 +34,9 @@ enum Manipulator : uint32_t {
 static Manipulator s_manipulator = Manipulator_None;
 static bool s_translateGizmoInUse = false;
 static bool s_rotateGizmoInUse = false;
+static bool s_scaleGizmoInUse = false;
 
-static bool s_manipulatorIsWorldSpace = true;
+static bool s_manipulatorIsWorldSpace = false;
 
 static bool s_manipulatorIsSnapping = false;
 static float s_manipulatorSnappingAmount = 0.25f;
@@ -50,7 +51,6 @@ static void widget_switch_between_manipulators() {
         s_manipulatorIsSnapping = !s_manipulatorIsSnapping;
         s_manipulatorIsAngleSnapping = !s_manipulatorIsAngleSnapping;
     }
-        s_manipulator = Manipulator_Scale;
     if (!s_translateGizmoInUse) {
         //TODO:EDITOR: Switching between local & global does not work correctly for the translate gizmo.
         if (input_key_pressed(KeyCode::T)) {
@@ -58,7 +58,7 @@ static void widget_switch_between_manipulators() {
         }
     }
 
-    if (!s_translateGizmoInUse && !s_rotateGizmoInUse) {
+    if (!s_translateGizmoInUse && !s_rotateGizmoInUse && !s_scaleGizmoInUse) {
         if (input_key_down(KeyCode::N1)) {
             s_manipulator = Manipulator_None;
         }
@@ -768,6 +768,29 @@ void draw_square(const glm::vec3 &center, float size, uint32_t color, const mat4
     gfx_triangle_strip_add_segment_immediate(vertices);
 }
 
+void draw_cube(const vec3f &center, float size, uint32_t color, const mat4f &modelTransform) {
+    std::vector<LinePoint3D> vertices = {
+            LinePoint3D{center + vec3f{-size, +size, +size,}, color},    // Front-top-left
+            LinePoint3D{center + vec3f{+size, +size, +size,}, color},    // Front-top-right
+            LinePoint3D{center + vec3f{-size, -size, +size,}, color},    // Front-bottom-left
+            LinePoint3D{center + vec3f{+size, -size, +size,}, color},    // Front-bottom-right
+            LinePoint3D{center + vec3f{+size, -size, -size,}, color},    // Back-bottom-right
+            LinePoint3D{center + vec3f{+size, +size, +size,}, color},    // Front-top-right
+            LinePoint3D{center + vec3f{+size, +size, -size,}, color},    // Back-top-right
+            LinePoint3D{center + vec3f{-size, +size, +size,}, color},    // Front-top-left
+            LinePoint3D{center + vec3f{-size, +size, -size,}, color},    // Back-top-left
+            LinePoint3D{center + vec3f{-size, -size, +size,}, color},    // Front-bottom-left
+            LinePoint3D{center + vec3f{-size, -size, -size,}, color},    // Back-bottom-left
+            LinePoint3D{center + vec3f{+size, -size, -size,}, color},    // Back-bottom-right
+            LinePoint3D{center + vec3f{-size, +size, -size,}, color},    // Back-top-left
+            LinePoint3D{center + vec3f{+size, +size, -size,}, color},    // Back-top-right
+    };
+    for (auto &p: vertices) {
+        p.position = vec3f(modelTransform * vec4f(p.position, 1));
+    }
+    gfx_triangle_strip_add_segment_immediate(vertices);
+}
+
 bool orientation_dot_test(const glm::vec3 &gizmoPosition, const glm::vec3 &cameraPosition, const vec3f referenceDirection) {
     glm::vec3 gizmoToCamera = glm::normalize(cameraPosition - gizmoPosition);
     const float dotProduct = glm::dot(referenceDirection, gizmoToCamera);
@@ -820,6 +843,194 @@ void set_closest_hovered(const Hit &hitResultForward,
 
     if (closestHit) {
         closestHit->isHovered = true;
+    }
+}
+
+static void widget_manipulate_scale(Transform &transform) {
+    const CameraEntity &camEntity = *db_get_camera_entity(0);
+    const Transform &cameraTransform = *db_get_transform(camEntity.transformIndex);
+    const Camera &camera = *db_get_camera(camEntity.cameraIndex);
+
+    const float constantSizeScale = 1.0f * (glm::distance(cameraTransform.position, transform.position) / tanf(camera.fov) / 2.0f);
+    mat4 model = mat4(1.0f);
+    if (s_manipulatorIsWorldSpace) {
+        model = transform_model_matrix_position(transform);
+    } else {
+        model = transform_model_matrix_no_scale(transform);
+    }
+    model = scale(model, vec3(-constantSizeScale));
+
+    const vec3f forwardUpRectNormal = glm::normalize(vec3f(model * vec4f(1.0f, 0.0f, 0.0f, 0.0f)));
+    const vec3f upRightRectNormal = glm::normalize(vec3f(model * vec4f(0.0f, 0.0f, 1.0f, 0.0f)));
+    const vec3f forwardRightRectNormal = glm::normalize(vec3f(model * vec4f(0.0f, 1.0f, 0.0f, 0.0f)));
+
+    const vec3f upTranslateNormal = glm::normalize(mat4f_extract_rotation_quat(model) * WORLD_UP);
+    const vec3f rightTranslateNormal = glm::normalize(mat4f_extract_rotation_quat(model) * WORLD_RIGHT);
+    const vec3f forwardTranslateNormal = glm::normalize(mat4f_extract_rotation_quat(model) * WORLD_FORWARD);
+
+    const bool flipUp = orientation_dot_test(transform.position, cameraTransform.position, -mat4f_extract_up(model));
+    const bool flipRight = orientation_dot_test(transform.position, cameraTransform.position, mat4f_extract_right(model));
+    const bool flipForward = orientation_dot_test(transform.position, cameraTransform.position, mat4f_extract_forward(model));
+
+    static bool forwardIsSelected = false;
+    static bool upIsSelected = false;
+    static bool rightIsSelected = false;
+
+    s_scaleGizmoInUse = (forwardIsSelected || upIsSelected || rightIsSelected);
+
+    if (input_mouse_released(MouseButton::Left)) {
+        s_translateGizmoInUse = false;
+        forwardIsSelected = false;
+        upIsSelected = false;
+        rightIsSelected = false;
+    }
+
+    bool forwardHovered = false;
+    bool upHovered = false;
+    bool rightHovered = false;
+
+    const vec2i mousePos = input_mouse_position();
+    const vec2i screenSize = gfx_screen_size();
+
+    float tMin = {};
+    const Ray ray = screen_to_ray(mousePos.x, mousePos.y, screenSize.x, screenSize.y, camera, cameraTransform);
+
+    Hit hitResultForward = {};
+    Hit hitResultUp = {};
+    Hit hitResultRight = {};
+
+    static BeetRect lastHitRect = {};
+
+    const mat4 modelForward = translate(model, (((WORLD_FORWARD * (flipForward ? -1.0f : 1.0f)) * 0.5f)));
+    const vec3 scaleForward = {0.1f, 0.1f, 0.4f};
+    const OOBB forwardOOBB = {
+            .center = mat4f_extract_position(modelForward),
+            .extents = scaleForward * mat4f_extract_scale(modelForward),
+            .orientation = mat4f_extract_rotation_quat(modelForward),
+    };
+
+    const mat4 modelUp = translate(model, (((WORLD_UP * (flipUp ? -1.0f : 1.0f)) * 0.5f)));
+    const vec3 scaleUp = {0.1f, 0.4f, 0.1f};
+    const OOBB upOOBB = {
+            .center = mat4f_extract_position(modelUp),
+            .extents = scaleUp * mat4f_extract_scale(modelUp),
+            .orientation = mat4f_extract_rotation_quat(modelUp),
+    };
+
+    const mat4 modelRight = translate(model, (((WORLD_RIGHT * (flipRight ? -1.0f : 1.0f)) * 0.5f)));
+    const vec3 scaleRight = {0.4f, 0.1f, 0.1f};
+    const OOBB rightOOBB = {
+            .center = mat4f_extract_position(modelRight),
+            .extents = scaleRight * mat4f_extract_scale(modelRight),
+            .orientation = mat4f_extract_rotation_quat(modelRight),
+    };
+
+    const float upRightAngle = flipUp ? glm::pi<float>() : 0;
+    const vec3f upRightNormal = vec3f(1.0f, 0.0f, 0.0f);
+    const mat4 mdlUp = rotate(model, upRightAngle, upRightNormal);
+
+    const vec3f forwardUpNormal = vec3f(0.0f, 0.0f, 1.0f);
+    const float forwardUpAngle = flipRight ? ((glm::pi<float>() / 2) * 3) : (glm::pi<float>() / 2); // i.e. 3/4 TAU : 1/4 TAU
+    const mat4 mdlRight = rotate(model, forwardUpAngle, forwardUpNormal);
+
+    const vec3f forwardRightNormal = vec3f(1.0f, 0.0f, 0.0f);
+    const float forwardRightAngle = flipForward ? (glm::pi<float>() / 2) : ((glm::pi<float>() / 2) * 3); // i.e. 1/4 TAU : 3/4 TAU
+    const mat4 mdlForward = rotate(model, forwardRightAngle, forwardRightNormal);
+
+
+    if (!s_scaleGizmoInUse) {
+        ray_oob_intersection(ray, rightOOBB, hitResultRight);
+        ray_oob_intersection(ray, upOOBB, hitResultUp);
+        ray_oob_intersection(ray, forwardOOBB, hitResultForward);
+        Hit ignore = {};
+        bool hoverIgnore = {};
+        set_closest_hovered(
+                hitResultForward,
+                hitResultUp,
+                hitResultRight,
+                ignore,
+                ignore,
+                ignore,
+                forwardHovered,
+                upHovered,
+                rightHovered,
+                hoverIgnore,
+                hoverIgnore,
+                hoverIgnore
+        );
+
+        //DEBUG BOUNDS
+//        draw_line_box(modelRight, scaleRight, 0x00ff00ff, 1);
+//        draw_line_box(modelUp, scaleUp, 0x00ff00ff, 1);
+//        draw_line_box(modelForward, scaleForward, 0x00ff00ff, 1);
+    }
+
+    if (rightHovered) {
+        rightIsSelected = input_mouse_pressed(MouseButton::Left);
+    }
+    if (upHovered) {
+        upIsSelected = input_mouse_pressed(MouseButton::Left);
+    }
+    if (forwardHovered) {
+        forwardIsSelected = input_mouse_pressed(MouseButton::Left);
+    }
+
+    constexpr uint32_t BOX_GREEN_RGB = 0x66FF6600; // 0 Alpha lowers opacity when line is behind geo
+    constexpr uint32_t RGBA_RED = 0xFF3333FF;
+    constexpr uint32_t RGBA_RED_HOVERED = 0xFF9999FF;
+    constexpr uint32_t RGBA_GREEN = 0x33FF33FF;
+    constexpr uint32_t RGBA_GREEN_HOVERED = 0x99FF99FF;
+    constexpr uint32_t RGBA_BLUE = 0x3333FFFF;
+    constexpr uint32_t RGBA_BLUE_HOVERED = 0x9999FFFF;
+    constexpr uint32_t RGBA_WHITE = 0xFFFFFFFF;
+    constexpr float GIZMO_LINE_THICKNESS = 2.0f;
+
+    const uint32_t UP_GIZMO_COLOUR = upHovered ? RGBA_GREEN_HOVERED : RGBA_GREEN;
+    const uint32_t FORWARD_GIZMO_COLOUR = forwardHovered ? RGBA_BLUE_HOVERED : RGBA_BLUE;
+    const uint32_t RIGHT_GIZMO_COLOUR = rightHovered ? RGBA_RED_HOVERED : RGBA_RED;
+
+    draw_cube({0, 0, 0}, 0.07f, 0xEEEEEEFF, model);
+
+    draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, UP_GIZMO_COLOUR, mdlUp, 12);
+    draw_cube({0, 0.80f, 0}, 0.07f, UP_GIZMO_COLOUR, mdlUp);
+    draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, FORWARD_GIZMO_COLOUR, mdlForward, 12);
+    draw_cube({0, 0.80f, 0}, 0.07f, FORWARD_GIZMO_COLOUR, mdlForward);
+    draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, RIGHT_GIZMO_COLOUR, mdlRight, 12);
+    draw_cube({0, 0.80f, 0}, 0.07f, RIGHT_GIZMO_COLOUR, mdlRight);
+
+    static vec3f scaleAxis = {};
+    static vec2i mousePositionOnClick = {};
+    static Transform transformOnClick = {};
+    if (input_mouse_released(MouseButton::Left)) {
+        s_scaleGizmoInUse = false;
+    }
+    constexpr float scaleSpeed = 0.025f;
+    if (s_scaleGizmoInUse) {
+        const float xDiff = float(input_mouse_position().x - mousePositionOnClick.x);
+        float scaleChange = xDiff * scaleSpeed;
+        if (s_manipulatorIsSnapping) {
+            scaleChange = align_to(scaleChange, s_manipulatorSnappingAmount);
+        }
+        Transform tmp = transformOnClick;
+        transform_scale(tmp, scaleAxis * scaleChange, s_manipulatorIsWorldSpace);
+        transform.scale = tmp.scale;
+    }
+
+    if (input_mouse_pressed(MouseButton::Left)) {
+        mousePositionOnClick = input_mouse_position();
+        transformOnClick = transform;
+        if (upHovered) {
+            scaleAxis = WORLD_UP;
+            s_scaleGizmoInUse = true;
+        }
+        if (rightHovered) {
+            scaleAxis = -WORLD_RIGHT;
+            s_scaleGizmoInUse = true;
+        }
+        if (forwardHovered) {
+            scaleAxis = -WORLD_FORWARD;
+            s_scaleGizmoInUse = true;
+        }
     }
 }
 
@@ -1062,7 +1273,7 @@ static void widget_manipulate_rotate(Transform &transform) {
     }
 }
 
-static void widget_manipulate_transform(Transform &transform) {
+static void widget_manipulate_translate(Transform &transform) {
     const CameraEntity &camEntity = *db_get_camera_entity(0);
     const Transform &cameraTransform = *db_get_transform(camEntity.transformIndex);
     const Camera &camera = *db_get_camera(camEntity.cameraIndex);
@@ -1353,10 +1564,11 @@ void widget_manipulate_update(bool &enabled) {
         }
 
         if (s_manipulator == Manipulator_Translate) {
-            widget_manipulate_transform(*currentTransform);
+            widget_manipulate_translate(*currentTransform);
         } else if (s_manipulator == Manipulator_Rotate) {
             widget_manipulate_rotate(*currentTransform);
         } else if (s_manipulator == Manipulator_Scale) {
+            widget_manipulate_scale(*currentTransform);
         } else if (s_manipulator == Manipulator_None) {
         } else {
             NOT_IMPLEMENTED();
