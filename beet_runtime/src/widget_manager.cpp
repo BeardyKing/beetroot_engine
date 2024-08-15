@@ -3,42 +3,65 @@
 #include <runtime/widget_hotloader.h>
 #include <runtime/widget_manipulate.h>
 
+#include <beet_shared/c_string.h>
+
 #include <imgui.h>
 
 //===INTERNAL_STRUCTS===================================================================================================
-static struct WidgetState {
-    bool mainMenuActive = true;
-    bool infoActive = false;
-    bool DBActive = true;
-    bool shaderHotLoader = true;
-    bool manipulatorActive = true;
-} s_widgetState;
+enum class WidgetType : uint32_t {
+    ACTIVE_WIDGETS_MENU = 0,
+    TOOLBAR_NAVIGATION_MENU,
+    DB_POOL_MENU,
+    SHADER_HOT_RELOAD_MENU,
+    MANIPULATOR_MENU_AND_GIZMOS,
+
+    COUNT
+};
+
+struct WidgetInfo {
+    WidgetType type;
+    bool isActive = true;
+    const char name[64] = {};
+    const char toolbarTabName[64] = {};
+};
+
+static WidgetInfo s_widgets[uint32_t(WidgetType::COUNT)] = {
+        {.type = WidgetType::ACTIVE_WIDGETS_MENU, .isActive = false, .name = "Active widgets menu", .toolbarTabName = "Editor"},
+        {.type = WidgetType::TOOLBAR_NAVIGATION_MENU, .isActive = true, .name = "Navigation bar"},
+        {.type = WidgetType::DB_POOL_MENU, .isActive = true, .name = "DB pool inspector"},
+        {.type = WidgetType::SHADER_HOT_RELOAD_MENU, .isActive = true, .name = "Shader hot reload", .toolbarTabName = "Debug Tools"},
+        {.type = WidgetType::MANIPULATOR_MENU_AND_GIZMOS, .isActive = true, .name = "Manipulate menu and gizmos"},
+};
 //======================================================================================================================
 
 //===INTERNAL_FUNCTIONS=================================================================================================
 static void widget_toolbar_update() {
-    if (ImGui::BeginMainMenuBar() && s_widgetState.mainMenuActive) {
-        if (ImGui::BeginMenu("Editor")) {
-            ImGui::MenuItem("Editor Widget Info", "", &s_widgetState.infoActive);
-            ImGui::EndMenu();
-        }
-
-        if (ImGui::BeginMenu("Debug Tools")) {
-            ImGui::MenuItem("Hot-Reload: Shaders", "", &s_widgetState.shaderHotLoader);
-            ImGui::EndMenu();
+    WidgetInfo &navigationMenu = s_widgets[uint32_t(WidgetType::TOOLBAR_NAVIGATION_MENU)];
+    if (navigationMenu.isActive && ImGui::BeginMainMenuBar()) {
+        for (uint32_t i = 0; i < uint32_t(WidgetType::COUNT); ++i) {
+            WidgetInfo &info = s_widgets[i];
+            if (!c_str_empty(info.toolbarTabName)) {
+                if (ImGui::BeginMenu(info.toolbarTabName)) {
+                    ImGui::MenuItem(info.name, "", &info.isActive);
+                    ImGui::EndMenu();
+                }
+            }
         }
         ImGui::EndMainMenuBar();
     }
 }
 
 static void widget_state_update() {
-    if (s_widgetState.infoActive) {
-        ImGui::SetNextWindowSize(ImVec2(200, 100), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Widget Panel", &s_widgetState.infoActive, ImGuiWindowFlags_None);
-        {
-            ImGui::Checkbox("DB widget", &s_widgetState.DBActive);
-            ImGui::Checkbox("Manipulator widget", &s_widgetState.manipulatorActive);
+    WidgetInfo &menuWidget = s_widgets[uint32_t(WidgetType::ACTIVE_WIDGETS_MENU)];
+    if (menuWidget.isActive) {
+        ImGui::SetNextWindowSize(ImVec2(275, 200), ImGuiCond_FirstUseEver);
+        ImGui::Begin(menuWidget.name, &menuWidget.isActive, ImGuiWindowFlags_None);
+
+        for (uint32_t i = 0; i < uint32_t(WidgetType::COUNT); ++i) {
+            WidgetInfo &currentWidget = s_widgets[i];
+            ImGui::Checkbox(currentWidget.name, &currentWidget.isActive);
         }
+
         ImGui::End();
     }
 }
@@ -49,8 +72,8 @@ void widget_manager_update() {
     widget_toolbar_update();
     widget_state_update();
 
-    widget_db_update(s_widgetState.DBActive);
-    widget_manipulate_update(s_widgetState.manipulatorActive);
-    widget_hot_reload_shaders(s_widgetState.shaderHotLoader);
+    widget_db_update(s_widgets[uint32_t(WidgetType::DB_POOL_MENU)].isActive);
+    widget_manipulate_update(s_widgets[uint32_t(WidgetType::MANIPULATOR_MENU_AND_GIZMOS)].isActive);
+    widget_hot_reload_shaders(s_widgets[uint32_t(WidgetType::SHADER_HOT_RELOAD_MENU)].isActive);
 }
 //======================================================================================================================
