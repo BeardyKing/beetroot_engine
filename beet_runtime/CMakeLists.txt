@@ -17,6 +17,8 @@ add_executable(beet_runtime
         src/widget_hotloader.cpp
         inc/runtime/widget_manipulate.h
         src/widget_manipulate.cpp
+        inc/runtime/widget_memory.h
+        src/widget_memory.cpp
 )
 
 target_include_directories(beet_runtime

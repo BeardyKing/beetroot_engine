@@ -6,6 +6,27 @@
 #include <beet_shared/beet_types.h>
 #include <beet_math/transform.h>
 
+constexpr uint8_t MAX_ALLOCATION_TABLE_SIZE = UINT8_MAX;
+constexpr uint8_t MAX_ALLOCATION_NAME = 64;
+
+struct PoolInfo {
+    void *start;
+    uint32_t currentIndex;
+};
+
+struct PoolAllocInfo {
+    size_t itemSize;
+    size_t itemCount;
+    char poolName[MAX_ALLOCATION_NAME];
+};
+
+struct PoolAllocEntry {
+    PoolAllocInfo allocInfo;
+    PoolInfo *poolInfo;
+};
+
+PoolAllocEntry *db_get_allocation_table(uint32_t &outTableCount);
+
 void db_cleanup_pools();
 void db_dump_pool_alloc_table();
 

@@ -6,6 +6,7 @@
 #include <beet_shared/c_string.h>
 
 #include <imgui.h>
+#include "runtime/widget_memory.h"
 
 //===INTERNAL_STRUCTS===================================================================================================
 enum class WidgetType : uint32_t {
@@ -13,6 +14,7 @@ enum class WidgetType : uint32_t {
     TOOLBAR_NAVIGATION_MENU,
     DB_POOL_MENU,
     SHADER_HOT_RELOAD_MENU,
+    MEMORY_POOL_MENU,
     MANIPULATOR_MENU_AND_GIZMOS,
 
     COUNT
@@ -27,9 +29,12 @@ struct WidgetInfo {
 
 static WidgetInfo s_widgets[uint32_t(WidgetType::COUNT)] = {
         {.type = WidgetType::ACTIVE_WIDGETS_MENU, .isActive = false, .name = "Active widgets menu", .toolbarTabName = "Editor"},
+
+        {.type = WidgetType::SHADER_HOT_RELOAD_MENU, .isActive = false, .name = "Shader hot reload", .toolbarTabName = "Debug Tools"},
+        {.type = WidgetType::MEMORY_POOL_MENU, .isActive = false, .name = "Memory pool inspector", .toolbarTabName = "Debug Tools"},
+
         {.type = WidgetType::TOOLBAR_NAVIGATION_MENU, .isActive = true, .name = "Navigation bar"},
         {.type = WidgetType::DB_POOL_MENU, .isActive = true, .name = "DB pool inspector"},
-        {.type = WidgetType::SHADER_HOT_RELOAD_MENU, .isActive = true, .name = "Shader hot reload", .toolbarTabName = "Debug Tools"},
         {.type = WidgetType::MANIPULATOR_MENU_AND_GIZMOS, .isActive = true, .name = "Manipulate menu and gizmos"},
 };
 //======================================================================================================================
@@ -74,6 +79,7 @@ void widget_manager_update() {
 
     widget_db_update(s_widgets[uint32_t(WidgetType::DB_POOL_MENU)].isActive);
     widget_manipulate_update(s_widgets[uint32_t(WidgetType::MANIPULATOR_MENU_AND_GIZMOS)].isActive);
+    widget_memory_update(s_widgets[uint32_t(WidgetType::MEMORY_POOL_MENU)].isActive);
     widget_hot_reload_shaders(s_widgets[uint32_t(WidgetType::SHADER_HOT_RELOAD_MENU)].isActive);
 }
 //======================================================================================================================
