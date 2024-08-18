@@ -1,6 +1,6 @@
 #include <beet_shared/platform_defines.h>
 
-#if PLATFORM_LINUX
+#if CHECK_FEATURE(PLATFORM_LINUX)
 
 #include <beet_core/time.h>
 

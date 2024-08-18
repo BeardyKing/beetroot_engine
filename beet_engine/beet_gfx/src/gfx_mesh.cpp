@@ -138,7 +138,7 @@ void gfx_mesh_create_octahedron_immediate(GfxMesh &outMesh) {
     gfx_mesh_create_immediate(rawMesh, outMesh);
 }
 
-#if IN_DEV_RUNTIME_GLTF_LOADING
+#if CHECK_FEATURE(FEATURE_IN_DEV_RUNTIME_GLTF_LOADING)
 
 #include "../../../beet_pipeline/third/rapidjson/include/rapidjson/document.h"
 #include <beet_shared/filesystem.h>

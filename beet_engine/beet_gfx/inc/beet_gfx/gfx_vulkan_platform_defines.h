@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <beet_shared/platform_defines.h>
 
-#if PLATFORM_WINDOWS
+#if CHECK_FEATURE(PLATFORM_WINDOWS)
 
 #include <Windows.h>
 #include <vulkan/vulkan_win32.h>
@@ -12,7 +12,7 @@
 #define BEET_VK_SURFACE_EXTENSION VK_KHR_WIN32_SURFACE_EXTENSION_NAME
 #endif
 
-#if PLATFORM_LINUX
+#if CHECK_FEATURE(PLATFORM_LINUX)
 #include <vulkan/vulkan_wayland.h>
 
 #define BEET_VK_SURFACE_EXTENSION VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME

@@ -1,6 +1,6 @@
 #include <beet_shared/platform_defines.h>
 
-#if PLATFORM_WINDOWS
+#if CHECK_FEATURE(PLATFORM_WINDOWS)
 
 #include <beet_shared/filesystem.h>
 #include <beet_shared/c_string.h>
@@ -24,7 +24,7 @@ bool fs_file_exists(const char *path) {
     return (stat(path, &buffer) == 0);
 }
 
-size_t fs_file_size(const char* path){
+size_t fs_file_size(const char *path) {
     struct stat buffer{};
     stat(path, &buffer);
     return buffer.st_size;

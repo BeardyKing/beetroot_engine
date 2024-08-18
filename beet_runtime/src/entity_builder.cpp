@@ -25,7 +25,7 @@ static void primary_camera_entity_create() {
 
 static void lit_entities_create() {
     //===MESH=====================================================
-#if IN_DEV_RUNTIME_GLTF_LOADING
+#if CHECK_FEATURE(FEATURE_IN_DEV_RUNTIME_GLTF_LOADING)
     std::vector<uint32_t> dbGltfMeshIds = {};
     std::vector<GfxMesh> gltfMeshes = gfx_mesh_load_gltf();
     dbGltfMeshIds.reserve(gltfMeshes.size());
@@ -104,7 +104,7 @@ static void lit_entities_create() {
     }
     //============================================================
 
-#if IN_DEV_RUNTIME_GLTF_LOADING
+#if CHECK_FEATURE(FEATURE_IN_DEV_RUNTIME_GLTF_LOADING)
     //===ENTITY_MESH==============================================
     {
         for (int i = 0; i < gltfMeshes.size(); ++i) {

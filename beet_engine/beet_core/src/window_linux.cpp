@@ -1,6 +1,6 @@
 #include <beet_shared/platform_defines.h>
 
-#if PLATFORM_LINUX
+#if CHECK_FEATURE(PLATFORM_LINUX)
 
 #include <beet_core/window.h>
 #include <beet_core/input_types.h>

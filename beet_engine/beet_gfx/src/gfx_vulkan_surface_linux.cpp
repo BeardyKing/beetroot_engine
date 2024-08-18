@@ -1,6 +1,6 @@
 #include <beet_shared/platform_defines.h>
 
-#if PLATFORM_LINUX
+#if CHECK_FEATURE(PLATFORM_LINUX)
 
 #include <beet_gfx/gfx_vulkan_surface.h>
 #include <beet_shared/assert.h>
