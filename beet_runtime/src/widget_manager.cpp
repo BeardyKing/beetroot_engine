@@ -4,18 +4,23 @@
 #include <runtime/widget_manipulate.h>
 
 #include <beet_shared/c_string.h>
+#include <runtime/widget_memory.h>
+#include <beet_gfx/gfx_imgui.h>
 
 #include <imgui.h>
-#include "runtime/widget_memory.h"
 
 //===INTERNAL_STRUCTS===================================================================================================
 enum class WidgetType : uint32_t {
     ACTIVE_WIDGETS_MENU = 0,
-    TOOLBAR_NAVIGATION_MENU,
-    DB_POOL_MENU,
+
     SHADER_HOT_RELOAD_MENU,
     MEMORY_POOL_MENU,
+
+    TOOLBAR_NAVIGATION_MENU,
+    DB_POOL_MENU,
     MANIPULATOR_MENU_AND_GIZMOS,
+
+    IMGUI_DEMO_MENU,
 
     COUNT
 };
@@ -36,6 +41,8 @@ static WidgetInfo s_widgets[uint32_t(WidgetType::COUNT)] = {
         {.type = WidgetType::TOOLBAR_NAVIGATION_MENU, .isActive = true, .name = "Navigation bar"},
         {.type = WidgetType::DB_POOL_MENU, .isActive = true, .name = "DB pool inspector"},
         {.type = WidgetType::MANIPULATOR_MENU_AND_GIZMOS, .isActive = true, .name = "Manipulate menu and gizmos"},
+
+        {.type = WidgetType::IMGUI_DEMO_MENU, .isActive = false, .name = "Imgui Demo menu", .toolbarTabName = "Debug Tools"},
 };
 //======================================================================================================================
 
@@ -70,6 +77,12 @@ static void widget_state_update() {
         ImGui::End();
     }
 }
+
+static void widget_imgui_demo_update(bool &active) {
+    if (active) {
+        gfx_imgui_demo_window();
+    }
+}
 //======================================================================================================================
 
 //===API================================================================================================================
@@ -81,5 +94,6 @@ void widget_manager_update() {
     widget_manipulate_update(s_widgets[uint32_t(WidgetType::MANIPULATOR_MENU_AND_GIZMOS)].isActive);
     widget_memory_update(s_widgets[uint32_t(WidgetType::MEMORY_POOL_MENU)].isActive);
     widget_hot_reload_shaders(s_widgets[uint32_t(WidgetType::SHADER_HOT_RELOAD_MENU)].isActive);
+    widget_imgui_demo_update(s_widgets[uint32_t(WidgetType::IMGUI_DEMO_MENU)].isActive);
 }
 //======================================================================================================================

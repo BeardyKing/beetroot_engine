@@ -8,7 +8,6 @@
 #include <beet_math/quat.h>
 
 #include <beet_gfx/db_asset.h>
-#include <beet_gfx/gfx_imgui.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -21,7 +20,7 @@ static int32_t s_selectedPoolItem = -1;
 //======================================================================================================================
 
 //===INTERNAL_FUNCTIONS=================================================================================================
-static bool DrawVec3Control(const std::string &label, glm::vec3 &values, float resetValue = 0.0f, float columnWidth = 100.0f, float minDrag = 0.1f) {
+static bool draw_vec3_control(const std::string &label, vec3f &values, float resetValue = 0.0f, float columnWidth = 100.0f, float minDrag = 0.1f) {
     bool outEdited = false;
 
     ImGuiIO &io = ImGui::GetIO();
@@ -129,7 +128,9 @@ static void widget_pool_selector(bool &enabled) {
     ImGui::SetNextWindowSize(ImVec2(500, 440), ImGuiCond_FirstUseEver);
     ImGui::Begin("Pool Selector", &enabled);
     {
+        ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
         widget_pool_selector_lit_entity();
+        ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
         widget_pool_selector_camera_entity();
     }
     ImGui::End();
@@ -139,14 +140,10 @@ static void widget_pool_selector(bool &enabled) {
 static bool widget_draw_transform(Transform &transform) {
     bool outEdited = false;
     if (ImGui::CollapsingHeader("Transform")) {
-        outEdited |= DrawVec3Control("Pos", transform.position, 0.0f, 35.0f);
-        outEdited |= DrawVec3Control("Rot", transform.rotation, 0.0f, 35.0f);
-        outEdited |= DrawVec3Control("Scl", transform.scale, 0.0f, 35.0f);
+        outEdited |= draw_vec3_control("Pos", transform.position, 0.0f, 35.0f);
+        outEdited |= draw_vec3_control("Rot", transform.rotation, 0.0f, 35.0f);
+        outEdited |= draw_vec3_control("Scl", transform.scale, 0.0f, 35.0f);
     }
-
-//    return true;
-
-
     return outEdited;
 }
 
@@ -154,6 +151,7 @@ static void widget_pool_inspector_lit_entity() {
     ASSERT(s_selectedPoolItem < db_get_lit_entity_count());
     const LitEntity &litEntity = *db_get_lit_entity(s_selectedPoolItem);
 
+    ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
     if (ImGui::CollapsingHeader("Lit Entity Info")) {
         if (ImGui::BeginTable("GridTable", 2, ImGuiTableFlags_Borders)) {
 #if BEET_DEBUG
@@ -192,6 +190,7 @@ static void widget_pool_inspector_lit_entity() {
     }
     // we don't need to do anything with this edited state right now, but when we move transform buffers to the GPU
     // we will want to dispatch a GPU copy.
+    ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
     widget_draw_transform(*db_get_transform(litEntity.transformIndex));
 }
 
@@ -225,7 +224,9 @@ static void widget_pool_inspector_camera_entity() {
     ASSERT(s_selectedPoolItem < db_get_camera_entity_count());
     const CameraEntity &camEntity = *db_get_camera_entity(s_selectedPoolItem);
 
+    ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
     widget_draw_transform(*db_get_transform(camEntity.transformIndex));
+    ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
     widget_draw_transform(*db_get_camera(camEntity.cameraIndex));
 }
 
@@ -255,9 +256,6 @@ void widget_db_update(bool &enabled) {
     if (enabled) {
         widget_pool_selector(enabled);
         widget_pool_inspector(enabled);
-#if BEET_DEBUG
-        gfx_imgui_demo_window();
-#endif
     }
 }
 
