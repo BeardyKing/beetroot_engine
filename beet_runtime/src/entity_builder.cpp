@@ -26,7 +26,7 @@ static void primary_camera_entity_create() {
 static void lit_entities_create() {
     //===PACKAGE==================================================
 #if CHECK_FEATURE(FEATURE_IN_DEV_RUNTIME_GLTF_LOADING)
-    const AssetPackage package = asset_package_load_gltf("assets/scenes/glTF-Sample-Assets-main/Models/Sponza/glTF/Sponza.gltf");
+    const AssetPackage package = asset_package_load_gltf("assets/scenes/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf");
     for (const PackageEntry &assetEntry: package.packageTable) {
         // TODO: AssetPackage should contain a list of textures to upload the table should point to the index,
         // currently we upload a texture per material i.e. lots of duplication of textures,

@@ -80,7 +80,9 @@ static void widget_state_update() {
 
 static void widget_imgui_demo_update(bool &active) {
     if (active) {
+#if BEET_GFX_IMGUI
         gfx_imgui_demo_window();
+#endif
     }
 }
 //======================================================================================================================

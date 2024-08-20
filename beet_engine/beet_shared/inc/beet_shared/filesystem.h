@@ -14,6 +14,7 @@ bool fs_mkdir_recursive(const char *path);
 bool fs_rmdir(const char *path);
 
 bool fs_file_exists(const char *path);
+bool fs_file_is_absolute(const char *inPath);
 
 size_t fs_file_size(const char *path);
 //======================================================================================================================

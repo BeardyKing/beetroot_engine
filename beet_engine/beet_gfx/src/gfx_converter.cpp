@@ -13,7 +13,7 @@ static constexpr const char *SUPPORTED_CONVERTER_FORMATS[SUPPORTED_CONVERTER_FOR
         ".exr",
 };
 
-#if BEET_CONVERT_ON_DEMAND
+#if CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
 //===API================================================================================================================
 void gfx_converter_init(const char *rawAssetDir, const char *targetAssetDir) {
 
@@ -56,7 +56,6 @@ bool gfx_convert_texture_dds(const char *localAssetPath) {
     bool foundFile = false;
     for (uint32_t i = 0; i < SUPPORTED_CONVERTER_FORMATS_COUNT; ++i) {
         memset(searchFileName, 0, sizeof(char) * 128);
-
         sprintf(searchFileName, "%s%s%s", g_converterLocations.rawAssetDir.c_str(), fileNameNoExt, SUPPORTED_CONVERTER_FORMATS[i]);
         foundFile = fs_file_exists(searchFileName);
         if (foundFile) {
@@ -74,4 +73,4 @@ bool gfx_convert_texture_dds(const char *localAssetPath) {
 }
 
 //======================================================================================================================
-#endif //BEET_CONVERT_ON_DEMAND
+#endif //CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)

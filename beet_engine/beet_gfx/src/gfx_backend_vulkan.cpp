@@ -1316,9 +1316,9 @@ static void gfx_cleanup_uniform_buffers() {
 
 //===INIT_&_SHUTDOWN====================================================================================================
 void gfx_create(void *windowHandle) {
-#if BEET_CONVERT_ON_DEMAND
+#if CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
     gfx_converter_init(BEET_CMAKE_PIPELINE_ASSETS_DIR, BEET_CMAKE_RUNTIME_ASSETS_DIR);
-#endif //BEET_CONVERT_ON_DEMAND
+#endif //CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
 
     gfx_create_instance();
     gfx_create_debug_callbacks();

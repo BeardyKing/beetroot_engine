@@ -1170,8 +1170,8 @@ void *gltf_pull_out_binary_data_alloc(const uint32_t inAccessorIndex, size_t &ou
     return nullptr;
 }
 
-void gltf_parse_json(const char *path, AssetPackage &outPackage) {
-    sprintf(g_gltfData.path, "%s", path);
+void gltf_parse_json(const char *gltfPath, const char *targetWriteDir, AssetPackage &outPackage) {
+    sprintf(g_gltfData.path, "%s", gltfPath);
     rapidjson::Document document;  // Default template parameter uses UTF8 and MemoryPoolAllocator.
     FILE *fp = nullptr;
     fp = fopen(g_gltfData.path, "rb");
@@ -1337,7 +1337,7 @@ void gltf_parse_json(const char *path, AssetPackage &outPackage) {
                 static_cast<uint32_t>(raw_indices.size()),
         };
         RawMaterial &material = outPackage.materials.emplace_back();
-        strcpy(material.albedoPath, g_gltfData.path);
+        strcpy(material.albedoPath, targetWriteDir);
         char *lastDir = c_str_search_reverse(material.albedoPath, "/") + 1;
 
         char *albedoPath = g_gltfData.images[g_gltfData.textures[g_gltfData.materials[currentPrimitive.material].pbrMetallicRoughness.baseColorTexture.index].source].uri;
@@ -1367,18 +1367,30 @@ void gltf_parse_json(const char *path, AssetPackage &outPackage) {
     }
 }
 
-#define CGLTF_IMPLEMENTATION
-
-#include "../../../beet_pipeline/third/cgltf/cgltf.h"
+#include <beet_gfx/gfx_converter.h>
 #include <vector>
 
-//constexpr uint32_t accessorPoolSize = 500000; // 3 MiB
-//static float s_accessorDataPool[accessorPoolSize] = {};
+#if CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
+
+#include <beet_converter/converter_types.h>
+
+extern ConverterLocations g_converterLocations;
+#endif //CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
 
 AssetPackage asset_package_load_gltf(const char *inPath) {
+    char path[128] = {};
+    char writePath[128] = {};
+    c_string_remove_file_from_path(inPath, writePath);
+#if CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
+    sprintf(path, "%s%s", g_converterLocations.rawAssetDir.c_str(), inPath);
+    ASSERT(fs_file_exists(path));
+#else
+    sprintf(path, "%s", inPath);
+#endif //CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
+
     AssetPackage outPackage;
 
-    gltf_parse_json(inPath, outPackage);
+    gltf_parse_json(path, writePath, outPackage);
 
     return outPackage;
 }
@@ -1394,140 +1406,10 @@ std::vector<GfxMesh> gfx_mesh_load_gltf() {
 //    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/GlassVaseFlowers/glTF/GlassVaseFlowers.gltf";
 
     AssetPackage outPackage;
-    gltf_parse_json(path, outPackage);
+    char writePath[128] = {};
+    c_string_remove_file_from_path(path, writePath);
+    gltf_parse_json(path, writePath, outPackage);
     return outPackage.meshes;
-
-
-
-    //TODO: currently lit entities have a root to the world, need to fix this.
-//    float nodeToWorld[16];
-//    cgltf_node_transform_world(_node, nodeToWorld);
-//    memset(s_accessorDataPool, 0, accessorPoolSize);
-//
-//
-//    cgltf_options options = {};
-//    cgltf_data *data = nullptr;
-//    cgltf_result result = cgltf_parse_file(&options, path, &data);
-//    if (result == cgltf_result_success) {
-//        result = cgltf_load_buffers(&options, data, path);
-//        if (result == cgltf_result_success) {
-//            for (size_t sceneIndex = 0; sceneIndex < data->scenes_count; ++sceneIndex) {
-//                cgltf_scene *scene = &data->scenes[sceneIndex];
-//                for (size_t nodeIndex = 0; nodeIndex < scene->nodes_count; ++nodeIndex) {
-//                    cgltf_node *_node = scene->nodes[nodeIndex];
-//                    cgltf_mesh *mesh = _node->mesh;
-//                    if (mesh != nullptr) {
-//                        for (size_t primitiveIndex = 0; primitiveIndex < mesh->primitives_count; ++primitiveIndex) {
-//                            cgltf_primitive *primitive = &mesh->primitives[primitiveIndex];
-//                            size_t numVertex = primitive->attributes[0].data->count;
-//
-//                            // Reserve space for data to avoid frequent reallocation
-//                            std::vector<vec3f> position;
-//                            std::vector<vec3f> normal;
-//                            std::vector<vec2f> uv;
-//                            std::vector<vec3f> color;
-//                            std::vector<GfxVertex> vertices;
-//                            std::vector<uint32_t> indices;
-//
-//                            int32_t basePositionIndex = 0;
-//                            int32_t baseNormalIndex = 0;
-//                            int32_t baseTexcoordIndex = 0;
-//                            int32_t baseColorIndex = 0;
-//
-//                            bool hasNormal = false;
-//                            bool hasTexcoord = false;
-//                            bool hasColor = false;
-//
-//                            for (size_t attributeIndex = 0; attributeIndex < primitive->attributes_count; ++attributeIndex) {
-//                                cgltf_attribute *attribute = &primitive->attributes[attributeIndex];
-//                                cgltf_accessor *accessor = attribute->data;
-//                                size_t accessorCount = accessor->count;
-//
-//                                size_t floatCount = cgltf_accessor_unpack_floats(accessor, nullptr, 0);
-//                                cgltf_accessor_unpack_floats(accessor, s_accessorDataPool, floatCount);
-//
-//                                if (attribute->type == cgltf_attribute_type_position && attribute->index == 0) {
-//                                    position.reserve(position.size() + accessorCount);
-//                                    for (size_t v = 0; v < accessorCount; ++v) {
-//                                        position.emplace_back(s_accessorDataPool[v * 3], s_accessorDataPool[v * 3 + 1], s_accessorDataPool[v * 3 + 2]);
-//                                    }
-//                                    basePositionIndex = position.size() - accessorCount;
-//                                } else if (attribute->type == cgltf_attribute_type_normal && attribute->index == 0) {
-//                                    normal.reserve(normal.size() + accessorCount);
-//                                    for (size_t v = 0; v < accessorCount; ++v) {
-//                                        normal.emplace_back(s_accessorDataPool[v * 3], s_accessorDataPool[v * 3 + 1], s_accessorDataPool[v * 3 + 2]);
-//                                    }
-//                                    baseNormalIndex = normal.size() - accessorCount;
-//                                    hasNormal = true;
-//                                } else if (attribute->type == cgltf_attribute_type_texcoord && attribute->index == 0) {
-//                                    uv.reserve(uv.size() + accessorCount);
-//                                    for (size_t v = 0; v < accessorCount; ++v) {
-//                                        uv.emplace_back(s_accessorDataPool[v * 2], s_accessorDataPool[v * 2 + 1]);
-//                                    }
-//                                    baseTexcoordIndex = uv.size() - accessorCount;
-//                                    hasTexcoord = true;
-//                                } else if (attribute->type == cgltf_attribute_type_color && attribute->index == 0) {
-//                                    color.reserve(color.size() + accessorCount);
-//                                    for (size_t v = 0; v < accessorCount; ++v) {
-//                                        color.emplace_back(s_accessorDataPool[v * 3], s_accessorDataPool[v * 3 + 1], s_accessorDataPool[v * 3 + 2]);
-//                                    }
-//                                    baseColorIndex = color.size() - accessorCount;
-//                                    hasColor = true;
-//                                }
-//
-//                            }
-//
-//                            if (primitive->indices != nullptr) {
-//                                cgltf_accessor *accessor = primitive->indices;
-//                                size_t indexCount = accessor->count;
-//
-//                                for (size_t v = 0; v < indexCount; v += 3) {
-//                                    for (int i = 0; i < 3; ++i) {
-//                                        size_t vertexIndex = cgltf_accessor_read_index(accessor, v + i);
-//                                        GfxVertex gfxVertex = {};
-//                                        gfxVertex.pos = position[basePositionIndex + vertexIndex];
-//                                        gfxVertex.normal = hasNormal ? normal[baseNormalIndex + vertexIndex] : vec3f{0.0f, 0.0f, 0.0f};
-//                                        gfxVertex.uv = hasTexcoord ? uv[baseTexcoordIndex + vertexIndex] : vec2f{0.0f, 0.0f};
-//                                        gfxVertex.color = hasColor ? color[baseColorIndex + vertexIndex] : vec3f{1.0f, 1.0f, 1.0f}; // Default white color
-//
-//                                        vertices.push_back(gfxVertex);
-//                                        indices.push_back(static_cast<uint32_t>(vertices.size() - 1));
-//                                    }
-//                                }
-//                            }
-//
-//                            for (const auto &v: vertices) {
-//                                printf("pos : %f %f %f \n", v.pos.x, v.pos.y, v.pos.z);
-//                                printf("norm: %f %f %f \n", v.normal.x, v.normal.y, v.normal.z);
-//                                printf("uv  : %f %f\n", v.uv.x, v.uv.y);
-//                                printf("\n");
-//                            }
-//
-//                            printf("indices\n");
-//                            for (const auto &idx: indices) {
-//                                printf(" %u\n", idx);
-//                            }
-//                            printf("\n");
-//
-//                            const RawMesh rawMesh = {
-//                                    vertices.data(),
-//                                    indices.data(),
-//                                    static_cast<uint32_t>(vertices.size()),
-//                                    static_cast<uint32_t>(indices.size()),
-//                            };
-//
-//                            GfxMesh outMesh = {};
-//                            gfx_mesh_create_immediate(rawMesh, outMesh);
-//                            outMeshes.push_back(outMesh);
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//        cgltf_free(data);
-//    }
-//
-//    return outMeshes;
 }
 #endif //IN_DEV_RUNTIME_GLTF_LOADING
 

@@ -68,5 +68,44 @@ bool c_string_replace_extension(char *existingPath, const char *newExtension) {
     }
     return false;
 }
+
+bool c_string_remove_file_from_path(const char *inPath, char *outPath) {
+    if (c_str_empty(inPath) || outPath == nullptr) {
+        return false;
+    }
+
+    strcpy(outPath, inPath);
+
+    char *lastSlash = c_str_search_reverse(outPath, "/");
+    if (lastSlash == nullptr) {
+        lastSlash = c_str_search_reverse(outPath, "\\");
+    }
+
+    if (lastSlash) {
+        *(lastSlash + 1) = '\0';
+    } else {
+        *outPath = '\0';
+    }
+
+    return true;
+}
+
+bool c_string_extract_file_name(const char *inPath, char *outFilename) {
+    if (c_str_empty(inPath) || outFilename == nullptr) {
+        return false;
+    }
+
+    const char *lastSlash = c_str_search_reverse(inPath, "/");
+    if (lastSlash == nullptr) {
+        lastSlash = c_str_search_reverse(inPath, "\\");
+        if (lastSlash == nullptr) {
+            return false;
+        }
+    }
+
+    strcpy(outFilename, lastSlash + 1);
+
+    return true;
+}
 //======================================================================================================================
 

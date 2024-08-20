@@ -142,11 +142,11 @@ static void set_image_layout(
 
 //===API================================================================================================================
 void gfx_texture_create_immediate_dds(const char *path, GfxTexture &inOutTexture) {
-#if BEET_CONVERT_ON_DEMAND
+#if CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
     gfx_convert_texture_dds(path);
-#endif
+#endif //CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
 
-    if(inOutTexture.imageSamplerType == TextureSamplerType::Invalid){
+    if (inOutTexture.imageSamplerType == TextureSamplerType::Invalid) {
         inOutTexture.imageSamplerType = TextureSamplerType::LinearRepeat;
     }
 
@@ -313,7 +313,7 @@ void gfx_texture_create_immediate_dds(const char *path, GfxTexture &inOutTexture
     inOutTexture.descriptor.imageView = inOutTexture.view;
     inOutTexture.descriptor.sampler = gfx_samplers()->samplers[inOutTexture.imageSamplerType];
     inOutTexture.descriptor.imageLayout = inOutTexture.layout;
-    
+
     mem_free(myImage.data);
     mem_free(bufferCopyRegions);
 }

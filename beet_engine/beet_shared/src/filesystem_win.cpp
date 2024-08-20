@@ -54,6 +54,22 @@ bool fs_mkdir_recursive(const char path[FS_MAX_PATH_SIZE]) {
     }
     return fs_mkdir_recursive_internal(path);
 }
+
+bool fs_file_is_absolute(const char *inPath) {
+    const size_t pathLength = strlen(inPath);
+    if (inPath == nullptr || pathLength == 0) {
+        return false;
+    }
+
+    if ((pathLength > 2 && inPath[1] == ':' && inPath[2] == '\\') ||
+        (pathLength > 2 && inPath[1] == ':' && inPath[2] == '/') ||
+        (pathLength > 1 && inPath[0] == '\\' && inPath[1] == '\\') ||
+        (pathLength > 1 && inPath[0] == '\\' && inPath[1] == '/')) {
+        return true;
+    }
+
+    return false;
+}
 //======================================================================================================================
 
 #endif

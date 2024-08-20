@@ -17,3 +17,6 @@
 [submodule "beet_pipeline/third/rapidjson"]
 	path = beet_pipeline/third/rapidjson
 	url = https://github.com/Tencent/rapidjson.git
+[submodule "assets/scenes/glTF-Sample-Assets"]
+	path = assets/scenes/glTF-Sample-Assets
+	url = https://github.com/KhronosGroup/glTF-Sample-Assets.git
