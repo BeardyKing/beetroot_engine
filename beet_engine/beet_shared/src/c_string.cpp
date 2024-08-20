@@ -58,5 +58,15 @@ bool c_str_replace_after_delim_reverse(char *existingPath, const char *replaceTa
     }
     return false;
 }
+
+bool c_string_replace_extension(char *existingPath, const char *newExtension) {
+    const char *extension = (*newExtension == '.') ? newExtension + 1 : newExtension;
+    if (char *dot = c_str_search_reverse(existingPath, ".")) {
+        memset(dot + 1, '\0', strlen(dot + 1));
+        strcpy(dot + 1, extension);
+        return true;
+    }
+    return false;
+}
 //======================================================================================================================
 

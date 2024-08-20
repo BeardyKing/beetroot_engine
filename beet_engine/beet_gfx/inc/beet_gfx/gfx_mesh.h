@@ -46,6 +46,22 @@ struct GfxMesh {
     VkBuffer indexBuffer;
     VkDeviceMemory indexMemory;
 };
+
+struct PackageEntry {
+    uint32_t meshIndex;
+    uint32_t materialIndex;
+};
+
+struct RawMaterial {
+    char albedoPath[256] = {};
+    vec2f albedoCoords = {};
+};
+
+struct AssetPackage {
+    std::vector<PackageEntry> packageTable = {};
+    std::vector<GfxMesh> meshes = {};
+    std::vector<RawMaterial> materials = {};
+};
 //======================================================================================================================
 
 //===API================================================================================================================
@@ -53,6 +69,7 @@ void gfx_mesh_create_cube_immediate(GfxMesh &outMesh);
 void gfx_mesh_create_octahedron_immediate(GfxMesh &outMesh);
 #if CHECK_FEATURE(FEATURE_IN_DEV_RUNTIME_GLTF_LOADING)
 std::vector<GfxMesh> gfx_mesh_load_gltf();
+AssetPackage asset_package_load_gltf(const char *inPath);
 #endif //IN_DEV_RUNTIME_GLTF_LOADING
 void gfx_mesh_create_immediate(const RawMesh &rawMesh, GfxMesh &outMesh);
 void gfx_mesh_cleanup(GfxMesh &mesh);

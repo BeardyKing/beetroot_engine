@@ -24,16 +24,43 @@ static void primary_camera_entity_create() {
 }
 
 static void lit_entities_create() {
-    //===MESH=====================================================
+    //===PACKAGE==================================================
 #if CHECK_FEATURE(FEATURE_IN_DEV_RUNTIME_GLTF_LOADING)
-    std::vector<uint32_t> dbGltfMeshIds = {};
-    std::vector<GfxMesh> gltfMeshes = gfx_mesh_load_gltf();
-    dbGltfMeshIds.reserve(gltfMeshes.size());
-    for (int i = 0; i < gltfMeshes.size(); ++i) {
-        dbGltfMeshIds.emplace_back(db_add_mesh(gltfMeshes[i]));
+    const AssetPackage package = asset_package_load_gltf("assets/scenes/glTF-Sample-Assets-main/Models/Sponza/glTF/Sponza.gltf");
+    for (const PackageEntry &assetEntry: package.packageTable) {
+        // TODO: AssetPackage should contain a list of textures to upload the table should point to the index,
+        // currently we upload a texture per material i.e. lots of duplication of textures,
+        // I was mainly interested in validating my GLTF parser was working correctly before sorting this issue.
+        const GfxMesh &packageMesh = package.meshes[assetEntry.meshIndex];
+        const uint32_t db_meshIndex = db_add_mesh(packageMesh);
+
+        Transform defaultTransform = {};
+        const uint32_t db_transformIndex = db_add_transform(defaultTransform);
+
+        const RawMaterial &packageMaterial = package.materials[assetEntry.materialIndex];
+        GfxTexture albedoTexture = {};
+        gfx_texture_create_immediate_dds(packageMaterial.albedoPath, albedoTexture);
+        uint32_t db_imageAlbedoIndex = db_add_texture(albedoTexture);
+
+        VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
+        gfx_lit_update_material_descriptor(descriptorSet, *db_get_texture(db_imageAlbedoIndex));
+
+        const LitMaterial material = {
+                .descriptorSetIndex = db_add_descriptor_set(descriptorSet),
+                .albedoIndex = db_imageAlbedoIndex
+        };
+
+        uint32_t db_litMaterialIndex = db_add_lit_material(material);
+
+        const LitEntity defaultCube = {
+                .transformIndex = db_transformIndex,
+                .meshIndex = db_meshIndex,
+                .materialIndex = db_litMaterialIndex,
+        };
+        db_add_lit_entity(defaultCube);
     }
 #endif //IN_DEV_RUNTIME_GLTF_LOADING
-
+    //===MESH=====================================================
     uint32_t cubeID = {UINT32_MAX};
     {
         GfxMesh cubeMesh = {};
@@ -94,7 +121,7 @@ static void lit_entities_create() {
 
     //===ENTITY_MESH==============================================
     {
-        const Transform transform = {.position{2, 0, -8}, .rotation{0,45,0}};
+        const Transform transform = {.position{2, 0, -8}, .rotation{0, 45, 0}};
         const LitEntity defaultCube = {
                 .transformIndex = db_add_transform(transform),
                 .meshIndex = cubeID,
@@ -103,22 +130,6 @@ static void lit_entities_create() {
         db_add_lit_entity(defaultCube);
     }
     //============================================================
-
-#if CHECK_FEATURE(FEATURE_IN_DEV_RUNTIME_GLTF_LOADING)
-    //===ENTITY_MESH==============================================
-    {
-        for (int i = 0; i < gltfMeshes.size(); ++i) {
-            const Transform transform = {.position{2, 0, -8}, .scale{1.f}};
-            const LitEntity defaultCube = {
-                    .transformIndex = db_add_transform(transform),
-                    .meshIndex = dbGltfMeshIds[i],
-                    .materialIndex = cubeLitMaterialID,
-            };
-            db_add_lit_entity(defaultCube);
-        }
-    }
-    //============================================================
-#endif //IN_DEV_RUNTIME_GLTF_LOADING
 
     //===ENTITY_OCTAHEDRON========================================
     {

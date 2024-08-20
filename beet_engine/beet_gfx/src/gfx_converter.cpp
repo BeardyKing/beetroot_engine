@@ -5,11 +5,12 @@
 #include <beet_shared/log.h>
 #include <beet_shared/c_string.h>
 
-constexpr uint32_t SUPPORTED_CONVERTER_FORMATS_COUNT = 3;
+constexpr uint32_t SUPPORTED_CONVERTER_FORMATS_COUNT = 4;
 static constexpr const char *SUPPORTED_CONVERTER_FORMATS[SUPPORTED_CONVERTER_FORMATS_COUNT]{
-    ".png",
-    ".tga",
-    ".exr",
+        ".png",
+        ".tga",
+        ".jpg",
+        ".exr",
 };
 
 #if BEET_CONVERT_ON_DEMAND
@@ -41,9 +42,9 @@ bool gfx_convert_shader_spv(const char *localAssetPath) {
 
 extern ConverterLocations g_converterLocations;
 
-bool gfx_convert_texture_dds(const char* localAssetPath){
-    const char* delim = (c_str_search_reverse(localAssetPath, "."));
-    if(!c_str_search_reverse(localAssetPath, ".")){
+bool gfx_convert_texture_dds(const char *localAssetPath) {
+    const char *delim = (c_str_search_reverse(localAssetPath, "."));
+    if (!c_str_search_reverse(localAssetPath, ".")) {
         SANITY_CHECK();
     }
     size_t copySize = delim - localAssetPath;
@@ -57,16 +58,16 @@ bool gfx_convert_texture_dds(const char* localAssetPath){
         memset(searchFileName, 0, sizeof(char) * 128);
 
         sprintf(searchFileName, "%s%s%s", g_converterLocations.rawAssetDir.c_str(), fileNameNoExt, SUPPORTED_CONVERTER_FORMATS[i]);
-        foundFile = fs_file_exists(searchFileName );
-        if(foundFile){
+        foundFile = fs_file_exists(searchFileName);
+        if (foundFile) {
             foundIndex = i;
             break;
         }
     }
 
     ASSERT(foundFile);
-    const char* ext = SUPPORTED_CONVERTER_FORMATS[foundIndex];
-    const bool compileResult = convert_texture_dds(fileNameNoExt, ext, strcmp(ext, ".exr") ? TextureFormat::BC6H :TextureFormat::BC7);
+    const char *ext = SUPPORTED_CONVERTER_FORMATS[foundIndex];
+    const bool compileResult = convert_texture_dds(fileNameNoExt, ext, strcmp(ext, ".exr") ? TextureFormat::BC6H : TextureFormat::BC7);
     // This is quite a hack to get things working, as a concept.
     // I think I should instead add some .meta file or some authored material file where I can grab converter info from.
     return compileResult;

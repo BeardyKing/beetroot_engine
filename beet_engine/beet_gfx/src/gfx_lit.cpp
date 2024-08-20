@@ -40,7 +40,7 @@ static void gfx_create_lit_descriptor_set_layout() {
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .maxSets = 2,
+            .maxSets = MAX_DB_LIT_MATERIALS,
             .poolSizeCount = poolSizeCount,
             .pPoolSizes = &poolSizes[0],
     };

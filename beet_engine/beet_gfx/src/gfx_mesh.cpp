@@ -562,7 +562,6 @@ void parse_gltf_materials(std::vector<GltfMaterial> &outMaterials, const rapidjs
         GltfMaterial &gltfMaterial = outMaterials.emplace_back();
         for (rapidjson::Value::ConstMemberIterator materialsItr = accessor.MemberBegin(); materialsItr != accessor.MemberEnd(); ++materialsItr) {
             const char *materialsString = materialsItr->name.GetString();
-
             if (c_str_equal(materialsString, "name")) {
                 ASSERT(materialsItr->value.IsString());
                 ASSERT(materialsItr->value.GetStringLength() < GLTF_STR_MATERIAL_NAME_SIZE)
@@ -1171,7 +1170,7 @@ void *gltf_pull_out_binary_data_alloc(const uint32_t inAccessorIndex, size_t &ou
     return nullptr;
 }
 
-void gltf_parse_json(const char *path, std::vector<GfxMesh> &outMeshes) {
+void gltf_parse_json(const char *path, AssetPackage &outPackage) {
     sprintf(g_gltfData.path, "%s", path);
     rapidjson::Document document;  // Default template parameter uses UTF8 and MemoryPoolAllocator.
     FILE *fp = nullptr;
@@ -1235,8 +1234,13 @@ void gltf_parse_json(const char *path, std::vector<GfxMesh> &outMeshes) {
 //    gltf_dump_intermediate(g_gltfData);
 
     //TODO: Do this for each scene/node/mesh.
+
+//    for (size_t nodeIndex = 0; nodeIndex < g_gltfData.nodes.size(); ++nodeIndex) {
+//        GltfNode &node = g_gltfData.nodes[nodeIndex];
+//    }
+
     for (size_t primIndex = 0; primIndex < g_gltfData.meshes[0].primitives.size(); ++primIndex) {
-        auto &currentPrimitive = g_gltfData.meshes[0].primitives[primIndex];
+        GltfPrimitives &currentPrimitive = g_gltfData.meshes[0].primitives[primIndex];
 
         size_t indicesCount = 0;
         GltfAccessorType indicesAccessorType = {};
@@ -1332,8 +1336,17 @@ void gltf_parse_json(const char *path, std::vector<GfxMesh> &outMeshes) {
                 static_cast<uint32_t>(raw_verts.size()),
                 static_cast<uint32_t>(raw_indices.size()),
         };
+        RawMaterial &material = outPackage.materials.emplace_back();
+        strcpy(material.albedoPath, g_gltfData.path);
+        char *lastDir = c_str_search_reverse(material.albedoPath, "/") + 1;
 
-        GfxMesh &curr = outMeshes.emplace_back();
+        char *albedoPath = g_gltfData.images[g_gltfData.textures[g_gltfData.materials[currentPrimitive.material].pbrMetallicRoughness.baseColorTexture.index].source].uri;
+        strcpy(lastDir, albedoPath);
+        c_string_replace_extension(material.albedoPath, ".dds");
+        GfxMesh &curr = outPackage.meshes.emplace_back(); // maybe this should be a RawMesh instead. then we cal call create immediate from entity_builder.
+        PackageEntry &currentEntry = outPackage.packageTable.emplace_back();
+        currentEntry.meshIndex = outPackage.packageTable.size() - 1;
+        currentEntry.materialIndex = outPackage.packageTable.size() - 1;
         gfx_mesh_create_immediate(rawMesh, curr);
 
         if (positionCount > 0) {
@@ -1362,18 +1375,29 @@ void gltf_parse_json(const char *path, std::vector<GfxMesh> &outMeshes) {
 //constexpr uint32_t accessorPoolSize = 500000; // 3 MiB
 //static float s_accessorDataPool[accessorPoolSize] = {};
 
+AssetPackage asset_package_load_gltf(const char *inPath) {
+    AssetPackage outPackage;
+
+    gltf_parse_json(inPath, outPackage);
+
+    return outPackage;
+}
+
+
 std::vector<GfxMesh> gfx_mesh_load_gltf() {
 //    const char *path = "assets/scenes/example_scene_2.gltf";
 //    const char *path = "assets/scenes/example_scene.gltf";
 //    const char *path = "assets/scenes/intel/NewSponza_Main_glTF_002.gltf";
-//    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/SciFiHelmet/glTF/SciFiHelmet.gltf";
-    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/Sponza/glTF/Sponza.gltf";
+    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/SciFiHelmet/glTF/SciFiHelmet.gltf";
+//    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/Sponza/glTF/Sponza.gltf";
 //    const char *path = "example_scene_2.gltf";
 //    const char *path = "assets/scenes/glTF-Sample-Assets-main/Models/GlassVaseFlowers/glTF/GlassVaseFlowers.gltf";
 
-    std::vector<GfxMesh> outMeshes;
-    gltf_parse_json(path, outMeshes);
-    return outMeshes;
+    AssetPackage outPackage;
+    gltf_parse_json(path, outPackage);
+    return outPackage.meshes;
+
+
 
     //TODO: currently lit entities have a root to the world, need to fix this.
 //    float nodeToWorld[16];

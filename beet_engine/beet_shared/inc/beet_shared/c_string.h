@@ -15,6 +15,7 @@ const char *c_str_n_search_reverse(const char *src, int32_t srcLen, const char *
 char *c_str_n_search_reverse(char *src, int32_t srcLen, const char *subStr, int32_t subStrLen);
 
 bool c_str_replace_after_delim_reverse(char *existingPath, const char *replaceTarget, const char *subStr);
+bool c_string_replace_extension(char *existingPath, const char *newExtension);
 //======================================================================================================================
 
 #endif //BEETROOT_C_STRING_H
