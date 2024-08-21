@@ -1,6 +1,6 @@
-#include <beet_shared/platform_defines.h>
+#include <beet_shared/feature_defines.h>
 
-#if CHECK_FEATURE(PLATFORM_WINDOWS)
+#if CHECK_FEATURE(FEATURE_PLATFORM_WINDOWS)
 
 #include <beet_shared/filesystem.h>
 #include <beet_shared/c_string.h>

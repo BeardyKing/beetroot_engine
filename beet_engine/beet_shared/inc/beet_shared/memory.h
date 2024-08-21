@@ -2,8 +2,7 @@
 #define BEETROOT_MEMORY_H
 
 #include <cstddef>
-
-#define BEET_MEMORY_DEBUG BEET_DEBUG
+#include <beet_shared/feature_defines.h>
 
 //===API================================================================================================================
 void *mem_zalloc(size_t size);
@@ -11,10 +10,10 @@ void *mem_malloc(size_t size);
 
 void mem_free(void *block);
 
-#if BEET_MEMORY_DEBUG
+#if CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
 void mem_dump_memory_info();
 void mem_validate_empty();
-#endif //BEET_MEMORY_DEBUG
+#endif //CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
 //======================================================================================================================
 
 #endif //BEETROOT_MEMORY_H

@@ -17,7 +17,7 @@ add_library(beet_shared
         src/filesystem_win.cpp
         inc/beet_shared/c_string.h
         src/c_string.cpp
-        inc/beet_shared/platform_defines.h
+        inc/beet_shared/feature_defines.h
         inc/beet_shared/os_time.h
         src/os_time_win.cpp
         src/os_time_linux.cpp

@@ -2,9 +2,9 @@
 #define BEETROOT_GFX_VULKAN_PLATFORM_DEFINES_H
 
 #include <cstdint>
-#include <beet_shared/platform_defines.h>
+#include <beet_shared/feature_defines.h>
 
-#if CHECK_FEATURE(PLATFORM_WINDOWS)
+#if CHECK_FEATURE(FEATURE_PLATFORM_WINDOWS)
 
 #include <Windows.h>
 #include <vulkan/vulkan_win32.h>
@@ -12,7 +12,7 @@
 #define BEET_VK_SURFACE_EXTENSION VK_KHR_WIN32_SURFACE_EXTENSION_NAME
 #endif
 
-#if CHECK_FEATURE(PLATFORM_LINUX)
+#if CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
 #include <vulkan/vulkan_wayland.h>
 
 #define BEET_VK_SURFACE_EXTENSION VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME

@@ -1,7 +1,7 @@
 #ifndef BEETROOT_GFX_CONVERTER_H
 #define BEETROOT_GFX_CONVERTER_H
 
-#include <beet_shared/platform_defines.h>
+#include <beet_shared/feature_defines.h>
 
 #define FEATURE_CONVERT_ON_DEMAND FEATURE_ON
 

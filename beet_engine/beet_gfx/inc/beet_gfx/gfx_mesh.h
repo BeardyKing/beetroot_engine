@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include <beet_shared/platform_defines.h>
+#include <beet_shared/feature_defines.h>
 
 #include <vulkan/vulkan_core.h>
 

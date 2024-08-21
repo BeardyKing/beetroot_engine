@@ -1252,9 +1252,9 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
             gfx_lit_draw(cmdBuffer);
             gfx_triangle_strip_draw(cmdBuffer);
             gfx_line_draw(cmdBuffer);
-#if BEET_GFX_IMGUI
+#if CHECK_FEATURE(FEATURE_GFX_IMGUI)
             gfx_imgui_draw(cmdBuffer);
-#endif // BEET_GFX_IMGUI
+#endif // CHECK_FEATURE(FEATURE_GFX_IMGUI)
         }
         gfx_command_end_rendering(cmdBuffer);
     }
@@ -1339,9 +1339,9 @@ void gfx_create(void *windowHandle) {
 
     gfx_create_uniform_buffers();
 
-#if BEET_GFX_IMGUI
+#if CHECK_FEATURE(FEATURE_GFX_IMGUI)
     gfx_create_imgui(windowHandle);
-#endif //BEET_GFX_IMGUI
+#endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
     gfx_create_sky();
     gfx_create_lit();
     gfx_create_line();
@@ -1355,9 +1355,9 @@ void gfx_cleanup() {
     gfx_cleanup_line();
     gfx_cleanup_lit();
     gfx_cleanup_sky();
-#if BEET_GFX_IMGUI
+#if CHECK_FEATURE(FEATURE_GFX_IMGUI)
     gfx_cleanup_imgui();
-#endif //BEET_GFX_IMGUI
+#endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
     gfx_cleanup_samplers();
     gfx_cleanup_pipeline_cache();
     gfx_cleanup_color_buffer();

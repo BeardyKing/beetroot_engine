@@ -4,15 +4,15 @@
 #include <cstring>
 #include <cstdlib>
 
-#if BEET_MEMORY_DEBUG
+#if CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
 
 #include <cstdint>
 #include <beet_shared/log.h>
 
-#endif //BEET_MEMORY_DEBUG
+#endif //CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
 
 //===INTERNAL_STRUCTS===================================================================================================
-#if BEET_MEMORY_DEBUG
+#if CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
 #define MAX_ACTIVE_DYNAMIC_ALLOCATIONS 128
 
 struct MemoryInfo {
@@ -27,11 +27,11 @@ static struct MemView {
     uint32_t totalAllocations = {};
     uint32_t totalFrees = {};
 } s_memView;
-#endif //BEET_MEMORY_DEBUG
+#endif //CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
 //======================================================================================================================
 
 //===INTERNAL_FUNCTIONS=================================================================================================
-#if BEET_MEMORY_DEBUG
+#if CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
 inline static void mem_track_allocation(const MemoryInfo info) {
     if (info.ptrLocation) {
         ASSERT(s_memView.infoCount < MAX_ACTIVE_DYNAMIC_ALLOCATIONS);
@@ -55,36 +55,36 @@ inline static void mem_track_free(const void *ptrLocation) {
     ASSERT_MSG(foundBlock, "Err: Provided memory block was not found, potential leak or freeing allocation not from memory lib\n");
     s_memView.totalFrees++;
 }
-#endif //BEET_MEMORY_DEBUG
+#endif //CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
 //======================================================================================================================
 
 //===API================================================================================================================
 void *mem_zalloc(const size_t size) {
     void *out = memset(malloc(size), 0, size);
-#if BEET_MEMORY_DEBUG
+#if CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
     mem_track_allocation({.ptrLocation = out, .allocSize = size});
-#endif //BEET_MEMORY_DEBUG
+#endif //CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
     return out;
 }
 
 void *mem_malloc(const size_t size) {
     void *out = malloc(size);
-#if BEET_MEMORY_DEBUG
+#if CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
     mem_track_allocation({.ptrLocation = out, .allocSize = size});
-#endif //BEET_MEMORY_DEBUG
+#endif //CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
     return out;
 }
 
 void mem_free(void *block) {
     ASSERT_MSG(block != nullptr, "Err: trying to invalidate nullptr");
-#if BEET_MEMORY_DEBUG
+#if CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
     mem_track_free(block);
-#endif //BEET_MEMORY_DEBUG
+#endif //CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
     free(block);
     block = nullptr;
 }
 
-#if BEET_MEMORY_DEBUG
+#if CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
 void mem_dump_memory_info() {
     size_t inUseMemory = {};
     log_info(MSG_MEMORY, "===MEM_INFO_DUMP========\n");
@@ -109,5 +109,5 @@ void mem_validate_empty() {
     ASSERT(s_memView.totalAllocations == s_memView.totalFrees);
     ASSERT(s_memView.infoCount == 0);
 }
-#endif //BEET_MEMORY_DEBUG
+#endif //CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
 //======================================================================================================================
