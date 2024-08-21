@@ -42,6 +42,7 @@ constexpr char CONVERTER_MAX_MIP_COUNT[] = "-miplevels 20";
 constexpr char CONVERTER_ENCODE_TYPE[] = "-EncodeWith GPU";
 constexpr char CONVERTER_THREAD_COUNT[] = "-EncodeWith GPU";
 constexpr char CONVERTER_2X2_MIPS[] = "-mipsize 2";
+constexpr char CONVERTER_4X4_MIPS[] = "-mipsize 4";
 
 //===API================================================================================================================
 bool convert_texture_dds(const char *localAssetDir, const char *inFileFormat, const TextureFormat format) {
@@ -55,7 +56,7 @@ bool convert_texture_dds(const char *localAssetDir, const char *inFileFormat, co
             texture_format_to_string(format),
             CONVERTER_THREAD_COUNT,
             CONVERTER_ENCODE_TYPE,
-            false ? CONVERTER_2X2_MIPS : "", // GPU encoders work on 4x4 which isn't ideal as we don't get as many mip maps. likely toggle on HIGH quality settings
+            false ? CONVERTER_4X4_MIPS : "", // GPU encoders work on 4x4 which isn't ideal as we don't get as many mip maps. likely toggle on HIGH quality settings
             CONVERTER_MAX_MIP_COUNT,
             inPath,
             outPath

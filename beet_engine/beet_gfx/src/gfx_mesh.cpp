@@ -297,12 +297,14 @@ GltfAccessorType gltf_accessor_type_lookup(const char *str) {
     return GLTF_ACCESSOR_UNDEFINED;
 }
 
+constexpr size_t GLTF_STR_BUFFER_VIEWS_NAME_SIZE = {128};
 struct GltfBufferViews {
     uint32_t bufferIndex = {};
     uint32_t byteOffset = {};
     uint32_t byteLength = {};
     uint32_t byteStride = {};
     uint32_t target = {};
+    char name[GLTF_STR_BUFFER_VIEWS_NAME_SIZE] = {};
 };
 
 struct GltfTextures {
@@ -351,6 +353,7 @@ struct GltfImages {
     char uri[GLTF_STR_URI_NAME_SIZE] = {}; //TODO we probably don't want to load textures during parse so a name of the texture is probably fine.
 };
 
+constexpr size_t GLTF_STR_ACCESSOR_NAME_SIZE = {128};
 struct GltfAccessor {
     GltfComponentTypesEnum componentType = {GLTF_COMPONENT_UNDEFINED};
     GltfAccessorType accessorType = {GLTF_ACCESSOR_UNDEFINED};
@@ -359,13 +362,16 @@ struct GltfAccessor {
     uint32_t count = {};
     std::vector<GltfComponentType> max = {};
     std::vector<GltfComponentType> min = {};
+    char name[GLTF_STR_ACCESSOR_NAME_SIZE] = {};
 };
 
 constexpr size_t GLTF_STR_GENERATOR_SIZE = {256};
 constexpr size_t GLTF_STR_VERSION_SIZE = {32};
+constexpr size_t GLTF_STR_COPYRIGHT_SIZE = {256};
 struct GltfAsset {
     char generator[GLTF_STR_GENERATOR_SIZE] = {};
     char version[GLTF_STR_VERSION_SIZE] = {};
+    char copyright[GLTF_STR_COPYRIGHT_SIZE] = {};
 };
 
 constexpr size_t GLTF_STR_SCENE_NAME_SIZE = {256};
@@ -380,6 +386,7 @@ constexpr size_t GLTF_STR_NODE_NAME_SIZE = {256};
 struct GltfNode {
     char name[GLTF_STR_NODE_NAME_SIZE] = {};
     uint32_t mesh = {GLTF_INDEX_NOT_SET};
+    uint32_t camera = {GLTF_INDEX_NOT_SET};
     vec3f scale = {};
     vec3f translation = {};
     quat rotation = {};
@@ -454,6 +461,8 @@ struct GltfMaterial {
     } pbrMetallicRoughness;
     GltfTexture normalTexture = {};
     GltfTexture occlusionTexture = {};
+    GltfTexture emissiveTexture = {};
+    vec3f emissiveFactor = {};
     GltfAlphaMode alphaMode = {};
     float alphaCutoff = {};
 };
@@ -461,6 +470,32 @@ struct GltfMaterial {
 struct GltfBuffer {
     size_t byteLength = {};
     std::vector<char> binaryData = {};
+};
+
+constexpr size_t GLTF_STR_EXTENSION_NAME_SIZE = {128};
+struct GltfUsedExtension {
+    char itemName[GLTF_STR_EXTENSION_NAME_SIZE] = {};
+};
+
+enum GLTF_CAMERA_TYPE {
+    GLTF_CAMERA_TYPE_PERSPECTIVE,
+    GLTF_CAMERA_TYPE_ORTHOGRAPHIC,
+};
+
+constexpr size_t GLTF_STR_CAMERA_NAME_SIZE = {128};
+struct GltfCamera {
+    GLTF_CAMERA_TYPE cameraType = {};
+    float zFar = {1000.0f};
+    float zNear = {0.0f};
+    char name[GLTF_STR_CAMERA_NAME_SIZE] = {};
+    struct {
+        float aspectRatio = {1.0f};
+        float yFov = {0.9f}; // radians
+    } perspective;
+    struct {
+        float xMag = {1.0f};
+        float yMag = {1.0f};
+    } orthographic;
 };
 
 constexpr size_t GLTF_STR_PATH_SIZE = {256};
@@ -478,6 +513,8 @@ struct GltfIntermediate {
     std::vector<GltfSamplers> samplers = {};
     std::vector<GltfImages> images = {};
     std::vector<GltfBuffer> buffers = {};
+    std::vector<GltfCamera> cameras = {};
+    std::vector<GltfUsedExtension> usedExtensions = {};
 } g_gltfData;
 
 bool parse_gltf_get_binary_data(std::vector<char> &outData, const char *uri, const char *gltfPath) {
@@ -588,6 +625,17 @@ void parse_gltf_materials(std::vector<GltfMaterial> &outMaterials, const rapidjs
                 ASSERT(materialsItr->value.IsObject());
                 parse_gltf_texture(gltfMaterial.occlusionTexture, materialsItr->value);
                 continue;
+            } else if (c_str_equal(materialsString, "emissiveTexture")) {
+                ASSERT(materialsItr->value.IsObject());
+                parse_gltf_texture(gltfMaterial.emissiveTexture, materialsItr->value);
+                continue;
+            } else if (c_str_equal(materialsString, "emissiveFactor")) {
+                ASSERT(materialsItr->value.IsArray())
+                ASSERT(materialsItr->value.GetArray().Size() == 3)
+                gltfMaterial.emissiveFactor.r = materialsItr->value[0].GetFloat();
+                gltfMaterial.emissiveFactor.g = materialsItr->value[1].GetFloat();
+                gltfMaterial.emissiveFactor.b = materialsItr->value[2].GetFloat();
+                continue;
             } else if (c_str_equal(materialsString, "pbrMetallicRoughness")) {
                 ASSERT(materialsItr->value.IsObject());
                 for (rapidjson::Value::ConstMemberIterator pbrMetallicRoughnessItr = materialsItr->value.MemberBegin();
@@ -619,6 +667,18 @@ void parse_gltf_materials(std::vector<GltfMaterial> &outMaterials, const rapidjs
                         continue;
                     }
                     NOT_IMPLEMENTED();
+                }
+                continue;
+            } else if (c_str_equal(materialsString, "extensions")) {
+                ASSERT(materialsItr->value.IsObject());
+                for (rapidjson::Value::ConstMemberIterator extItr = materialsItr->value.MemberBegin(); extItr != materialsItr->value.MemberEnd(); ++extItr) {
+                    const char *extString = extItr->name.GetString();
+                    if (c_str_equal(extString, "KHR_materials_clearcoat")) {
+
+                        NOT_IMPLEMENTED()
+                        continue;
+                    }
+                    NOT_IMPLEMENTED()
                 }
                 continue;
             }
@@ -741,6 +801,10 @@ void parse_gltf_nodes(std::vector<GltfNode> &outNodes, const rapidjson::Value &n
                 gltfNode.scale.x = itrValue[0].GetFloat();
                 gltfNode.scale.y = itrValue[1].GetFloat();
                 gltfNode.scale.z = itrValue[2].GetFloat();
+                continue;
+            } else if (c_str_equal(jsonString, "camera")) {
+                ASSERT(itrValue.IsUint())
+                gltfNode.camera = itrValue.GetUint();
                 continue;
             }
             NOT_IMPLEMENTED()
@@ -896,9 +960,87 @@ void parse_gltf_buffer_views(std::vector<GltfBufferViews> &outBufferViews, const
                 ASSERT(itrValue.IsUint())
                 gltfBufferViews.target = itrValue.GetUint();
                 continue;
+            } else if (c_str_equal(jsonString, "name")) {
+                ASSERT(itrValue.IsString())
+                ASSERT(itrValue.GetStringLength() < GLTF_STR_BUFFER_VIEWS_NAME_SIZE);
+                sprintf(gltfBufferViews.name, "%s", itrValue.GetString());
+                continue;
             }
             NOT_IMPLEMENTED()
         }
+    }
+}
+
+void parse_gltf_cameras(std::vector<GltfCamera> &outCameras, const rapidjson::Value &cameraValue) {
+    ASSERT(cameraValue.IsArray())
+    outCameras.reserve(cameraValue.GetArray().Size());
+    for (auto const &bufferView: cameraValue.GetArray()) {
+        GltfCamera &gltfCamera = outCameras.emplace_back();
+
+        for (rapidjson::Value::ConstMemberIterator itr = bufferView.MemberBegin(); itr != bufferView.MemberEnd(); ++itr) {
+            const char *jsonString = itr->name.GetString();
+            const rapidjson::Value &itrValue = itr->value;
+
+            if (c_str_equal(jsonString, "perspective")) {
+                ASSERT(itrValue.IsObject());
+                for (rapidjson::Value::ConstMemberIterator perspectiveItr = itrValue.MemberBegin(); perspectiveItr != itrValue.MemberEnd(); ++perspectiveItr) {
+                    const rapidjson::Value &perspectiveItrValue = perspectiveItr->value;
+
+                    const char *jsonString = perspectiveItr->name.GetString();
+                    if (c_str_equal(jsonString, "yfov")) {
+                        ASSERT(perspectiveItrValue.IsNumber());
+                        gltfCamera.perspective.yFov = perspectiveItrValue.GetFloat();
+                        continue;
+                    } else if (c_str_equal(jsonString, "aspectRatio")) {
+                        ASSERT(perspectiveItrValue.IsNumber());
+                        gltfCamera.perspective.aspectRatio = perspectiveItrValue.GetFloat();
+                        continue;
+                    } else if (c_str_equal(jsonString, "znear")) {
+                        ASSERT(perspectiveItrValue.IsNumber());
+                        gltfCamera.zNear = perspectiveItrValue.GetFloat();
+                        continue;
+                    } else if (c_str_equal(jsonString, "zfar")) {
+                        ASSERT(perspectiveItrValue.IsNumber());
+                        gltfCamera.zFar = perspectiveItrValue.GetFloat();
+                        continue;
+                    }
+                    NOT_IMPLEMENTED()
+                }
+                continue;
+            } else if (c_str_equal(jsonString, "orthographic")) {
+                ASSERT(itrValue.IsNumber());
+                gltfCamera.zNear = itrValue.GetFloat();
+                continue;
+            } else if (c_str_equal(jsonString, "type")) {
+                ASSERT(itrValue.IsString());
+                if (c_str_equal("perspective", itrValue.GetString())) {
+                    gltfCamera.cameraType = GLTF_CAMERA_TYPE_PERSPECTIVE;
+                    continue;
+                } else if (c_str_equal("orthographic", itrValue.GetString())) {
+                    gltfCamera.cameraType = GLTF_CAMERA_TYPE_ORTHOGRAPHIC;
+                    continue;
+                }
+                NOT_IMPLEMENTED();
+                continue;
+            } else if (c_str_equal(jsonString, "name")) {
+                ASSERT(itrValue.IsString());
+                ASSERT(itrValue.GetStringLength() < GLTF_STR_CAMERA_NAME_SIZE);
+                sprintf(gltfCamera.name, "%s", itrValue.GetString());
+                continue;
+            }
+            NOT_IMPLEMENTED()
+        }
+    }
+}
+
+void parse_gltf_extensions_used(std::vector<GltfUsedExtension> &outUsedExtensions, const rapidjson::Value &usedExtensionsValue) {
+    ASSERT(usedExtensionsValue.IsArray())
+    outUsedExtensions.reserve(usedExtensionsValue.GetArray().Size());
+    for (auto const &usedExtension: usedExtensionsValue.GetArray()) {
+        GltfUsedExtension &gltfUsedExtension = outUsedExtensions.emplace_back();
+        ASSERT(usedExtension.IsString())
+        ASSERT(usedExtension.GetStringLength() < GLTF_STR_EXTENSION_NAME_SIZE);
+        sprintf(gltfUsedExtension.itemName, "%s", usedExtension.GetString());
     }
 }
 
@@ -961,6 +1103,11 @@ void parse_gltf_accessors(std::vector<GltfAccessor> &outAccessors, const rapidjs
                     }
                 }
                 continue;
+            } else if (c_str_equal(jsonString, "name")) {
+                ASSERT(itrValue.IsString())
+                ASSERT(itrValue.GetStringLength() < GLTF_STR_ACCESSOR_NAME_SIZE);
+                sprintf(gltfAccessor.name, "%s", itrValue.GetString());
+                continue;
             }
             NOT_IMPLEMENTED()
         }
@@ -983,10 +1130,16 @@ void parse_gltf_asset(GltfAsset &outAsset, const rapidjson::Value &jsonValue) {
             ASSERT(itr->value.GetStringLength() < GLTF_STR_VERSION_SIZE)
             sprintf(outAsset.version, "%s", itr->value.GetString());
             continue;
+        } else if (c_str_equal(jsonString, "copyright")) {
+            ASSERT(itr->value.IsString())
+            ASSERT(itr->value.GetStringLength() < GLTF_STR_COPYRIGHT_SIZE)
+            sprintf(outAsset.copyright, "%s", itr->value.GetString());
+            continue;
         }
         NOT_IMPLEMENTED()
     }
 }
+
 
 void gltf_dump_intermediate(const GltfIntermediate &gltfData) {
     printf("start: dumping gltf intermediate:\n\n");
@@ -1227,7 +1380,14 @@ void gltf_parse_json(const char *gltfPath, const char *targetWriteDir, AssetPack
         } else if (c_str_equal(jsonString, "buffers")) {
             parse_gltf_buffers(g_gltfData.buffers, itr->value);
             continue;
+        } else if (c_str_equal(jsonString, "cameras")) {
+            parse_gltf_cameras(g_gltfData.cameras, itr->value);
+            continue;
+        } else if (c_str_equal(jsonString, "extensionsUsed")) {
+            parse_gltf_extensions_used(g_gltfData.usedExtensions, itr->value);
+            continue;
         }
+
         NOT_IMPLEMENTED(); // Parser is still IN_DEV, will implement missing features as and when I run into issues.
     }
 
