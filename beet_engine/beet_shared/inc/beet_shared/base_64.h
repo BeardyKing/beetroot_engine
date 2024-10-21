@@ -2,6 +2,7 @@
 #define BEETROOT_BASE_64_H
 
 #include <cstdint>
+#include <cstddef>
 
 //===API================================================================================================================
 size_t base64_decode_size(const char *inData, const size_t &inDataSize);

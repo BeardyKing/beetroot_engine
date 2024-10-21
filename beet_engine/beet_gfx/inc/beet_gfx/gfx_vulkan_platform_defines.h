@@ -13,9 +13,10 @@
 #endif
 
 #if CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
-#include <vulkan/vulkan_wayland.h>
+#include <X11/Xlib.h>
+#include <vulkan/vulkan_xlib.h>
 
-#define BEET_VK_SURFACE_EXTENSION VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
+#define BEET_VK_SURFACE_EXTENSION VK_KHR_XLIB_SURFACE_EXTENSION_NAME
 #endif
 
 //===TARGETS============================================================================================================

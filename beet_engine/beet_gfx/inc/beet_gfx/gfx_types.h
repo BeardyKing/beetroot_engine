@@ -150,7 +150,7 @@ struct GfxTexture {
     uint32_t imageSamplerType;
     VkDescriptorImageInfo descriptor;
 #if BEET_DEBUG
-    char debug_name[MAX_PATH];
+    char debug_name[260];
     TextureFormat debug_textureFormat;
     uint32_t debug_mipMapCount;
     uint32_t debug_width;

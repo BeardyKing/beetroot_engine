@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <beet_core/input.h>
 
 //===INTERNAL_STRUCTS===================================================================================================
@@ -22,7 +23,7 @@ struct MouseInfo {
 };
 
 static struct Input {
-    KeyInfo keyboard[(size_t) KeyCode::Last]{};
+    KeyInfo keyboard[(size_t) beet_KeyCode::Last]{};
     MouseInfo mouse{};
     KeyInfo mouseKeys[(size_t) MouseButton::Last]{};
     float cachedCurrentTime{};
@@ -54,21 +55,21 @@ void input_set_time(const double time) {
     s_input.cachedCurrentTime = (float) time;
 }
 
-bool input_key_pressed(const KeyCode key) {
+bool input_key_pressed(const beet_KeyCode key) {
     const KeyInfo *keyInfo = &s_input.keyboard[(size_t) key];
     return keyInfo->timePressed == s_input.cachedCurrentTime;
 }
 
-bool input_key_released(const KeyCode key) {
+bool input_key_released(const beet_KeyCode key) {
     const KeyInfo *keyInfo = &s_input.keyboard[(size_t) key];
     return keyInfo->timeReleased == s_input.cachedCurrentTime;
 }
 
-bool input_key_down(const KeyCode key) {
+bool input_key_down(const beet_KeyCode key) {
     return s_input.keyboard[(size_t) key].keyDown;
 }
 
-float input_key_down_time(const KeyCode key) {
+float input_key_down_time(const beet_KeyCode key) {
     const KeyInfo *keyInfo = &s_input.keyboard[(size_t) key];
     if (keyInfo->timePressed > keyInfo->timeReleased) {
         return s_input.cachedCurrentTime - keyInfo->timePressed;

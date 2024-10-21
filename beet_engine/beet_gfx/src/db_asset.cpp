@@ -1,3 +1,4 @@
+#include <cstring>
 #include <beet_gfx/db_asset.h>
 #include <beet_shared/beet_types.h>
 #include <beet_shared/assert.h>

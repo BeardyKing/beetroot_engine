@@ -2,6 +2,7 @@
 #define BEETROOT_FILESYSTEM_H
 
 #include <cstdint>
+#include <cstddef>
 
 //===INTERNAL_STRUCTS===================================================================================================
 constexpr uint32_t FS_MAX_PATH_SIZE = 256;

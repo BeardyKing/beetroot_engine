@@ -2,6 +2,7 @@
 #define BEETROOT_C_STRING_H
 
 #include <cstdint>
+#include <cstddef>
 
 //===API================================================================================================================
 bool c_str_empty(const char *inStr);

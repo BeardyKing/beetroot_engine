@@ -47,28 +47,28 @@ static float s_manipulatorAngleSnappingAmount = 5.0f;
 
 //===INTERNAL_FUNCTIONS=================================================================================================
 static void widget_switch_between_manipulators() {
-    if (input_key_pressed(KeyCode::Control) || input_key_released(KeyCode::Control)) {
+    if (input_key_pressed(beet_KeyCode::Control) || input_key_released(beet_KeyCode::Control)) {
         s_manipulatorIsSnapping = !s_manipulatorIsSnapping;
         s_manipulatorIsAngleSnapping = !s_manipulatorIsAngleSnapping;
     }
     if (!s_translateGizmoInUse) {
         //TODO:EDITOR: Switching between local & global does not work correctly for the translate gizmo.
-        if (input_key_pressed(KeyCode::T)) {
+        if (input_key_pressed(beet_KeyCode::T)) {
             s_manipulatorIsWorldSpace = !s_manipulatorIsWorldSpace;
         }
     }
 
     if (!s_translateGizmoInUse && !s_rotateGizmoInUse && !s_scaleGizmoInUse) {
-        if (input_key_down(KeyCode::N1)) {
+        if (input_key_down(beet_KeyCode::N1)) {
             s_manipulator = Manipulator_None;
         }
-        if (input_key_down(KeyCode::N2)) {
+        if (input_key_down(beet_KeyCode::N2)) {
             s_manipulator = Manipulator_Translate;
         }
-        if (input_key_down(KeyCode::N3)) {
+        if (input_key_down(beet_KeyCode::N3)) {
             s_manipulator = Manipulator_Rotate;
         }
-        if (input_key_down(KeyCode::N4)) {
+        if (input_key_down(beet_KeyCode::N4)) {
             s_manipulator = Manipulator_Scale;
         }
     }

@@ -8,10 +8,10 @@
 void input_update();
 
 void input_set_time(double time);
-bool input_key_pressed(KeyCode key);
-bool input_key_released(KeyCode key);
-bool input_key_down(KeyCode key);
-float input_key_down_time(KeyCode key);
+bool input_key_pressed(beet_KeyCode key);
+bool input_key_released(beet_KeyCode key);
+bool input_key_down(beet_KeyCode key);
+float input_key_down_time(beet_KeyCode key);
 
 vec2f input_mouse_delta();
 vec2f input_mouse_delta_raw();

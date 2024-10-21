@@ -1,3 +1,4 @@
+#include <cstring>
 #include <beet_gfx/gfx_converter.h>
 #include <beet_converter/converter_interface.h>
 
