@@ -52,6 +52,8 @@ add_library(beet_gfx
         src/gfx_triangle_strip.cpp
         inc/beet_gfx/gfx_generate_geometry.h
         src/gfx_generate_geometry.cpp
+        src/imgui/imgui_impl_x11.cpp
+        inc/beet_gfx/imgui/imgui_impl_x11.h
 )
 
 target_include_directories(beet_gfx

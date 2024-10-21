@@ -35,8 +35,8 @@ struct WidgetInfo {
 static WidgetInfo s_widgets[uint32_t(WidgetType::COUNT)] = {
         {.type = WidgetType::ACTIVE_WIDGETS_MENU, .isActive = false, .name = "Active widgets menu", .toolbarTabName = "Editor"},
 
-        {.type = WidgetType::SHADER_HOT_RELOAD_MENU, .isActive = false, .name = "Shader hot reload", .toolbarTabName = "Debug Tools"},
-        {.type = WidgetType::MEMORY_POOL_MENU, .isActive = false, .name = "Memory pool inspector", .toolbarTabName = "Debug Tools"},
+        {.type = WidgetType::SHADER_HOT_RELOAD_MENU, .isActive = true, .name = "Shader hot reload", .toolbarTabName = "Debug Tools"},
+        {.type = WidgetType::MEMORY_POOL_MENU, .isActive = true, .name = "Memory pool inspector", .toolbarTabName = "Debug Tools"},
 
         {.type = WidgetType::TOOLBAR_NAVIGATION_MENU, .isActive = true, .name = "Navigation bar"},
         {.type = WidgetType::DB_POOL_MENU, .isActive = true, .name = "DB pool inspector"},

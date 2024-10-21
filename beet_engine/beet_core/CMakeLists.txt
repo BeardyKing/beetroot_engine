@@ -45,3 +45,19 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
 else ()
     target_compile_definitions(beet_core PUBLIC NDEBUG=1)
 endif ()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(X11 REQUIRED x11)
+    pkg_check_modules(XFIXES REQUIRED xfixes)
+
+    include_directories(
+            ${X11_INCLUDE_DIRS}
+            ${XFIXES_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(beet_core
+            ${X11_LIBRARIES}
+            ${XFIXES_LIBRARIES}
+    )
+endif ()

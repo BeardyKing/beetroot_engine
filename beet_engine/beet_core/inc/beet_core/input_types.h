@@ -20,7 +20,7 @@ enum class MouseButton {
     Last
 };
 
-enum class KeyCode {
+enum class beet_KeyCode {
     Unknown = -1,
     Shift = 16,     // both left and right
     Control = 17,   // both left and right

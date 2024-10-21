@@ -1,7 +1,10 @@
 #include <beet_shared/shared_utils.h>
 
 #include <cassert>
+#include <cmath>
 #include <cstdlib>
+
+#include <beet_shared/assert.h>
 
 //===API================================================================================================================
 size_t align_to(size_t value, size_t alignment) {

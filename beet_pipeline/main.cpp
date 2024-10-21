@@ -1,5 +1,5 @@
 #include <beet_shared/log.h>
-#include <ispc_texcomp.h>
+// #include <ispc_texcomp.h>
 
 #define CGLTF_IMPLEMENTATION
 

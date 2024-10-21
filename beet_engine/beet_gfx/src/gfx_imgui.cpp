@@ -1,28 +1,39 @@
 #include <beet_gfx/gfx_imgui.h>
 #include <beet_gfx/gfx_types.h>
+#include <beet_gfx/IconsFontAwesome5.h>
 
 #include <beet_shared/assert.h>
 
-#include <vulkan/vulkan_core.h>
 #include <imgui.h>
+#include <vulkan/vulkan_core.h>
 #include <backends/imgui_impl_vulkan.h>
+
+#if CHECK_FEATURE(FEATURE_PLATFORM_WINDOWS)
 #include <backends/imgui_impl_win32.h>
-#include <beet_gfx/IconsFontAwesome5.h>
+#elif CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
+#include <beet_gfx/imgui/imgui_impl_x11.h>
+#endif
 
 //===INTERNAL_STRUCTS===================================================================================================
 extern VulkanBackend g_vulkanBackend;
 extern TargetVulkanFormats g_vulkanTargetFormats;
+
+#if CHECK_FEATURE(FEATURE_PLATFORM_WINDOWS)
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+#elif CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
+extern IMGUI_IMPL_API int ImGui_ImplX11_EventHandler(XEvent &event);
+#endif
 
 VkDescriptorPool g_imguiPool = {VK_NULL_HANDLE};
 bool g_imguiFinishedRendering = {true};
 //======================================================================================================================
 
-static void gfx_imgui_set_theme() {
+static void gfx_imgui_set_theme()
+{
     ImGui::GetStyle().FrameRounding = 0.0f;
     ImGui::GetStyle().GrabRounding = 4.0f;
 
-    ImVec4 *colors = ImGui::GetStyle().Colors;
+    ImVec4* colors = ImGui::GetStyle().Colors;
     colors[ImGuiCol_Text] = ImVec4(0.95f, 0.96f, 0.98f, 1.00f);
     colors[ImGuiCol_TextDisabled] = ImVec4(0.36f, 0.42f, 0.47f, 1.00f);
     colors[ImGuiCol_WindowBg] = ImVec4(0.11f, 0.15f, 0.17f, 1.00f);
@@ -74,66 +85,91 @@ static void gfx_imgui_set_theme() {
 }
 
 //===API================================================================================================================
-void gfx_imgui_begin() {
-    if (g_imguiFinishedRendering) {
+void gfx_imgui_begin(void* event)
+{
+    if (g_imguiFinishedRendering)
+    {
         ImGui_ImplVulkan_NewFrame();
+#if CHECK_FEATURE(FEATURE_PLATFORM_WINDOWS)
         ImGui_ImplWin32_NewFrame();
+#elif CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
+        ImGui_ImplX11_NewFrame();
+#endif
         ImGui::NewFrame();
         g_imguiFinishedRendering = false;
     }
 }
 
-void gfx_imgui_end() {
+void gfx_imgui_end()
+{
     ImGui::EndFrame();
     g_imguiFinishedRendering = true;
 }
 
-void gfx_imgui_demo_window() {
+void gfx_imgui_demo_window()
+{
     ImGui::ShowDemoWindow();
 }
 
-void gfx_imgui_draw(VkCommandBuffer &cmdBuffer) {
+void gfx_imgui_draw(VkCommandBuffer& cmdBuffer)
+{
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuffer, nullptr);
     g_imguiFinishedRendering = true;
 }
 
-void *gfx_imgui_get_win32_proc_function_pointer() {
+void *gfx_imgui_get_proc_function_pointer() {
+#if CHECK_FEATURE(FEATURE_PLATFORM_WINDOWS)
     return (void *) ImGui_ImplWin32_WndProcHandler;
+#elif CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
+    return (void*) ImGui_ImplX11_EventHandler;
+#endif
+    NOT_IMPLEMENTED();
 }
 //======================================================================================================================
 
 //===INIT_&_SHUTDOWN====================================================================================================
-void gfx_create_imgui(void *windowHandle) {
+void gfx_create_imgui(void* windowHandle)
+{
     constexpr uint32_t poolSize = 11;
     const VkDescriptorPoolSize descriptorPoolSizes[poolSize] = {
-            {VK_DESCRIPTOR_TYPE_SAMPLER,                1000},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-            {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          1000},
-            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          1000},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   1000},
-            {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   1000},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1000},
-            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         1000},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-            {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       1000}
+        {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+        {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}
     };
 
     const VkDescriptorPoolCreateInfo descriptorPoolInfo = {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-            .maxSets = 1000,
-            .poolSizeCount = poolSize,
-            .pPoolSizes = descriptorPoolSizes,
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+        .maxSets = 1000,
+        .poolSizeCount = poolSize,
+        .pPoolSizes = descriptorPoolSizes,
     };
 
     const VkResult poolResult = vkCreateDescriptorPool(g_vulkanBackend.device, &descriptorPoolInfo, nullptr, &g_imguiPool);
     ASSERT(poolResult == VK_SUCCESS);
 
     ImGui::CreateContext();
+
+#if CHECK_FEATURE(FEATURE_PLATFORM_WINDOWS)
     ImGui_ImplWin32_Init(windowHandle);
-    ImGuiIO &io = ImGui::GetIO();
+#elif CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
+    struct XLibHandles // must mirror struct in kah_core/src/window_linux.c
+    {
+        Display* display;
+        Window window;
+    }* xLibHandles = (XLibHandles*)windowHandle;
+    ImGui_ImplX11_Init((void*)xLibHandles->display, (void*)xLibHandles->window);
+#endif
+    ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -154,37 +190,43 @@ void gfx_create_imgui(void *windowHandle) {
     icons_config.GlyphOffset = ImVec2{1, 3.0f};
     io.Fonts->AddFontFromFileTTF("assets/fonts/" FONT_ICON_FILE_NAME_FAS, iconFontSize, &icons_config, icons_ranges);
 
-//    const VkFormat surfaceFormat = gfx_utils_select_surface_format().format;
-//    const VkFormat depthFormat = gfx_utils_find_depth_format(VK_IMAGE_TILING_OPTIMAL);
+    //    const VkFormat surfaceFormat = gfx_utils_select_surface_format().format;
+    //    const VkFormat depthFormat = gfx_utils_find_depth_format(VK_IMAGE_TILING_OPTIMAL);
 
     ImGui_ImplVulkan_InitInfo imguiInitInfo = {
-            .Instance = g_vulkanBackend.instance,
-            .PhysicalDevice = g_vulkanBackend.physicalDevice,
-            .Device = g_vulkanBackend.device,
-            .Queue = g_vulkanBackend.queue,
-            .DescriptorPool = g_imguiPool,
-            .MinImageCount = 3,
-            .ImageCount = 3,
-            .MSAASamples = g_vulkanBackend.sampleCount,
-            .UseDynamicRendering = true,
-            .PipelineRenderingCreateInfo = {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
-                    .colorAttachmentCount = 1,
-                    .pColorAttachmentFormats = &g_vulkanTargetFormats.surfaceFormat.format,
-                    .depthAttachmentFormat = g_vulkanTargetFormats.depthFormat,
-                    .stencilAttachmentFormat = g_vulkanTargetFormats.depthFormat,
-            },
+        .Instance = g_vulkanBackend.instance,
+        .PhysicalDevice = g_vulkanBackend.physicalDevice,
+        .Device = g_vulkanBackend.device,
+        .Queue = g_vulkanBackend.queue,
+        .DescriptorPool = g_imguiPool,
+        .MinImageCount = 3,
+        .ImageCount = 3,
+        .MSAASamples = g_vulkanBackend.sampleCount,
+        .UseDynamicRendering = true,
+        .PipelineRenderingCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
+            .colorAttachmentCount = 1,
+            .pColorAttachmentFormats = &g_vulkanTargetFormats.surfaceFormat.format,
+            .depthAttachmentFormat = g_vulkanTargetFormats.depthFormat,
+            .stencilAttachmentFormat = g_vulkanTargetFormats.depthFormat,
+        },
     };
 
     ImGui_ImplVulkan_Init(&imguiInitInfo);
     ImGui_ImplVulkan_CreateFontsTexture();
 }
 
-void gfx_cleanup_imgui() {
+void gfx_cleanup_imgui()
+{
     ImGui_ImplVulkan_DestroyFontsTexture();
     ImGui_ImplVulkan_Shutdown();
+#if CHECK_FEATURE(FEATURE_PLATFORM_WINDOWS)
     ImGui_ImplWin32_Shutdown();
+#elif CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
+    ImGui_ImplX11_Shutdown();
+#endif
     ImGui::DestroyContext(nullptr);
     vkDestroyDescriptorPool(g_vulkanBackend.device, g_imguiPool, nullptr);
 }
+
 //======================================================================================================================

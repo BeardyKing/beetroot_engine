@@ -1,3 +1,4 @@
+#include <cstring>
 #include <beet_gfx/gfx_texture.h>
 #include <beet_gfx/gfx_types.h>
 #include <beet_gfx/gfx_samplers.h>

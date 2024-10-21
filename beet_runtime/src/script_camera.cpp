@@ -42,28 +42,28 @@ void script_update_camera() {
         float moveSpeed = 5.0f;
         const float speedUpScalar = 80.0f;
         const float speedDownScalar = 0.1f;
-        if (input_key_down(KeyCode::W)) {
+        if (input_key_down(beet_KeyCode::W)) {
             moveDirection += camForward;
         }
-        if (input_key_down(KeyCode::S)) {
+        if (input_key_down(beet_KeyCode::S)) {
             moveDirection += -camForward;
         }
-        if (input_key_down(KeyCode::A)) {
+        if (input_key_down(beet_KeyCode::A)) {
             moveDirection += camRight;
         }
-        if (input_key_down(KeyCode::D)) {
+        if (input_key_down(beet_KeyCode::D)) {
             moveDirection += -camRight;
         }
-        if (input_key_down(KeyCode::R)) {
+        if (input_key_down(beet_KeyCode::R)) {
             moveDirection += WORLD_UP;
         }
-        if (input_key_down(KeyCode::F)) {
+        if (input_key_down(beet_KeyCode::F)) {
             moveDirection += -WORLD_UP;
         }
-        if (input_key_down(KeyCode::Shift)) {
+        if (input_key_down(beet_KeyCode::Shift)) {
             moveSpeed *= speedUpScalar;
         }
-        if (input_key_down(KeyCode::Control)) {
+        if (input_key_down(beet_KeyCode::Control)) {
             moveSpeed *= speedDownScalar;
         }
         transform->position += (moveDirection * moveSpeed) * (float) time_delta();

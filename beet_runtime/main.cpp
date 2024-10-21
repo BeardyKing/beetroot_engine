@@ -12,6 +12,8 @@
 #include <runtime/entity_builder.h>
 #include <runtime/script_camera.h>
 
+#include "beet_gfx/imgui/imgui_impl_x11.h"
+
 #if CHECK_FEATURE(FEATURE_GFX_IMGUI)
 
 #include <runtime/widget_manager.h>
@@ -20,7 +22,7 @@
 
 #if CHECK_FEATURE(FEATURE_GFX_IMGUI)
 void imgui_update() {
-    gfx_imgui_begin();
+    gfx_imgui_begin(window_get_event());
     {
         widget_manager_update();
     }
@@ -28,9 +30,10 @@ void imgui_update() {
 #endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
 
 int main() {
-    window_create("beetroot engine - runtime", {1024, 768});
+    const vec2i windowSize = {1024, 758};
+    window_create("beetroot engine - runtime", windowSize, {});
 #if CHECK_FEATURE(FEATURE_GFX_IMGUI)
-    window_set_procedure_callback_func(gfx_imgui_get_win32_proc_function_pointer());
+    window_set_procedure_callback_func(gfx_imgui_get_proc_function_pointer());
 #endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
     time_create();
     input_create();
