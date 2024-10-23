@@ -9,6 +9,7 @@ enum class CursorState {
     Locked = 2,
     HiddenLocked = 3,
     HiddenLockedLockMousePos = 4,
+    // TODO: Add wrap cursor mode. i.e. mouse.x = (mouse.x, 0,100) where mouse.x with a val of 125 would wrap around to 25.
 };
 
 enum class MouseButton {

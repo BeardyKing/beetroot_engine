@@ -180,7 +180,7 @@ void input_mouse_scroll_callback(const int32_t y) {
 void input_create() {
     s_input = {};
 
-    input_set_mouse_sensitivity({0.3f, 0.3f});
+    input_set_mouse_sensitivity({0.15f, 0.15f});
     input_set_scroll_sensitivity(0.03f);
 }
 

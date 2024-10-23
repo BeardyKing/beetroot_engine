@@ -1,6 +1,9 @@
 #include <cstdio>
 #include <cstdlib>
+
 #include <beet_shared/feature_defines.h>
+#include <beet_shared/assert.h>
+
 #include <X11/XKBlib.h>
 
 
@@ -45,6 +48,7 @@ static struct WindowInfo
 
     vec2i lockedCursorPosition;
     vec2i virtualCursorPosition;
+    vec2i lastPosition;
     bool cursorOverWindow;
     XLibHandles xLibHandles;
     int screen;
@@ -181,14 +185,19 @@ beet_KeyCode x11_to_beet_keycode(KeySym keysym)
     default: return beet_KeyCode::Unknown;
     }
 }
+
 typedef void (*EventCallback)(XEvent* event);
 static EventCallback s_xEventCallback = nullptr;
-void window_set_procedure_callback_func(void* procCallback) {
+
+void window_set_procedure_callback_func(void* procCallback)
+{
     s_xEventCallback = (EventCallback)procCallback;
 }
 
-static void x_event_callback(XEvent* event) {
-    if (s_xEventCallback) {
+static void x_event_callback(XEvent* event)
+{
+    if (s_xEventCallback)
+    {
         s_xEventCallback(event);
     }
 }
@@ -239,11 +248,29 @@ static void window_poll()
             break;
 
         case MotionNotify:
-            s_windowInfo.virtualCursorPosition.x = s_windowInfo.event.xmotion.x;
-            s_windowInfo.virtualCursorPosition.y = s_windowInfo.event.xmotion.y;
-            input_mouse_move_callback(s_windowInfo.virtualCursorPosition.x, s_windowInfo.virtualCursorPosition.y);
-            input_mouse_windowed_position_callback(s_windowInfo.virtualCursorPosition.x, s_windowInfo.virtualCursorPosition.y);
-            break;
+            {
+                vec2i delta;
+                delta.x = s_windowInfo.event.xmotion.x - s_windowInfo.lastPosition.x;
+                delta.y = s_windowInfo.event.xmotion.y - s_windowInfo.lastPosition.y;
+                s_windowInfo.virtualCursorPosition.x += delta.x;
+                s_windowInfo.virtualCursorPosition.y += delta.y;
+
+                input_mouse_move_callback(s_windowInfo.virtualCursorPosition.x, s_windowInfo.virtualCursorPosition.y);
+                input_mouse_windowed_position_callback(s_windowInfo.event.xmotion.x, s_windowInfo.event.xmotion.y);
+
+                if (s_windowInfo.currentCursorState == CursorState::HiddenLockedLockMousePos)
+                {
+                    XWarpPointer(s_windowInfo.xLibHandles.display, None, s_windowInfo.xLibHandles.window, 0, 0, 0, 0, s_windowInfo.width / 2, s_windowInfo.height / 2);
+                    s_windowInfo.lastPosition.x = s_windowInfo.width / 2;
+                    s_windowInfo.lastPosition.y = s_windowInfo.height / 2;
+                }
+                else
+                {
+                    s_windowInfo.lastPosition.x = s_windowInfo.event.xmotion.x;
+                    s_windowInfo.lastPosition.y = s_windowInfo.event.xmotion.y;
+                }
+                break;
+            }
 
         case FocusOut:
             window_set_cursor(CursorState::Normal);
@@ -300,6 +327,7 @@ static void window_poll()
             break;
 
         case EnterNotify:
+
             s_windowInfo.cursorOverWindow = true;
             break;
 
@@ -308,6 +336,7 @@ static void window_poll()
         }
     }
 }
+
 //======================================================================================================================
 
 //===API================================================================================================================
@@ -371,6 +400,7 @@ void window_set_cursor(CursorState state)
     case CursorState::HiddenLockedLockMousePos:
         cursor_hide(s_windowInfo.xLibHandles.display, s_windowInfo.xLibHandles.window);
         cursor_lock(s_windowInfo.xLibHandles.display, s_windowInfo.xLibHandles.window);
+
         break;
     default:
         break;
