@@ -30,7 +30,7 @@ void imgui_update() {
 #endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
 
 int main() {
-    const vec2i windowSize = {1024, 758};
+    const vec2i windowSize = {1024, 768};
     window_create("beetroot engine - runtime", windowSize, {});
 #if CHECK_FEATURE(FEATURE_GFX_IMGUI)
     window_set_procedure_callback_func(gfx_imgui_get_proc_function_pointer());

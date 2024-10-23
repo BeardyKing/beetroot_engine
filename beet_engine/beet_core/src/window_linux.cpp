@@ -260,9 +260,9 @@ static void window_poll()
 
                 if (s_windowInfo.currentCursorState == CursorState::HiddenLockedLockMousePos)
                 {
-                    XWarpPointer(s_windowInfo.xLibHandles.display, None, s_windowInfo.xLibHandles.window, 0, 0, 0, 0, s_windowInfo.width / 2, s_windowInfo.height / 2);
-                    s_windowInfo.lastPosition.x = s_windowInfo.width / 2;
-                    s_windowInfo.lastPosition.y = s_windowInfo.height / 2;
+                    s_windowInfo.lastPosition.x = s_windowInfo.lockedCursorPosition.x;
+                    s_windowInfo.lastPosition.y = s_windowInfo.lockedCursorPosition.y;
+                    XWarpPointer(s_windowInfo.xLibHandles.display, None, s_windowInfo.xLibHandles.window, 0, 0, 0, 0, s_windowInfo.lastPosition.x, s_windowInfo.lastPosition.y);
                 }
                 else
                 {
