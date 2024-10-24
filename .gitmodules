@@ -1,24 +1,19 @@
+[submodule "assets/scenes/glTF-Sample-Assets"]
+	path = assets/scenes/glTF-Sample-Assets
+	url = https://github.com/KhronosGroup/glTF-Sample-Assets.git
 [submodule "libs/third_party/glm"]
 	path = libs/third_party/glm
 	url = https://github.com/icaven/glm.git
-
-[submodule "libs/third_party/ispc_texture_compressor_cmake"]
-	path = libs/third_party/ispc_texture_compressor_cmake
-	url = https://github.com/BeardyKing/ispc_texture_compressor_cmake.git
-
-[submodule "libs/third_party/cgltf"]
-	path = libs/third_partycgltf
-	url = https://github.com/jkuhlmann/cgltf.git
-
 [submodule "libs/third_party/fmt"]
 	path = libs/third_party/fmt
 	url = https://github.com/fmtlib/fmt.git
-
+[submodule "libs/third_party/ispc_texture_compressor_cmake"]
+	path = libs/third_party/ispc_texture_compressor_cmake
+	url = https://github.com/BeardyKing/ispc_texture_compressor_cmake.git
 [submodule "libs/third_party/imgui"]
 	path = libs/third_party/imgui
 	url = https://github.com/ocornut/imgui.git
 	branch = docking
-
-[submodule "assets/scenes/glTF-Sample-Assets"]
-	path = assets/scenes/glTF-Sample-Assets
-	url = https://github.com/KhronosGroup/glTF-Sample-Assets.git
+[submodule "libs/third_party/cgltf"]
+	path = libs/third_party/cgltf
+	url = https://github.com/jkuhlmann/cgltf.git
