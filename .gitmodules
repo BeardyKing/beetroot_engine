@@ -1,22 +1,24 @@
-[submodule "beet_engine/beet_math/third/glm"]
-	path = beet_engine/beet_math/third/glm
+[submodule "libs/third_party/glm"]
+	path = libs/third_party/glm
 	url = https://github.com/icaven/glm.git
-[submodule "beet_pipeline/third/ispc_texture_compressor_cmake"]
-	path = beet_pipeline/third/ispc_texture_compressor_cmake
+
+[submodule "libs/third_party/ispc_texture_compressor_cmake"]
+	path = libs/third_party/ispc_texture_compressor_cmake
 	url = https://github.com/BeardyKing/ispc_texture_compressor_cmake.git
-[submodule "beet_pipeline/third/cgltf"]
-	path = beet_pipeline/third/cgltf
+
+[submodule "libs/third_party/cgltf"]
+	path = libs/third_partycgltf
 	url = https://github.com/jkuhlmann/cgltf.git
-[submodule "beet_pipeline/third/fmt"]
-	path = beet_pipeline/third/fmt
+
+[submodule "libs/third_party/fmt"]
+	path = libs/third_party/fmt
 	url = https://github.com/fmtlib/fmt.git
-[submodule "beet_engine/beet_gfx/third/imgui"]
-	path = beet_engine/beet_gfx/third/imgui
+
+[submodule "libs/third_party/imgui"]
+	path = libs/third_party/imgui
 	url = https://github.com/ocornut/imgui.git
 	branch = docking
-[submodule "beet_pipeline/third/rapidjson"]
-	path = beet_pipeline/third/rapidjson
-	url = https://github.com/Tencent/rapidjson.git
+
 [submodule "assets/scenes/glTF-Sample-Assets"]
 	path = assets/scenes/glTF-Sample-Assets
 	url = https://github.com/KhronosGroup/glTF-Sample-Assets.git

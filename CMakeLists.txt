@@ -7,11 +7,16 @@ endif()
 
 set(BEET_CMAKE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-#====ENGINE LIBS==========
-add_subdirectory(beet_engine)
+#====THIRD_PARTY_LIBS=====
+add_subdirectory(libs/third_party)
 
-#====OFFLINE PIPELINE=====
+#====LIBS=================
+add_subdirectory(libs/beet_math)
+add_subdirectory(libs/beet_shared)
+add_subdirectory(libs/beet_gfx)
+add_subdirectory(libs/beet_converter)
+add_subdirectory(libs/beet_core)
+
+#====PROJECTS=============
 add_subdirectory(beet_pipeline)
-
-#====EXES=================
 add_subdirectory(beet_runtime)

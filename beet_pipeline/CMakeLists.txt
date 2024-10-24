@@ -11,37 +11,15 @@ add_executable(beet_pipeline
         src/pipeline_commandlines.cpp
 )
 
-##===RapidJSON
-set(RAPIDJSON_INCLUDE_DIR third/rapidjson/include)
-add_subdirectory(third/rapidjson)
-
-
 ##===LIB TARGET DIR
 target_include_directories(beet_pipeline
         PUBLIC inc
-        PUBLIC ${RAPIDJSON_INCLUDE_DIR}
 )
-##===LIB FMT
-add_subdirectory(third/fmt)
-
-
-#===C_GLTF
-project(c_gltf)
-add_library(c_gltf INTERFACE)
-target_include_directories(c_gltf INTERFACE third/cgltf/)
-
-#===ISPC COMPRESSOR
-set(ISPC_COMPILER_LOCATION $ENV{ISPC_COMPILER_LOCATION})
-set(ISPC_COMPILER_TARGET "avx2")
-add_subdirectory(third/ispc_texture_compressor_cmake)
-
-#===COMPRESSONATOR
-
 
 target_link_libraries(beet_pipeline
         beet_shared
         beet_converter
-        ispc_texture_compressor
+
         c_gltf
         fmt::fmt
 )

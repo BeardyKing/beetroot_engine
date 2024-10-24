@@ -1,5 +1,3 @@
-add_subdirectory(third)
-
 project(beet_gfx)
 add_library(beet_gfx
         inc/beet_gfx/gfx_interface.h

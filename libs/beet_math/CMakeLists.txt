@@ -18,7 +18,6 @@ add_library(beet_math
 )
 
 #====LIB GLM==============
-add_subdirectory(third/glm)
 
 #====LIB DEPENDENCIES=====
 target_link_libraries(beet_math
