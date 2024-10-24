@@ -1,4 +1,4 @@
-#include <beet_gfx/gfx_descriptors.h>
+#include <beet_gfx/vulkan/gfx_vk_descriptors.h>
 
 //===API================================================================================================================
 VkDescriptorSetAllocateInfo gfx_descriptor_set_alloc_info(VkDescriptorPool descriptorPool,

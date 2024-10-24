@@ -7,9 +7,9 @@
 #include <beet_math/vec3.h>
 #include <beet_math/vec2.h>
 
-#include <beet_gfx/gfx_vulkan_platform_defines.h>
-#include <beet_gfx/gfx_buffer.h> // TODO: consider moving the struct into here instead.
-#include <beet_gfx/gfx_mesh.h> // TODO: consider moving the struct into here instead.
+#include <beet_gfx/vulkan/gfx_vk_platform_defines.h>
+#include <beet_gfx/vulkan/gfx_vk_buffer.h> // TODO: consider moving the struct into here instead.
+#include <beet_gfx/vulkan/gfx_vk_mesh.h> // TODO: consider moving the struct into here instead.
 
 #include <beet_shared/texture_formats.h>
 

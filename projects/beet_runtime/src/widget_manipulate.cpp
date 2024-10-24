@@ -14,12 +14,12 @@
 #include <beet_shared/shared_utils.h>
 #include <beet_shared/assert.h>
 
-#include <beet_gfx/gfx_line.h>
+#include <beet_gfx/vulkan/gfx_vk_line.h>
+#include <beet_gfx/vulkan/gfx_vk_triangle_strip.h>
+#include <beet_gfx/gfx_generate_geometry.h>
+#include <beet_gfx/IconsFontAwesome5.h>
 #include <beet_gfx/gfx_interface.h>
 #include <beet_gfx/db_asset.h>
-#include <beet_gfx/IconsFontAwesome5.h>
-#include <beet_gfx/gfx_triangle_strip.h>
-#include <beet_gfx/gfx_generate_geometry.h>
 
 #include <cstdint>
 

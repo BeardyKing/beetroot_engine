@@ -1,18 +1,18 @@
-#include <cstring>
-#include <beet_gfx/gfx_texture.h>
-#include <beet_gfx/gfx_types.h>
-#include <beet_gfx/gfx_samplers.h>
-#include <beet_gfx/gfx_utils.h>
-#include <beet_gfx/gfx_command.h>
+#include <beet_gfx/vulkan/gfx_vk_texture.h>
+#include <beet_gfx/vulkan/gfx_vk_samplers.h>
+#include <beet_gfx/vulkan/gfx_vk_utils.h>
+#include <beet_gfx/vulkan/gfx_vk_command.h>
 #include <beet_gfx/gfx_converter.h>
+#include <beet_gfx/gfx_types.h>
 
 #include <beet_shared/texture_formats.h>
 #include <beet_shared/dds_loader.h>
 #include <beet_shared/assert.h>
 #include <beet_shared/memory.h>
-#include <beet_shared/filesystem.h>
 
 #include <vulkan/vulkan_core.h>
+
+#include <cstring>
 
 //===INTERNAL_STRUCTS===================================================================================================
 extern VulkanBackend g_vulkanBackend;

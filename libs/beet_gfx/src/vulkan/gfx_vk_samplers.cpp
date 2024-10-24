@@ -1,4 +1,5 @@
-#include <beet_gfx/gfx_samplers.h>
+#include <beet_gfx/vulkan/gfx_vk_samplers.h>
+
 #include <beet_gfx/gfx_types.h>
 
 #include <beet_shared/texture_formats.h>

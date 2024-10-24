@@ -1,6 +1,7 @@
-#include <beet_gfx/gfx_shader.h>
-#include <beet_gfx/gfx_types.h>
+#include <beet_gfx/vulkan/gfx_vk_shader.h>
 #include <beet_gfx/gfx_converter.h>
+
+#include <beet_gfx/gfx_types.h>
 
 #include <beet_shared/assert.h>
 #include <beet_shared/memory.h>

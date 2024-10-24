@@ -1,4 +1,4 @@
-#include <beet_gfx/gfx_imgui.h>
+#include <beet_gfx/vulkan/gfx_vk_imgui.h>
 #include <beet_gfx/gfx_types.h>
 #include <beet_gfx/IconsFontAwesome5.h>
 

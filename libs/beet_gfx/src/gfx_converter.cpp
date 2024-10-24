@@ -1,10 +1,11 @@
-#include <cstring>
 #include <beet_gfx/gfx_converter.h>
 #include <beet_converter/converter_interface.h>
 
 #include <beet_shared/assert.h>
 #include <beet_shared/log.h>
 #include <beet_shared/c_string.h>
+
+#include <cstring>
 
 constexpr uint32_t SUPPORTED_CONVERTER_FORMATS_COUNT = 4;
 static constexpr const char *SUPPORTED_CONVERTER_FORMATS[SUPPORTED_CONVERTER_FORMATS_COUNT]{

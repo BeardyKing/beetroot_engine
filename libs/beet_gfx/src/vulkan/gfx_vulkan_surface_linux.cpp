@@ -7,7 +7,7 @@
 
 #if CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
 
-#include <beet_gfx/gfx_vulkan_surface.h>
+#include <beet_gfx/vulkan/gfx_vulkan_surface.h>
 #include <beet_shared/assert.h>
 
 #include <X11/Xlib.h>

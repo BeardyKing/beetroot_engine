@@ -1,8 +1,8 @@
 #include <cstring>
-#include <beet_gfx/gfx_buffer.h>
+#include <beet_gfx/vulkan/gfx_vk_buffer.h>
+#include <beet_gfx/vulkan/gfx_vk_utils.h>
+#include <beet_gfx/vulkan/gfx_vk_command.h>
 #include <beet_gfx/gfx_types.h>
-#include <beet_gfx/gfx_utils.h>
-#include <beet_gfx/gfx_command.h>
 
 #include <beet_shared/assert.h>
 

@@ -1,9 +1,10 @@
 #include <runtime/widget_hotloader.h>
-#include <beet_gfx/gfx_lit.h>
-#include <beet_gfx/gfx_sky.h>
+#include <beet_gfx/vulkan/gfx_vk_lit.h>
+#include <beet_gfx/vulkan/gfx_vk_sky.h>
+#include <beet_gfx/vulkan/gfx_vk_line.h>
+#include "beet_gfx/vulkan/gfx_vk_triangle_strip.h"
+
 #include <imgui.h>
-#include <beet_gfx/gfx_line.h>
-#include "beet_gfx/gfx_triangle_strip.h"
 
 //===API================================================================================================================
 void widget_hot_reload_shaders(bool &enabled) {

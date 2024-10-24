@@ -1,5 +1,23 @@
 #include <vulkan/vulkan.h>
 
+#include <beet_gfx/vulkan/gfx_vk_platform_defines.h>
+#include <beet_gfx/vulkan/gfx_vulkan_surface.h>
+#include <beet_gfx/vulkan/gfx_vk_samplers.h>
+#include <beet_gfx/vulkan/gfx_vk_buffer.h>
+#include <beet_gfx/vulkan/gfx_vk_command.h>
+#include <beet_gfx/vulkan/gfx_vk_utils.h>
+#include <beet_gfx/vulkan/gfx_vk_function_pointers.h>
+#include <beet_gfx/vulkan/gfx_vk_debug.h>
+#include <beet_gfx/vulkan/gfx_vk_imgui.h>
+#include <beet_gfx/vulkan/gfx_vk_lit.h>
+#include <beet_gfx/vulkan/gfx_vk_sky.h>
+#include <beet_gfx/vulkan/gfx_vk_line.h>
+#include <beet_gfx/vulkan/gfx_vk_triangle_strip.h>
+#include <beet_gfx/gfx_converter.h>
+#include <beet_gfx/gfx_interface.h>
+#include <beet_gfx/gfx_types.h>
+#include <beet_gfx/db_asset.h>
+
 #include <beet_shared/assert.h>
 #include <beet_shared/log.h>
 #include <beet_shared/shared_utils.h>
@@ -7,28 +25,9 @@
 #include <beet_shared/c_string.h>
 #include <beet_shared/beet_types.h>
 
-#include <beet_gfx/gfx_vulkan_platform_defines.h>
-#include <beet_gfx/gfx_interface.h>
-#include <beet_gfx/gfx_vulkan_surface.h>
-#include <beet_gfx/gfx_types.h>
-#include <beet_gfx/gfx_samplers.h>
-#include <beet_gfx/gfx_buffer.h>
-#include <beet_gfx/gfx_command.h>
-#include <beet_gfx/gfx_utils.h>
-#include <beet_gfx/gfx_function_pointers.h>
-#include <beet_gfx/gfx_debug.h>
-#include <beet_gfx/gfx_imgui.h>
-#include <beet_gfx/gfx_lit.h>
-#include <beet_gfx/gfx_sky.h>
-#include <beet_gfx/db_asset.h>
-#include <beet_gfx/gfx_converter.h>
-#include <beet_gfx/gfx_line.h>
-#include <beet_gfx/gfx_triangle_strip.h>
-
 #include <beet_math/quat.h>
 #include <beet_math/utilities.h>
 
-#include <fstream>
 #include <cstring>
 
 static const char *BEET_VK_PHYSICAL_DEVICE_TYPE_MAPPING[] = {

@@ -1,4 +1,4 @@
-#include <beet_gfx/gfx_pipeline.h>
+#include <beet_gfx/vulkan/gfx_vk_pipeline.h>
 
 //===API================================================================================================================
 VkPipelineInputAssemblyStateCreateInfo gfx_pipeline_input_assembly_create(

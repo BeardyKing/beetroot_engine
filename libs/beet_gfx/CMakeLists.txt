@@ -1,57 +1,57 @@
 project(beet_gfx)
 add_library(beet_gfx
+#       GFX SHARED
         inc/beet_gfx/gfx_interface.h
-        inc/beet_gfx/gfx_vulkan_platform_defines.h
-
-        src/gfx_backend_vulkan.cpp
-        src/gfx_vulkan_surface_win.cpp
-        inc/beet_gfx/gfx_vulkan_surface.h
-
-        inc/beet_gfx/gfx_samplers.h
-        src/gfx_samplers.cpp
-        inc/beet_gfx/gfx_mesh.h
-        src/gfx_vulkan_surface_linux.cpp
-        inc/beet_gfx/gfx_pipeline.h
-        src/gfx_pipeline.cpp
-        inc/beet_gfx/gfx_descriptors.h src/gfx_descriptors.cpp
-        inc/beet_gfx/gfx_indexed_indirect.h
-        src/gfx_indexed_indirect.cpp
-        inc/beet_gfx/gfx_shader.h
-        src/gfx_shader.cpp
-        inc/beet_gfx/gfx_buffer.h
-        src/gfx_buffer.cpp
-        inc/beet_gfx/gfx_utils.h
-        src/gfx_utils.cpp
-        inc/beet_gfx/gfx_command.h
-        src/gfx_command.cpp
-        src/gfx_mesh.cpp
-        inc/beet_gfx/gfx_function_pointers.h
-        src/gfx_function_pointers.cpp
-        inc/beet_gfx/gfx_deprecated.h
-        src/gfx_deprecated.cpp
-        inc/beet_gfx/gfx_debug.h
-        src/gfx_debug.cpp
-        inc/beet_gfx/gfx_imgui.h
-        src/gfx_imgui.cpp
-        inc/beet_gfx/gfx_lit.h
-        src/gfx_lit.cpp
-        inc/beet_gfx/db_asset.h
-        src/db_asset.cpp
-        inc/beet_gfx/gfx_texture.h
-        src/gfx_texture.cpp
-        inc/beet_gfx/gfx_sky.h
-        src/gfx_sky.cpp
-        inc/beet_gfx/gfx_converter.h
-        src/gfx_converter.cpp
-        inc/beet_gfx/gfx_line.h
-        src/gfx_line.cpp
         inc/beet_gfx/IconsFontAwesome5.h
-        inc/beet_gfx/gfx_triangle_strip.h
-        src/gfx_triangle_strip.cpp
         inc/beet_gfx/gfx_generate_geometry.h
+        inc/beet_gfx/gfx_converter.h
+        inc/beet_gfx/db_asset.h
         src/gfx_generate_geometry.cpp
-        src/imgui/imgui_impl_x11.cpp
+        src/gfx_converter.cpp
+        src/db_asset.cpp
+
+#       GFX IMGUI X BACKEND
         inc/beet_gfx/imgui/imgui_impl_x11.h
+        src/imgui/imgui_impl_x11.cpp
+
+#       GFX VULKAN
+        inc/beet_gfx/vulkan/gfx_vk_platform_defines.h
+        inc/beet_gfx/vulkan/gfx_vulkan_surface.h
+        inc/beet_gfx/vulkan/gfx_vk_samplers.h
+        inc/beet_gfx/vulkan/gfx_vk_mesh.h
+        inc/beet_gfx/vulkan/gfx_vk_pipeline.h
+        inc/beet_gfx/vulkan/gfx_vk_descriptors.h
+        inc/beet_gfx/vulkan/gfx_vk_shader.h
+        inc/beet_gfx/vulkan/gfx_vk_buffer.h
+        inc/beet_gfx/vulkan/gfx_vk_utils.h
+        inc/beet_gfx/vulkan/gfx_vk_command.h
+        inc/beet_gfx/vulkan/gfx_vk_function_pointers.h
+        inc/beet_gfx/vulkan/gfx_vk_debug.h
+        inc/beet_gfx/vulkan/gfx_vk_imgui.h
+        inc/beet_gfx/vulkan/gfx_vk_lit.h
+        inc/beet_gfx/vulkan/gfx_vk_texture.h
+        inc/beet_gfx/vulkan/gfx_vk_sky.h
+        inc/beet_gfx/vulkan/gfx_vk_line.h
+        inc/beet_gfx/vulkan/gfx_vk_triangle_strip.h
+        src/vulkan/gfx_backend_vulkan.cpp
+        src/vulkan/gfx_vulkan_surface_win.cpp
+        src/vulkan/gfx_vk_samplers.cpp
+        src/vulkan/gfx_vulkan_surface_linux.cpp
+        src/vulkan/gfx_vk_pipeline.cpp
+        src/vulkan/gfx_vk_descriptors.cpp
+        src/vulkan/gfx_vk_shader.cpp
+        src/vulkan/gfx_vk_buffer.cpp
+        src/vulkan/gfx_vk_utils.cpp
+        src/vulkan/gfx_vk_command.cpp
+        src/vulkan/gfx_vk_mesh.cpp
+        src/vulkan/gfx_vk_function_pointers.cpp
+        src/vulkan/gfx_vk_debug.cpp
+        src/vulkan/gfx_vk_imgui.cpp
+        src/vulkan/gfx_vk_lit.cpp
+        src/vulkan/gfx_vk_texture.cpp
+        src/vulkan/gfx_vk_sky.cpp
+        src/vulkan/gfx_vk_line.cpp
+        src/vulkan/gfx_vk_triangle_strip.cpp
 )
 
 target_include_directories(beet_gfx

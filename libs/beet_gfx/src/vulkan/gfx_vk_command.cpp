@@ -1,4 +1,4 @@
-#include <beet_gfx/gfx_command.h>
+#include <beet_gfx/vulkan/gfx_vk_command.h>
 #include <beet_gfx/gfx_types.h>
 
 #include <vulkan/vulkan_core.h>

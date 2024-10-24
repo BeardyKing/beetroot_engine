@@ -5,14 +5,12 @@
 #include <beet_shared/log.h>
 #include <beet_shared/memory.h>
 
+#include <beet_gfx/vulkan/gfx_vk_imgui.h>
 #include <beet_gfx/gfx_interface.h>
-#include <beet_gfx/gfx_imgui.h>
 #include <beet_gfx/db_asset.h>
 
 #include <runtime/entity_builder.h>
 #include <runtime/script_camera.h>
-
-#include "beet_gfx/imgui/imgui_impl_x11.h"
 
 #if CHECK_FEATURE(FEATURE_GFX_IMGUI)
 

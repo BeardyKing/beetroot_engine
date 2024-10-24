@@ -1,8 +1,8 @@
-#include <beet_gfx/gfx_lit.h>
+#include <beet_gfx/vulkan/gfx_vk_lit.h>
+#include <beet_gfx/vulkan/gfx_vk_descriptors.h>
+#include <beet_gfx/vulkan/gfx_vk_shader.h>
+#include <beet_gfx/vulkan/gfx_vk_pipeline.h>
 #include <beet_gfx/gfx_types.h>
-#include <beet_gfx/gfx_descriptors.h>
-#include <beet_gfx/gfx_shader.h>
-#include <beet_gfx/gfx_pipeline.h>
 #include <beet_gfx/db_asset.h>
 
 #include <beet_shared/assert.h>
