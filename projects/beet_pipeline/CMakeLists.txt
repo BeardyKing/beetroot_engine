@@ -34,7 +34,7 @@ endif ()
 
 ## INFO: string replace "\\" with "/" for environment variables due to cmake
 ## not correctly parsing the $ENV path correctly on windows :^(
-string(REPLACE "\\" "/" GLSL_VALIDATOR_WINDOWS_PATH_FIX ${GLSL_VALIDATOR})
+string(REPLACE "\\" "." GLSL_VALIDATOR_WINDOWS_PATH_FIX ${GLSL_VALIDATOR})
 target_compile_definitions(beet_pipeline PUBLIC GLSL_VALIDATOR_EXE_PATH="${GLSL_VALIDATOR_WINDOWS_PATH_FIX}")
 
 ##===PROPERTIES===========//

@@ -18,5 +18,5 @@ add_subdirectory(libs/beet_converter)
 add_subdirectory(libs/beet_core)
 
 #====PROJECTS=============
-add_subdirectory(beet_pipeline)
-add_subdirectory(beet_runtime)
+add_subdirectory(projects/beet_pipeline)
+add_subdirectory(projects/beet_runtime)
