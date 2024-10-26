@@ -25,13 +25,17 @@ layout (location = 0) out StageLayout {
     vec3 color;
     vec3 normal;
     vec2 uv;
+    vec3 worldPos;
 } stageLayout;
 //==========================================================
 
+//===FUNCTIONS==============================================
 void main() {
-    gl_Position = ((scene.projection * scene.view) * (constants.model)) * vec4(v_position, 1.0);
-
     stageLayout.color = v_color;
     stageLayout.uv = v_uv;
     stageLayout.normal = v_normal;
+    stageLayout.worldPos = vec3(constants.model * vec4(v_position, 1.0));
+
+    gl_Position = ((scene.projection * scene.view) * (constants.model)) * vec4(v_position, 1.0);
 }
+//==========================================================

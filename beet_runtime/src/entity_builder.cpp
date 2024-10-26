@@ -8,25 +8,30 @@
 #include <beet_gfx/gfx_lit.h>
 #include <beet_gfx/gfx_sky.h>
 #include <beet_gfx/gfx_samplers.h>
+#include "beet_shared/assert.h"
 
 //===INTERNAL_FUNCTIONS=================================================================================================
 static void primary_camera_entity_create() {
     const CameraEntity cameraEntity{
             .transformIndex = db_add_transform(
                     {
-                            .position{-2.25f, 2.0f, -12.0f},
-                            .rotation{-0.3f, -2.4f, 0.0f}
+                            .position{-1.5f, 0.5f, 2.5f},
+                            .rotation{-0.2f, -0.65f, 0.0f}
                     }
             ),
             .cameraIndex = db_add_camera({.fov = 65, .zFar = 6000}),
     };
     db_add_camera_entity(cameraEntity);
 }
-
+uint32_t add_texture_to_database(const char *texturePath, GfxTexture &texture) {
+    gfx_texture_create_immediate_dds(texturePath, texture);
+    return db_add_texture(texture);
+}
 static void lit_entities_create() {
     //===PACKAGE==================================================
 #if CHECK_FEATURE(FEATURE_IN_DEV_RUNTIME_GLTF_LOADING)
-    const AssetPackage package = asset_package_load_gltf("assets/scenes/glTF-Sample-Assets/Models/ToyCar/glTF/ToyCar.gltf");
+    const AssetPackage package = asset_package_load_gltf("assets/scenes/glTF-Sample-Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf");
+//    const AssetPackage package = asset_package_load_gltf("assets/scenes/glTF-Sample-Assets/Models/FlightHelmet/glTF/FlightHelmet.gltf");
 //    const AssetPackage package = asset_package_load_gltf("assets/scenes/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf");
     for (const PackageEntry &assetEntry: package.packageTable) {
         // TODO: AssetPackage should contain a list of textures to upload the table should point to the index,
@@ -35,20 +40,37 @@ static void lit_entities_create() {
         const GfxMesh &packageMesh = package.meshes[assetEntry.meshIndex];
         const uint32_t db_meshIndex = db_add_mesh(packageMesh);
 
-        Transform defaultTransform = {};
+        Transform defaultTransform = {.position = {0.0f, 0.0f, 0.0f}, .rotation = {90.0f, 0.0f, 0.0f}, .scale = {1.0f, 1.0f, 1.0f}};
         const uint32_t db_transformIndex = db_add_transform(defaultTransform);
 
         const RawMaterial &packageMaterial = package.materials[assetEntry.materialIndex];
         GfxTexture albedoTexture = {};
-        gfx_texture_create_immediate_dds(packageMaterial.albedoPath, albedoTexture);
-        uint32_t db_imageAlbedoIndex = db_add_texture(albedoTexture);
+        GfxTexture normalTexture = {};
+        GfxTexture metallicRoughnessTexture = {};
+        GfxTexture occlusionTexture = {};
+        GfxTexture emissiveTexture = {};
+
+        // Load and add textures to the database
+        uint32_t albedoIndex = add_texture_to_database(packageMaterial.albedoPath, albedoTexture);
+        uint32_t normalIndex = add_texture_to_database(packageMaterial.normalMapPath, normalTexture);
+        uint32_t metallicRoughnessIndex = add_texture_to_database(packageMaterial.metallicRoughnessPath, metallicRoughnessTexture);
+        uint32_t occlusionIndex = add_texture_to_database(packageMaterial.occlusionMapPath, occlusionTexture);
+        uint32_t emissiveIndex = add_texture_to_database(packageMaterial.emissiveMapPath, emissiveTexture);
+
 
         VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
-        gfx_lit_update_material_descriptor(descriptorSet, *db_get_texture(db_imageAlbedoIndex));
-
+        // Update descriptor set with all textures
+        gfx_lit_update_material_descriptor(
+                descriptorSet,
+                *db_get_texture(albedoIndex),
+                *db_get_texture(normalIndex),
+                *db_get_texture(metallicRoughnessIndex),
+                *db_get_texture(occlusionIndex),
+                *db_get_texture(emissiveIndex)
+        );
         const LitMaterial material = {
                 .descriptorSetIndex = db_add_descriptor_set(descriptorSet),
-                .albedoIndex = db_imageAlbedoIndex
+                .albedoIndex = {}
         };
 
         uint32_t db_litMaterialIndex = db_add_lit_material(material);
@@ -71,9 +93,12 @@ static void lit_entities_create() {
 
     uint32_t octahedronID = {UINT32_MAX};
     {
-        GfxMesh octahedronMesh = {};
-        gfx_mesh_create_octahedron_immediate(octahedronMesh);
-        octahedronID = db_add_mesh(octahedronMesh);
+        const AssetPackage octahedronPackage = asset_package_load_gltf("assets/scenes/shapes/octahedron.gltf");
+        ASSERT(octahedronPackage.packageTable.size() == 1)
+//        GfxMesh octahedronMesh = {};
+//        gfx_mesh_create_octahedron_immediate(octahedronMesh);
+//        octahedronID = db_add_mesh(octahedronMesh);
+        octahedronID = db_add_mesh(octahedronPackage.meshes[0]);
     }
     //============================================================
 
@@ -93,18 +118,18 @@ static void lit_entities_create() {
     //============================================================
 
     //===MATERIAL=================================================
-    uint32_t cubeLitMaterialID = {UINT32_MAX};
-    {
-        VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
-        gfx_lit_update_material_descriptor(descriptorSet, *db_get_texture(uvGridTextureID));
-
-        const LitMaterial material = {
-                .descriptorSetIndex = db_add_descriptor_set(descriptorSet),
-                .albedoIndex = uvGridTextureID
-        };
-
-        cubeLitMaterialID = db_add_lit_material(material);
-    }
+//    uint32_t cubeLitMaterialID = {UINT32_MAX};
+//    {
+//        VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
+//        gfx_lit_update_material_descriptor(descriptorSet, *db_get_texture(uvGridTextureID));
+//
+//        const LitMaterial material = {
+//                .descriptorSetIndex = db_add_descriptor_set(descriptorSet),
+//                .albedoIndex = uvGridTextureID
+//        };
+//
+//        cubeLitMaterialID = db_add_lit_material(material);
+//    }
 
     uint32_t octaSkyMaterialID = {UINT32_MAX};
     {
@@ -121,15 +146,15 @@ static void lit_entities_create() {
     //============================================================
 
     //===ENTITY_MESH==============================================
-    {
-        const Transform transform = {.position{2, 0, -8}, .rotation{0, 45, 0}};
-        const LitEntity defaultCube = {
-                .transformIndex = db_add_transform(transform),
-                .meshIndex = cubeID,
-                .materialIndex = cubeLitMaterialID,
-        };
-        db_add_lit_entity(defaultCube);
-    }
+//    {
+//        const Transform transform = {.position{2, 0, -8}, .rotation{0, 45, 0}};
+//        const LitEntity defaultCube = {
+//                .transformIndex = db_add_transform(transform),
+//                .meshIndex = cubeID,
+//                .materialIndex = cubeLitMaterialID,
+//        };
+//        db_add_lit_entity(defaultCube);
+//    }
     //============================================================
 
     //===ENTITY_OCTAHEDRON========================================

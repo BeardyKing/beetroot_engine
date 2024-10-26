@@ -53,14 +53,14 @@ Transform *db_get_transform(uint32_t index);
 //======================================================================================================================
 
 //===DESCRIPTOR=========================================================================================================
-#define MAX_DB_VK_DESCRIPTOR_SETS 256
+#define MAX_DB_VK_DESCRIPTOR_SETS 1024
 
 uint32_t db_add_descriptor_set(const VkDescriptorSet &descriptorSet);
 VkDescriptorSet *db_get_descriptor_set(uint32_t index);
 //======================================================================================================================
 
 //===TEXTURE============================================================================================================
-#define MAX_DB_GFX_TEXTURES 256
+#define MAX_DB_GFX_TEXTURES 1024
 
 uint32_t db_get_texture_count();
 uint32_t db_add_texture(const GfxTexture &gfxTexture);
@@ -76,7 +76,7 @@ GfxMesh *db_get_mesh(uint32_t index);
 //======================================================================================================================
 
 //===LIT_MATERIAL=======================================================================================================
-#define MAX_DB_LIT_MATERIALS 256
+#define MAX_DB_LIT_MATERIALS 1024
 uint32_t db_add_lit_material(const LitMaterial &litMaterial);
 LitMaterial *db_get_lit_material(uint32_t index);
 //======================================================================================================================

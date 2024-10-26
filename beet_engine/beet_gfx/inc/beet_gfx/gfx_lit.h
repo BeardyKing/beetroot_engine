@@ -10,5 +10,12 @@ bool gfx_rebuild_lit_pipeline();
 
 void gfx_lit_draw(VkCommandBuffer &cmdBuffer);
 
-void gfx_lit_update_material_descriptor(VkDescriptorSet &outDescriptorSet, const GfxTexture &albedoTexture);
+void gfx_lit_update_material_descriptor(
+        VkDescriptorSet &outDescriptorSet,
+        const GfxTexture &albedoTexture,
+        const GfxTexture &normalTexture,
+        const GfxTexture &metallicRoughnessTexture,
+        const GfxTexture &occlusionTexture,
+        const GfxTexture &emissiveTexture);
+
 #endif //BEETROOT_GFX_LIT_H

@@ -52,9 +52,32 @@ struct PackageEntry {
     uint32_t materialIndex;
 };
 
+#define DEFAULT_WHITE_TEXTURE_PATH "assets/textures/white.dds"
+#define DEFAULT_BLACK_TEXTURE_PATH "assets/textures/black.dds"
+
 struct RawMaterial {
-    char albedoPath[256] = {};
+    char albedoPath[256] = {DEFAULT_WHITE_TEXTURE_PATH};
     vec2f albedoCoords = {};
+
+    char normalMapPath[256] = {DEFAULT_WHITE_TEXTURE_PATH};
+    vec2f normalMapCoords = {};
+
+    char metallicRoughnessPath[256] = {DEFAULT_WHITE_TEXTURE_PATH};
+    vec2f metallicRoughnessCoords = {};
+
+    char occlusionMapPath[256] = {DEFAULT_WHITE_TEXTURE_PATH};
+    vec2f occlusionCoords = {};
+
+    char emissiveMapPath[256] = {DEFAULT_WHITE_TEXTURE_PATH};
+    vec2f emissiveCoords = {};
+
+    float metallicFactor = 1.0f;
+    float roughnessFactor = 1.0f;
+
+    float emissiveFactor[3] = {0.0f, 0.0f, 0.0f};
+
+    float occlusionStrength = 1.0f;
+    float normalScale = 1.0f;
 };
 
 struct AssetPackage {
