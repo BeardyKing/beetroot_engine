@@ -35,7 +35,7 @@ static void gfx_create_lit_descriptor_set_layout() {
     constexpr uint32_t poolSizeCount = 2;
     VkDescriptorPoolSize poolSizes[poolSizeCount] = {
             VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1},
-            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1},
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 5},
     };
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo{
@@ -48,20 +48,16 @@ static void gfx_create_lit_descriptor_set_layout() {
     ASSERT(createPoolRes == VK_SUCCESS);
 
     //=== LAYOUT ===//
-    constexpr uint32_t layoutBindingsCount = 2;
+    constexpr uint32_t layoutBindingsCount = 6;
     VkDescriptorSetLayoutBinding layoutBindings[layoutBindingsCount] = {
-            {VkDescriptorSetLayoutBinding{
-                    .binding = 0,
-                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                    .descriptorCount = 1,
-                    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-            }},
-            {VkDescriptorSetLayoutBinding{
-                    .binding = 1,
-                    .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                    .descriptorCount = 1,
-                    .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-            }},
+            {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1, VK_SHADER_STAGE_ALL,          nullptr},
+
+            {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+            {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+            {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+            {4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+            {5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}
+
     };
 
     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{
@@ -191,21 +187,31 @@ void gfx_lit_draw(VkCommandBuffer &cmdBuffer) {
     }
 }
 
-void gfx_lit_update_material_descriptor(VkDescriptorSet &outDescriptorSet, const GfxTexture &albedoTexture) {
+void gfx_lit_update_material_descriptor(
+        VkDescriptorSet &outDescriptorSet,
+        const GfxTexture &albedoTexture,
+        const GfxTexture &normalTexture,
+        const GfxTexture &metallicRoughnessTexture,
+        const GfxTexture &occlusionTexture,
+        const GfxTexture &emissiveTexture) {
+
     VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(g_gfxLit.descriptorPool, &g_gfxLit.descriptorSetLayout, 1);
     const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &outDescriptorSet);
     ASSERT(allocDescRes == VK_SUCCESS);
-    // TODO:    Update this to a buffer of textures so we can modify the contents without needing to rebuild descriptors
-    //          runtime packages will not need this as the content won't change.
 
-    constexpr uint32_t descriptorSetSize = 2;
+    // The number of textures we will write descriptors for
+    constexpr uint32_t descriptorSetSize = 6;
+
     const VkWriteDescriptorSet writeDescriptorSets[descriptorSetSize] = {
-            // Binding 0: Vertex shader uniform buffer
-            // Binding 1: albedoTexture // TODO: Add a per package loaded texture array
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
-            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &albedoTexture.descriptor, 1)
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &albedoTexture.descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &normalTexture.descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &metallicRoughnessTexture.descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &occlusionTexture.descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &emissiveTexture.descriptor, 1)
     };
-    vkUpdateDescriptorSets(g_vulkanBackend.device, descriptorSetSize, &writeDescriptorSets[0], 0, nullptr);
+
+    vkUpdateDescriptorSets(g_vulkanBackend.device, descriptorSetSize, writeDescriptorSets, 0, nullptr);
 }
 
 bool gfx_rebuild_lit_pipeline() {

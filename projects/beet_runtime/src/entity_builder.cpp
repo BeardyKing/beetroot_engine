@@ -2,12 +2,12 @@
 
 #include <beet_shared/beet_types.h>
 
-#include <beet_gfx/vulkan/gfx_vk_texture.h>
-#include <beet_gfx/vulkan/gfx_vk_lit.h>
-#include <beet_gfx/vulkan/gfx_vk_sky.h>
-#include <beet_gfx/vulkan/gfx_vk_samplers.h>
 #include <beet_gfx/gfx_types.h>
 #include <beet_gfx/db_asset.h>
+#include <beet_gfx/gfx_texture.h>
+#include <beet_gfx/gfx_lit.h>
+#include <beet_gfx/gfx_sky.h>
+#include <beet_gfx/gfx_samplers.h>
 
 //===INTERNAL_FUNCTIONS=================================================================================================
 static void primary_camera_entity_create() {

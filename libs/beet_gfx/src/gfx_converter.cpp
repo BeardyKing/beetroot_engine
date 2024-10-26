@@ -50,10 +50,10 @@ bool gfx_convert_texture_dds(const char *localAssetPath) {
         SANITY_CHECK();
     }
     size_t copySize = delim - localAssetPath;
-    char fileNameNoExt[128] = {};
+    char fileNameNoExt[256] = {};
     memcpy(fileNameNoExt, localAssetPath, copySize);
 
-    char searchFileName[128] = {};
+    char searchFileName[256] = {};
     uint32_t foundIndex = {};
     bool foundFile = false;
     for (uint32_t i = 0; i < SUPPORTED_CONVERTER_FORMATS_COUNT; ++i) {

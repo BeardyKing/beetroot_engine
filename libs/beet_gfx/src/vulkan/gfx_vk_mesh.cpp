@@ -141,12 +141,17 @@ void gfx_mesh_create_octahedron_immediate(GfxMesh &outMesh) {
 #if CHECK_FEATURE(FEATURE_IN_DEV_RUNTIME_GLTF_LOADING)
 
 #include "../../../beet_pipeline/third/rapidjson/include/rapidjson/document.h"
+
 #include <beet_shared/filesystem.h>
 #include <beet_shared/base_64.h>
 #include <beet_shared/memory.h>
 #include <beet_math/quat.h>
 #include <beet_shared/c_string.h>
 #include <beet_shared/log.h>
+
+#define CGLTF_IMPLEMENTATION
+
+#include "../../../beet_pipeline/third/cgltf/cgltf.h"
 
 //3.6.2.2. Accessor Data Types
 enum GltfComponentTypesEnum {
@@ -1537,6 +1542,166 @@ void gltf_parse_json(const char *gltfPath, const char *targetWriteDir, AssetPack
 extern ConverterLocations g_converterLocations;
 #endif //CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
 
+void set_material_image_path(char *outPath, char *inURI, const char *targetWriteDirectory) {
+    if (inURI) {
+        strcpy(outPath, targetWriteDirectory);
+        char *lastDir = c_str_search_reverse(outPath, "/") + 1;
+        strcpy(lastDir, inURI);
+        c_string_replace_extension(outPath, ".dds");
+    } else {
+        sprintf(outPath, "%s", "white.dds");
+        log_verbose(MSG_CONVERTER, "using fallback texture for asset %s", targetWriteDirectory);
+    }
+}
+
+void Process_material(const cgltf_material &material, RawMaterial &rawMaterial, const char *targetWriteDirectory) {
+    if (material.pbr_metallic_roughness.base_color_texture.texture) {
+        const cgltf_image *image = material.pbr_metallic_roughness.base_color_texture.texture->image;
+        set_material_image_path(rawMaterial.albedoPath, image->uri, targetWriteDirectory);
+
+        rawMaterial.albedoCoords.x = material.pbr_metallic_roughness.base_color_texture.texcoord;
+        rawMaterial.albedoCoords.y = material.pbr_metallic_roughness.base_color_texture.texcoord;
+    }
+
+    if (material.normal_texture.texture) {
+        const cgltf_image *image = material.normal_texture.texture->image;
+        set_material_image_path(rawMaterial.normalMapPath, image->uri, targetWriteDirectory);
+
+        rawMaterial.normalMapCoords.x = material.normal_texture.texcoord;
+        rawMaterial.normalMapCoords.y = material.normal_texture.texcoord;
+        rawMaterial.normalScale = material.normal_texture.scale;
+    }
+
+    if (material.pbr_metallic_roughness.metallic_roughness_texture.texture) {
+        const cgltf_image *image = material.pbr_metallic_roughness.metallic_roughness_texture.texture->image;
+        set_material_image_path(rawMaterial.metallicRoughnessPath, image->uri, targetWriteDirectory);
+
+        rawMaterial.metallicRoughnessCoords.x = material.pbr_metallic_roughness.metallic_roughness_texture.texcoord;
+        rawMaterial.metallicRoughnessCoords.y = material.pbr_metallic_roughness.metallic_roughness_texture.texcoord;
+        rawMaterial.metallicFactor = material.pbr_metallic_roughness.metallic_factor;
+        rawMaterial.roughnessFactor = material.pbr_metallic_roughness.roughness_factor;
+    }
+
+    if (material.occlusion_texture.texture) {
+        const cgltf_image *image = material.occlusion_texture.texture->image;
+        set_material_image_path(rawMaterial.occlusionMapPath, image->uri, targetWriteDirectory);
+
+        rawMaterial.occlusionCoords.x = material.occlusion_texture.texcoord;
+        rawMaterial.occlusionCoords.y = material.occlusion_texture.texcoord;
+        rawMaterial.occlusionStrength = material.occlusion_texture.scale;
+    }
+
+    if (material.emissive_texture.texture) {
+        const cgltf_image *image = material.emissive_texture.texture->image;
+        set_material_image_path(rawMaterial.emissiveMapPath, image->uri, targetWriteDirectory);
+
+        rawMaterial.emissiveCoords.x = material.emissive_texture.texcoord;
+        rawMaterial.emissiveCoords.y = material.emissive_texture.texcoord;
+        rawMaterial.emissiveFactor[0] = material.emissive_factor[0];
+        rawMaterial.emissiveFactor[1] = material.emissive_factor[1];
+        rawMaterial.emissiveFactor[2] = material.emissive_factor[2];
+    }
+}
+
+void LoadGLTFFile(const char *filePath, const char *targetWriteDirectory, AssetPackage &package) {
+    cgltf_options options = {};
+    cgltf_data *data = nullptr;
+
+    // Load the GLTF file
+    cgltf_result result = cgltf_parse_file(&options, filePath, &data);
+    if (result != cgltf_result_success) {
+        ASSERT_MSG(false, "Failed to load GLTF file.");
+        return;
+    }
+
+    // Load buffers
+    result = cgltf_load_buffers(&options, data, filePath);
+    if (result != cgltf_result_success) {
+        ASSERT_MSG(false, "Failed to load GLTF buffers.");
+        cgltf_free(data);
+        return;
+    }
+
+    // Process meshes
+    for (size_t meshIndex = 0; meshIndex < data->meshes_count; ++meshIndex) {
+        const cgltf_mesh &mesh = data->meshes[meshIndex];
+        for (size_t primIndex = 0; primIndex < mesh.primitives_count; ++primIndex) {
+            const cgltf_primitive &primitive = mesh.primitives[primIndex];
+
+            std::vector<GfxVertex> raw_verts;
+            std::vector<uint32_t> raw_indices;
+
+            // Process vertex data
+            for (size_t j = 0; j < primitive.attributes_count; ++j) {
+                const cgltf_attribute &attr = primitive.attributes[j];
+
+                if (attr.type == cgltf_attribute_type_position) {
+                    const cgltf_accessor *accessor = attr.data;
+                    raw_verts.resize(accessor->count);
+
+                    for (size_t v = 0; v < accessor->count; ++v) {
+                        cgltf_accessor_read_float(accessor, v, &raw_verts[v].pos[0], 3);
+                    }
+                } else if (attr.type == cgltf_attribute_type_normal) {
+                    const cgltf_accessor *accessor = attr.data;
+                    raw_verts.resize(accessor->count);
+
+                    for (size_t v = 0; v < accessor->count; ++v) {
+                        cgltf_accessor_read_float(accessor, v, &raw_verts[v].normal[0], 3);
+                    }
+                } else if (attr.type == cgltf_attribute_type_texcoord) {
+                    const cgltf_accessor *accessor = attr.data;
+                    raw_verts.resize(accessor->count);
+
+                    for (size_t v = 0; v < accessor->count; ++v) {
+                        cgltf_accessor_read_float(accessor, v, &raw_verts[v].uv[0], 2);
+                    }
+                }
+            }
+
+            // Process index data
+            const cgltf_accessor *indexAccessor = primitive.indices;
+            raw_indices.resize(indexAccessor->count);
+
+            for (size_t k = 0; k < indexAccessor->count; ++k) {
+                raw_indices[k] = static_cast<uint32_t>(cgltf_accessor_read_index(indexAccessor, k));
+            }
+
+            // Construct the RawMesh
+            RawMesh rawMesh = {
+                    raw_verts.data(),
+                    raw_indices.data(),
+                    static_cast<uint32_t>(raw_verts.size()),
+                    static_cast<uint32_t>(raw_indices.size())
+            };
+
+            // Add the RawMesh to the AssetPackage
+            GfxMesh &outMesh = package.meshes.emplace_back(); // maybe this should be a RawMesh instead. then we cal call create immediate from entity_builder.
+            gfx_mesh_create_immediate(rawMesh, outMesh);
+
+            // Create a package entry
+            PackageEntry entry = {};
+            entry.meshIndex = static_cast<uint32_t>(package.meshes.size() - 1);
+            entry.materialIndex = primitive.material - data->materials;
+
+            package.packageTable.push_back(entry);
+        }
+    }
+
+    // Process materials
+    for (size_t i = 0; i < data->materials_count; ++i) {
+        const cgltf_material &material = data->materials[i];
+        RawMaterial rawMaterial = {};
+        Process_material(material, rawMaterial, targetWriteDirectory);
+        package.materials.push_back(rawMaterial);
+    }
+
+
+    // Free the data
+    cgltf_free(data);
+}
+
+
 AssetPackage asset_package_load_gltf(const char *inPath) {
     char path[128] = {};
     char writePath[128] = {};
@@ -1549,8 +1714,8 @@ AssetPackage asset_package_load_gltf(const char *inPath) {
 #endif //CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
 
     AssetPackage outPackage;
-
-    gltf_parse_json(path, writePath, outPackage);
+    LoadGLTFFile(path, writePath, outPackage);
+//    gltf_parse_json(path, writePath, outPackage);
 
     return outPackage;
 }
