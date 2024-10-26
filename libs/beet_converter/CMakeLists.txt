@@ -7,6 +7,8 @@ add_library(beet_converter
         src/converter_backend.cpp
         inc/beet_converter/converter_types.h
         src/converter_texture.cpp
+        inc/beet_converter/converter_gltf_parser.h
+        src/converter_gltf_parser.cpp
 )
 
 set_target_properties(beet_converter PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)

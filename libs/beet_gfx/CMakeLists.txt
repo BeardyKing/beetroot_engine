@@ -57,7 +57,6 @@ add_library(beet_gfx
 target_include_directories(beet_gfx
         PUBLIC inc
         PRIVATE src
-        PUBLIC third/imgui/
 )
 
 find_package(Vulkan REQUIRED)
@@ -68,6 +67,7 @@ target_link_libraries(beet_gfx
 
         Vulkan::Vulkan
         imgui
+        cgltf
 )
 
 set_target_properties(beet_gfx PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
