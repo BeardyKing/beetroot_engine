@@ -85,7 +85,7 @@ static void gfx_imgui_set_theme()
 }
 
 //===API================================================================================================================
-void gfx_imgui_begin(void* event)
+void gfx_imgui_begin()
 {
     if (g_imguiFinishedRendering)
     {

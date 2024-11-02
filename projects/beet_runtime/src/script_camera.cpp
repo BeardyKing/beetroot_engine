@@ -29,7 +29,7 @@ void script_update_camera() {
     constexpr const float ROTATION_CLAMP = HALF_PI - INPUT_EPSILON;
 
     if (input_mouse_down(MouseButton::Right)) {
-        const vec2f delta = input_mouse_delta();
+        const vec2f delta = input_mouse_delta_raw();
         const float mouseSpeed = 0.002f;
         transform->rotation.y += (-delta.x * mouseSpeed);
         transform->rotation.x += (-delta.y * mouseSpeed);

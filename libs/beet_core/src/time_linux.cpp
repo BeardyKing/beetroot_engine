@@ -1,3 +1,6 @@
+#include <beet_shared/feature_defines.h>
+
+#if CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
 #include <cstddef>
 #include <sys/time.h>
 #include <stdint.h>
@@ -54,3 +57,4 @@ void time_cleanup() {
     s_time = (struct Time){0};
 }
 //======================================================================================================================
+#endif //CHECK_FEATURE(FEATURE_PLATFORM_LINUX)

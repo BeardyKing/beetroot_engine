@@ -7,7 +7,7 @@
 #if CHECK_FEATURE(FEATURE_GFX_IMGUI)
 
 //===API================================================================================================================
-void gfx_imgui_begin(void* event);
+void gfx_imgui_begin();
 void gfx_imgui_end();
 void gfx_imgui_draw(VkCommandBuffer &cmdBuffer);
 

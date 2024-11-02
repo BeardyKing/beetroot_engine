@@ -20,7 +20,7 @@
 
 #if CHECK_FEATURE(FEATURE_GFX_IMGUI)
 void imgui_update() {
-    gfx_imgui_begin(window_get_event());
+    gfx_imgui_begin();
     {
         widget_manager_update();
     }

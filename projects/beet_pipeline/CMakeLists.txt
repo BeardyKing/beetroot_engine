@@ -20,7 +20,7 @@ target_link_libraries(beet_pipeline
         beet_shared
         beet_converter
 
-        c_gltf
+        cgltf
         fmt::fmt
 )
 

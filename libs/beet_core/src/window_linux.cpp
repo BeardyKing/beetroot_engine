@@ -1,13 +1,11 @@
+#include <beet_shared/feature_defines.h>
+#if CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
 #include <cstdio>
 #include <cstdlib>
 
-#include <beet_shared/feature_defines.h>
 #include <beet_shared/assert.h>
 
 #include <X11/XKBlib.h>
-
-
-#if CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
 
 #include <beet_core/window.h>
 #include <beet_core/input_types.h>
@@ -75,11 +73,6 @@ static void cursor_lock(Display* display, Window window)
                  True,ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
                  GrabModeAsync, GrabModeAsync, s_windowInfo.xLibHandles.window, None, CurrentTime
     );
-}
-
-void* window_get_event()
-{
-    return &s_windowInfo.event;
 }
 
 beet_KeyCode x11_to_beet_keycode(KeySym keysym)

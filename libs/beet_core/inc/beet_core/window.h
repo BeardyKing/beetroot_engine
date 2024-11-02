@@ -3,7 +3,6 @@
 
 #include <beet_math/vec2.h>
 #include <beet_core/input_types.h>
-#include <X11/Xlib.h>
 
 constexpr uint32_t MAX_WINDOW_TITLE_SIZE = 64;
 
@@ -14,7 +13,6 @@ void window_set_cursor(CursorState state);
 void window_set_cursor_lock_position(vec2i lockPos);
 bool window_is_cursor_over_window();
 void *window_get_handle();
-void* window_get_event();
 
 //CALLBACK: WIN32: LRESULT (*)(HWND, UINT, WPARAM, LPARAM
 //CALLBACK: LINUX  : typedef void (*EventCallback)(XEvent* event);

@@ -1,3 +1,6 @@
+#include <beet_shared/feature_defines.h>
+
+#if CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
 // dear imgui: Platform Binding for Linux (standard X11 API for 32 and 64 bits applications)
 // This needs to be used along with a Renderer (e.g. OpenGL3, Vulkan..)
 
@@ -390,3 +393,4 @@ IMGUI_IMPL_API int ImGui_ImplX11_EventHandler(XEvent& event)
     }
     return 0;
 }
+#endif //CHECK_FEATURE(FEATURE_PLATFORM_LINUX)
