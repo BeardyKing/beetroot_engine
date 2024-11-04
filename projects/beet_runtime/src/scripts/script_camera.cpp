@@ -1,4 +1,4 @@
-#include <runtime/script_camera.h>
+#include <runtime/scripts/script_camera.h>
 
 #include <beet_core/input.h>
 #include <beet_core/window.h>
@@ -66,7 +66,7 @@ void script_update_camera() {
         if (input_key_down(beet_KeyCode::Control)) {
             moveSpeed *= speedDownScalar;
         }
-        transform->position += (moveDirection * moveSpeed) * (float) time_delta();
+        transform->position += (moveDirection * moveSpeed) * time_delta_f();
     }
 }
 //======================================================================================================================

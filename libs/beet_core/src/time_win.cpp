@@ -19,8 +19,12 @@ static struct Time {
 //======================================================================================================================
 
 //===API================================================================================================================
-double time_delta() {
+double time_delta_d() {
     return s_time.deltaTime;
+}
+
+float time_delta_f(){
+    return (float)s_time.deltaTime;
 }
 
 double time_current() {

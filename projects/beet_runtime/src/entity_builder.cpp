@@ -9,39 +9,110 @@
 
 #include <beet_shared/beet_types.h>
 #include <beet_shared/assert.h>
+#include <beet_shared/c_string.h>
+
+static struct {
+    struct {
+        uint32_t black = {UINT32_MAX};
+        uint32_t white = {UINT32_MAX};
+        uint32_t uvGrid = {UINT32_MAX};
+        uint32_t skybox = {UINT32_MAX};
+    } texture;
+
+    struct {
+        uint32_t cube = {UINT32_MAX};
+        uint32_t octahedron = {UINT32_MAX};
+    } mesh;
+
+    struct {
+        uint32_t camera = {UINT32_MAX};
+        uint32_t skybox = {UINT32_MAX};
+    } entity;
+
+    struct {
+        uint32_t skybox = {UINT32_MAX};
+        uint32_t cube = {UINT32_MAX};
+    } material;
+} s_builtIn;
 
 //===INTERNAL_FUNCTIONS=================================================================================================
-static void primary_camera_entity_create() {
-    const CameraEntity cameraEntity{
-            .transformIndex = db_add_transform(
-                    {
-                            .position{-1.5f, 0.5f, 2.5f},
-                            .rotation{-0.2f, -0.65f, 0.0f}
-                    }
-            ),
-            .cameraIndex = db_add_camera({.fov = 65, .zFar = 6000}),
-    };
-    db_add_camera_entity(cameraEntity);
+static void built_in_primary_camera_create() {
+    s_builtIn.entity.camera = db_add_camera_entity((CameraEntity) {
+            .transformIndex = db_add_transform((Transform) {
+                    .position{-1.5f, 0.5f, 2.5f},
+                    .rotation{-0.2f, -0.65f, 0.0f}
+            }),
+            .cameraIndex = db_add_camera((Camera) {
+                    .fov = 65, .zFar = 6000
+            }),
+    });
 }
+
 uint32_t add_texture_to_database(const char *texturePath, GfxTexture &texture) {
     gfx_texture_create_immediate_dds(texturePath, texture);
     return db_add_texture(texture);
 }
-static void lit_entities_create() {
-    //===PACKAGE==================================================
+
+static void built_in_textures_create() {
+    {
+        GfxTexture blackTexture = {};
+        s_builtIn.texture.black = add_texture_to_database("assets/textures/black.dds", blackTexture);
+    }
+    {
+        GfxTexture whiteTexture = {};
+        s_builtIn.texture.white = add_texture_to_database("assets/textures/white.dds", whiteTexture);
+    }
+    {
+        GfxTexture uvGridTexture = {};
+        s_builtIn.texture.uvGrid = add_texture_to_database("assets/textures/UV_Grid/UV_Grid_test.dds", uvGridTexture);
+    }
+    {
+        GfxTexture skyboxTexture = {.imageSamplerType = TextureSamplerType::LinearMirror};
+        s_builtIn.texture.skybox = add_texture_to_database("assets/textures/sky/herkulessaulen_4k-octahedral.dds", skyboxTexture);
+    }
+}
+
+static void built_in_meshes_create() {
+    {
+        GfxMesh octahedronMesh = {};
+        gfx_mesh_create_octahedron_immediate(octahedronMesh);
+        s_builtIn.mesh.octahedron = db_add_mesh(octahedronMesh);
+    }
+    {
+        GfxMesh cubeMesh = {};
+        gfx_mesh_create_cube_immediate(cubeMesh);
+        s_builtIn.mesh.cube = db_add_mesh(cubeMesh);
+    }
+}
+
+static void built_in_materials_create() {
+    {
+        VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
+        gfx_sky_update_material_descriptor(descriptorSet, *db_get_texture(s_builtIn.texture.skybox));
+        s_builtIn.material.skybox = db_add_sky_material({.descriptorSetIndex = db_add_descriptor_set(descriptorSet), .octahedralMapIndex = s_builtIn.texture.skybox});
+    }
+    {
+        const GfxTexture white = *db_get_texture(s_builtIn.texture.white);
+        VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
+        gfx_lit_update_material_descriptor(descriptorSet, white, white, white, white, white);
+        s_builtIn.material.cube = db_add_lit_material({.descriptorSetIndex = db_add_descriptor_set(descriptorSet)});
+    }
+}
+
+static void built_in_entities_create() {
+    s_builtIn.entity.skybox = db_add_sky_entity((SkyEntity) {
+            .meshIndex = s_builtIn.mesh.octahedron,
+            .materialIndex = s_builtIn.material.skybox,
+    });
+}
+
+static bool load_package(const char *packagePath) {
 #if CHECK_FEATURE(FEATURE_IN_DEV_RUNTIME_GLTF_LOADING)
-    const AssetPackage package = asset_package_load_gltf("assets/scenes/glTF-Sample-Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf");
-//    const AssetPackage package = asset_package_load_gltf("assets/scenes/glTF-Sample-Assets/Models/FlightHelmet/glTF/FlightHelmet.gltf");
-//    const AssetPackage package = asset_package_load_gltf("assets/scenes/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf");
+    const AssetPackage package = asset_package_load_gltf(packagePath);
     for (const PackageEntry &assetEntry: package.packageTable) {
         // TODO: AssetPackage should contain a list of textures to upload the table should point to the index,
         // currently we upload a texture per material i.e. lots of duplication of textures,
         // I was mainly interested in validating my GLTF parser was working correctly before sorting this issue.
-        const GfxMesh &packageMesh = package.meshes[assetEntry.meshIndex];
-        const uint32_t db_meshIndex = db_add_mesh(packageMesh);
-
-        Transform defaultTransform = {.position = {0.0f, 0.0f, 0.0f}, .rotation = {90.0f, 0.0f, 0.0f}, .scale = {1.0f, 1.0f, 1.0f}};
-        const uint32_t db_transformIndex = db_add_transform(defaultTransform);
 
         const RawMaterial &packageMaterial = package.materials[assetEntry.materialIndex];
         GfxTexture albedoTexture = {};
@@ -57,9 +128,8 @@ static void lit_entities_create() {
         uint32_t occlusionIndex = add_texture_to_database(packageMaterial.occlusionMapPath, occlusionTexture);
         uint32_t emissiveIndex = add_texture_to_database(packageMaterial.emissiveMapPath, emissiveTexture);
 
-
-        VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
         // Update descriptor set with all textures
+        VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
         gfx_lit_update_material_descriptor(
                 descriptorSet,
                 *db_get_texture(albedoIndex),
@@ -68,106 +138,41 @@ static void lit_entities_create() {
                 *db_get_texture(occlusionIndex),
                 *db_get_texture(emissiveIndex)
         );
-        const LitMaterial material = {
-                .descriptorSetIndex = db_add_descriptor_set(descriptorSet),
-                .albedoIndex = {}
-        };
 
-        uint32_t db_litMaterialIndex = db_add_lit_material(material);
 
-        const LitEntity defaultCube = {
-                .transformIndex = db_transformIndex,
-                .meshIndex = db_meshIndex,
-                .materialIndex = db_litMaterialIndex,
-        };
-        db_add_lit_entity(defaultCube);
+        uint32_t litEntity = db_add_lit_entity((LitEntity) {
+                .transformIndex = db_add_transform((Transform) {
+                        .position = {0.0f, 0.0f, 0.0f}, .rotation = {90.0f, 0.0f, 0.0f}, .scale = {1.0f, 1.0f, 1.0f}
+                }),
+
+                .meshIndex = db_add_mesh((GfxMesh) {
+                        package.meshes[assetEntry.meshIndex]
+                }),
+
+                .materialIndex = db_add_lit_material((LitMaterial) {
+                        .descriptorSetIndex = db_add_descriptor_set(descriptorSet),
+                        .albedoIndex = {}
+                }),
+        });
+#if BEET_DEBUG
+        char debugName[DEBUG_NAME_MAX] = {};
+        if (c_string_extract_file_name(packagePath, debugName)) {
+            sprintf(db_get_lit_entity(litEntity)->debug_name, "%s", debugName);
+        }
+#endif //BEET_DEBUG
     }
 #endif //IN_DEV_RUNTIME_GLTF_LOADING
-    //===MESH=====================================================
-    uint32_t cubeID = {UINT32_MAX};
-    {
-        GfxMesh cubeMesh = {};
-        gfx_mesh_create_cube_immediate(cubeMesh);
-        cubeID = db_add_mesh(cubeMesh);
-    }
-
-    uint32_t octahedronID = {UINT32_MAX};
-    {
-        // const AssetPackage octahedronPackage = asset_package_load_gltf("assets/scenes/shapes/octahedron.gltf");
-        // ASSERT(octahedronPackage.packageTable.size() == 1)
-        // octahedronID = db_add_mesh(octahedronPackage.meshes[0]);
-        GfxMesh octahedronMesh = {};
-        gfx_mesh_create_octahedron_immediate(octahedronMesh);
-        octahedronID = db_add_mesh(octahedronMesh);
-    }
-    //============================================================
-
-    //===TEXTURE==================================================
-    uint32_t uvGridTextureID = {UINT32_MAX};
-    {
-        GfxTexture uvTestTexture = {};
-        gfx_texture_create_immediate_dds("assets/textures/UV_Grid/UV_Grid_test.dds", uvTestTexture);
-        uvGridTextureID = db_add_texture(uvTestTexture);
-    }
-    uint32_t skyboxTextureID = {UINT32_MAX};
-    {
-        GfxTexture skyboxTexture = {.imageSamplerType = TextureSamplerType::LinearMirror};
-        gfx_texture_create_immediate_dds("assets/textures/sky/herkulessaulen_4k-octahedral.dds", skyboxTexture);
-        skyboxTextureID = db_add_texture(skyboxTexture);
-    }
-    //============================================================
-
-    //===MATERIAL=================================================
-//    uint32_t cubeLitMaterialID = {UINT32_MAX};
-//    {
-//        VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
-//        gfx_lit_update_material_descriptor(descriptorSet, *db_get_texture(uvGridTextureID));
-//
-//        const LitMaterial material = {
-//                .descriptorSetIndex = db_add_descriptor_set(descriptorSet),
-//                .albedoIndex = uvGridTextureID
-//        };
-//
-//        cubeLitMaterialID = db_add_lit_material(material);
-//    }
-
-    uint32_t octaSkyMaterialID = {UINT32_MAX};
-    {
-        VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
-        gfx_sky_update_material_descriptor(descriptorSet, *db_get_texture(skyboxTextureID));
-
-        const SkyMaterial material = {
-                .descriptorSetIndex = db_add_descriptor_set(descriptorSet),
-                .octahedralMapIndex = skyboxTextureID
-        };
-
-        octaSkyMaterialID = db_add_sky_material(material);
-    }
-    //============================================================
-
-    //===ENTITY_MESH==============================================
-//    {
-//        const Transform transform = {.position{2, 0, -8}, .rotation{0, 45, 0}};
-//        const LitEntity defaultCube = {
-//                .transformIndex = db_add_transform(transform),
-//                .meshIndex = cubeID,
-//                .materialIndex = cubeLitMaterialID,
-//        };
-//        db_add_lit_entity(defaultCube);
-//    }
-    //============================================================
-
-    //===ENTITY_OCTAHEDRON========================================
-    {
-        const SkyEntity defaultCube = {
-                .meshIndex = octahedronID,
-                .materialIndex = octaSkyMaterialID,
-        };
-        db_add_sky_entity(defaultCube);
-    }
-    //============================================================
+    return true;
 }
 //======================================================================================================================
+
+uint32_t entity_create_lit_cube() {
+    return db_add_lit_entity((LitEntity) {
+            .transformIndex = db_add_transform((Transform) {}),
+            .meshIndex = s_builtIn.mesh.cube,
+            .materialIndex = s_builtIn.material.cube,
+    });
+}
 
 //===INIT_&_SHUTDOWN====================================================================================================
 void entities_cleanup() {
@@ -185,7 +190,14 @@ void entities_cleanup() {
 }
 
 void entities_create() {
-    primary_camera_entity_create();
-    lit_entities_create();
+    built_in_primary_camera_create();
+    built_in_textures_create();
+    built_in_meshes_create();
+    built_in_materials_create();
+    built_in_entities_create();
+
+    ASSERT(load_package("assets/scenes/glTF-Sample-Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf"));
+//    ASSERT(load_package("assets/scenes/glTF-Sample-Assets/Models/FlightHelmet/glTF/FlightHelmet.gltf"));
+//    ASSERT(load_package("assets/scenes/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf"));
 }
 //======================================================================================================================

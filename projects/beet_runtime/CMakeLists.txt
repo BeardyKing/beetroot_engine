@@ -6,8 +6,8 @@ project(beet_runtime)
 add_executable(beet_runtime
         main.cpp
         inc/runtime/entity_builder.h
-        inc/runtime/script_camera.h
-        src/script_camera.cpp
+        inc/runtime/scripts/script_camera.h
+        src/scripts/script_camera.cpp
         src/entity_builder.cpp
         inc/runtime/widget_db.h
         src/widget_db.cpp
@@ -19,6 +19,10 @@ add_executable(beet_runtime
         src/widget_manipulate.cpp
         inc/runtime/widget_memory.h
         src/widget_memory.cpp
+        inc/runtime/scripts/script_dungeon_tiles.h
+        inc/runtime/scripts/script.h
+        src/scripts/script.cpp
+        src/scripts/script_dungeon_tiles.cpp
 )
 
 target_include_directories(beet_runtime

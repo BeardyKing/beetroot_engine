@@ -10,7 +10,7 @@
 #include <beet_gfx/db_asset.h>
 
 #include <runtime/entity_builder.h>
-#include <runtime/script_camera.h>
+#include <runtime/scripts/script.h>
 
 #if CHECK_FEATURE(FEATURE_GFX_IMGUI)
 
@@ -37,18 +37,20 @@ int main() {
     input_create();
     gfx_create(window_get_handle());
     entities_create();
+    script_create();
     log_info(MSG_RUNTIME, "hello beetroot engine\n");
     while (window_is_open()) {
         time_tick();
         input_set_time(time_current());
         window_update();
         input_update();
-        script_update_camera();
+        script_update(time_delta_f());
 #if CHECK_FEATURE(FEATURE_GFX_IMGUI)
         imgui_update();
 #endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
-        gfx_update(time_delta());
+        gfx_update(time_delta_d());
     }
+
     entities_cleanup();
     gfx_cleanup();
     input_cleanup();
