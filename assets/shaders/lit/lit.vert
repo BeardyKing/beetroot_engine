@@ -33,9 +33,9 @@ layout (location = 0) out StageLayout {
 void main() {
     stageLayout.color = v_color;
     stageLayout.uv = v_uv;
-    stageLayout.normal = v_normal;
+    stageLayout.normal = transpose(inverse(mat3(constants.model))) * v_normal;
     stageLayout.worldPos = vec3(constants.model * vec4(v_position, 1.0));
 
-    gl_Position = ((scene.projection * scene.view) * (constants.model)) * vec4(v_position, 1.0);
+    gl_Position = ((scene.projection * scene.view) * vec4(stageLayout.worldPos, 1.0));
 }
 //==========================================================

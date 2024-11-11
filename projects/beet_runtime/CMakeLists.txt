@@ -23,6 +23,8 @@ add_executable(beet_runtime
         inc/runtime/scripts/script.h
         src/scripts/script.cpp
         src/scripts/script_dungeon_tiles.cpp
+        inc/runtime/scripts/script_lights.h
+        src/scripts/script_lights.cpp
 )
 
 target_include_directories(beet_runtime

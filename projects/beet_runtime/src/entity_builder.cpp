@@ -93,8 +93,9 @@ static void built_in_materials_create() {
     }
     {
         const GfxTexture white = *db_get_texture(s_builtIn.texture.white);
+        const GfxTexture black = *db_get_texture(s_builtIn.texture.black);
         VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
-        gfx_lit_update_material_descriptor(descriptorSet, white, white, white, white, white);
+        gfx_lit_update_material_descriptor(descriptorSet, white, white, black, white, white);
         s_builtIn.material.cube = db_add_lit_material({.descriptorSetIndex = db_add_descriptor_set(descriptorSet)});
     }
 }
