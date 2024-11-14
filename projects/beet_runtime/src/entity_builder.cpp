@@ -17,6 +17,13 @@ static struct {
         uint32_t white = {UINT32_MAX};
         uint32_t uvGrid = {UINT32_MAX};
         uint32_t skybox = {UINT32_MAX};
+        struct {
+            uint32_t albedoTexture = {UINT32_MAX};
+            uint32_t normalTexture = {UINT32_MAX};
+            uint32_t occlusionTexture = {UINT32_MAX};
+            uint32_t metallicTexture = {UINT32_MAX};
+            uint32_t roughnessTexture = {UINT32_MAX};
+        } pbr;
     } texture;
 
     struct {
@@ -70,6 +77,28 @@ static void built_in_textures_create() {
         GfxTexture skyboxTexture = {.imageSamplerType = TextureSamplerType::LinearMirror};
         s_builtIn.texture.skybox = add_texture_to_database("assets/textures/sky/herkulessaulen_4k-octahedral.dds", skyboxTexture);
     }
+    {
+        {
+            GfxTexture albedoTexture = {};
+            s_builtIn.texture.pbr.albedoTexture = add_texture_to_database("assets/textures/default/WhiteTiles06_4K_BaseColor.dds", albedoTexture);
+        }
+        {
+            GfxTexture normalTexture = {};
+            s_builtIn.texture.pbr.normalTexture = add_texture_to_database("assets/textures/default/WhiteTiles06_4K_Normal.dds", normalTexture);
+        }
+        {
+            GfxTexture occlusionTexture = {};
+            s_builtIn.texture.pbr.occlusionTexture = add_texture_to_database("assets/textures/default/WhiteTiles06_4K_Height.dds", occlusionTexture);
+        }
+        {
+            GfxTexture roughnessTexture = {};
+            s_builtIn.texture.pbr.roughnessTexture = add_texture_to_database("assets/textures/default/WhiteTiles06_4K_Roughness.dds", roughnessTexture);
+        }
+        {
+            GfxTexture metallicTexture = {};
+            s_builtIn.texture.pbr.metallicTexture = add_texture_to_database("assets/textures/default/WhiteTiles06_4K_Height.dds", metallicTexture);
+        }
+    }
 }
 
 static void built_in_meshes_create() {
@@ -92,10 +121,15 @@ static void built_in_materials_create() {
         s_builtIn.material.skybox = db_add_sky_material({.descriptorSetIndex = db_add_descriptor_set(descriptorSet), .octahedralMapIndex = s_builtIn.texture.skybox});
     }
     {
-        const GfxTexture white = *db_get_texture(s_builtIn.texture.white);
-        const GfxTexture black = *db_get_texture(s_builtIn.texture.black);
         VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
-        gfx_lit_update_material_descriptor(descriptorSet, white, white, black, white, white);
+        gfx_lit_update_material_descriptor(
+                descriptorSet,
+                *db_get_texture(s_builtIn.texture.pbr.albedoTexture),           //albedoMap
+                *db_get_texture(s_builtIn.texture.pbr.normalTexture),           //normalMap
+                *db_get_texture(s_builtIn.texture.pbr.occlusionTexture),        //aoMap
+                *db_get_texture(s_builtIn.texture.black),                       //metallicMap
+                *db_get_texture(s_builtIn.texture.pbr.roughnessTexture)         //roughnessMap
+        );
         s_builtIn.material.cube = db_add_lit_material({.descriptorSetIndex = db_add_descriptor_set(descriptorSet)});
     }
 }
@@ -123,23 +157,21 @@ static bool load_package(const char *packagePath) {
         GfxTexture emissiveTexture = {};
 
         // Load and add textures to the database
-        uint32_t albedoIndex = add_texture_to_database(packageMaterial.albedoPath, albedoTexture);
-        uint32_t normalIndex = add_texture_to_database(packageMaterial.normalMapPath, normalTexture);
-        uint32_t metallicRoughnessIndex = add_texture_to_database(packageMaterial.metallicRoughnessPath, metallicRoughnessTexture);
-        uint32_t occlusionIndex = add_texture_to_database(packageMaterial.occlusionMapPath, occlusionTexture);
-        uint32_t emissiveIndex = add_texture_to_database(packageMaterial.emissiveMapPath, emissiveTexture);
+        const uint32_t albedoIndex = add_texture_to_database(packageMaterial.albedoPath, albedoTexture);
+        const uint32_t normalIndex = add_texture_to_database(packageMaterial.normalMapPath, normalTexture);
+        const uint32_t occlusionIndex = add_texture_to_database(packageMaterial.occlusionMapPath, occlusionTexture);
+        const uint32_t metallicRoughnessIndex = add_texture_to_database(packageMaterial.metallicRoughnessPath, metallicRoughnessTexture);
+        const uint32_t emissiveIndex = add_texture_to_database(packageMaterial.emissiveMapPath, emissiveTexture);
 
-        // Update descriptor set with all textures
         VkDescriptorSet descriptorSet = {VK_NULL_HANDLE};
         gfx_lit_update_material_descriptor(
                 descriptorSet,
-                *db_get_texture(albedoIndex),
-                *db_get_texture(normalIndex),
-                *db_get_texture(metallicRoughnessIndex),
-                *db_get_texture(occlusionIndex),
-                *db_get_texture(emissiveIndex)
+                *db_get_texture(albedoIndex),               //albedoIndex
+                *db_get_texture(normalIndex),               //normalIndex
+                *db_get_texture(occlusionIndex),            //occlusionIndex
+                *db_get_texture(metallicRoughnessIndex),    //metallicRoughnessIndex
+                *db_get_texture(emissiveIndex)              //emissiveIndex
         );
-
 
         uint32_t litEntity = db_add_lit_entity((LitEntity) {
                 .transformIndex = db_add_transform((Transform) {

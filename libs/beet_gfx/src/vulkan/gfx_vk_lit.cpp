@@ -191,9 +191,9 @@ void gfx_lit_update_material_descriptor(
         VkDescriptorSet &outDescriptorSet,
         const GfxTexture &albedoTexture,
         const GfxTexture &normalTexture,
-        const GfxTexture &metallicRoughnessTexture,
-        const GfxTexture &occlusionTexture,
-        const GfxTexture &emissiveTexture) {
+        const GfxTexture &aoTexture,
+        const GfxTexture &metallicTexture,
+        const GfxTexture &roughnessTexture) {
 
     VkDescriptorSetAllocateInfo allocInfo = gfx_descriptor_set_alloc_info(g_gfxLit.descriptorPool, &g_gfxLit.descriptorSetLayout, 1);
     const VkResult allocDescRes = vkAllocateDescriptorSets(g_vulkanBackend.device, &allocInfo, &outDescriptorSet);
@@ -206,9 +206,9 @@ void gfx_lit_update_material_descriptor(
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &albedoTexture.descriptor, 1),
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &normalTexture.descriptor, 1),
-            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &metallicRoughnessTexture.descriptor, 1),
-            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &occlusionTexture.descriptor, 1),
-            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &emissiveTexture.descriptor, 1)
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &aoTexture.descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &metallicTexture.descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &roughnessTexture.descriptor, 1)
     };
 
     vkUpdateDescriptorSets(g_vulkanBackend.device, descriptorSetSize, writeDescriptorSets, 0, nullptr);

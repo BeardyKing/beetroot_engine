@@ -21,9 +21,9 @@ layout (set = 0, binding = 0) uniform SceneUBO {
 //===TEXTURES===============================================
 layout (binding = 1) uniform sampler2D albedoMap;
 layout (binding = 2) uniform sampler2D normalMap;
-layout (binding = 3) uniform sampler2D metallicMap;
-layout (binding = 4) uniform sampler2D roughnessMap;
-layout (binding = 5) uniform sampler2D aoMap;
+layout (binding = 3) uniform sampler2D aoMap;
+layout (binding = 4) uniform sampler2D metallicMap;
+layout (binding = 5) uniform sampler2D roughnessMap;
 //==========================================================
 
 
@@ -38,10 +38,10 @@ vec3(30, 10, 10),
 };
 
 const vec3 lightColors[4] = {
-vec3(1000, 1000, 1000),
-vec3(1000, 0, 0),
-vec3(0, 1000, 0),
-vec3(0, 0, 1000),
+vec3(2100, 1000, 1000),
+vec3(2100, 1000, 1000),
+vec3(2100, 1000, 1000),
+vec3(2100, 1000, 1000)
 };
 //==========================================================
 

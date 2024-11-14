@@ -14,8 +14,8 @@ void gfx_lit_update_material_descriptor(
         VkDescriptorSet &outDescriptorSet,
         const GfxTexture &albedoTexture,
         const GfxTexture &normalTexture,
-        const GfxTexture &metallicRoughnessTexture,
-        const GfxTexture &occlusionTexture,
-        const GfxTexture &emissiveTexture);
+        const GfxTexture &aoTexture,
+        const GfxTexture &metallicTexture,
+        const GfxTexture &roughnessTexture);
 
 #endif //BEETROOT_GFX_LIT_H
