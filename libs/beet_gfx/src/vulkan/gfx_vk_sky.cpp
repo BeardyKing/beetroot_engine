@@ -84,7 +84,7 @@ void gfx_sky_update_material_descriptor(VkDescriptorSet &outDescriptorSet, const
     const VkWriteDescriptorSet writeDescriptorSets[descriptorSetSize] = {
             // Binding 0: Vertex shader uniform buffer
             // Binding 1: albedoTexture // TODO: Add a per package loaded texture array
-            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.sceneUniformBuffer.descriptor, 1),
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &albedoTexture.descriptor, 1)
     };
     vkUpdateDescriptorSets(g_vulkanBackend.device, descriptorSetSize, &writeDescriptorSets[0], 0, nullptr);

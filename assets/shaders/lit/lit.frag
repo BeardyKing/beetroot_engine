@@ -9,6 +9,7 @@ layout (location = 0) in StageLayout {
 } stageIn;
 //==========================================================
 
+
 //===GLOBAL=================================================
 layout (set = 0, binding = 0) uniform SceneUBO {
     mat4 projection;
@@ -16,33 +17,33 @@ layout (set = 0, binding = 0) uniform SceneUBO {
     vec3 position;
     float unused_0;
 } scene;
+
+//===MUST_MIRROR_gfx_types.h================================
+#define BEET_MAX_LIGHT_COUNT 256
+struct LightDesc{
+    vec3 position;
+    float unused_0;
+    vec3 color;
+    float radius;
+};
+
+layout(set = 0, binding = 1) uniform LightUBO {
+    LightDesc lightDesc[BEET_MAX_LIGHT_COUNT];
+    int lightDescCount;
+} lights;
 //==========================================================
 
 //===TEXTURES===============================================
-layout (binding = 1) uniform sampler2D albedoMap;
-layout (binding = 2) uniform sampler2D normalMap;
-layout (binding = 3) uniform sampler2D aoMap;
-layout (binding = 4) uniform sampler2D metallicMap;
-layout (binding = 5) uniform sampler2D roughnessMap;
+layout (binding = 2) uniform sampler2D albedoMap;
+layout (binding = 3) uniform sampler2D normalMap;
+layout (binding = 4) uniform sampler2D aoMap;
+layout (binding = 5) uniform sampler2D metallicMap;
+layout (binding = 6) uniform sampler2D roughnessMap;
 //==========================================================
 
 
 //===CONSTANTS==============================================
 const float PI = 3.14159265359;
-
-const vec3 lightPositions[4] = {
-vec3(10, 40, 10),
-vec3(-30, 10, 10),
-vec3(0, 10, 10),
-vec3(30, 10, 10),
-};
-
-const vec3 lightColors[4] = {
-vec3(2100, 1000, 1000),
-vec3(2100, 1000, 1000),
-vec3(2100, 1000, 1000),
-vec3(2100, 1000, 1000)
-};
 //==========================================================
 
 //===OUT====================================================
@@ -124,14 +125,14 @@ void main()
 
     // reflectance equation
     vec3 Lo = vec3(0.0);
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < lights.lightDescCount; ++i)
     {
         // calculate per-light radiance
-        vec3 L = normalize(lightPositions[i] - stageIn.worldPos);
+        vec3 L = normalize(lights.lightDesc[i].position.xyz - stageIn.worldPos);
         vec3 H = normalize(V + L);
-        float distance = length(lightPositions[i] - stageIn.worldPos);
+        float distance = length(lights.lightDesc[i].position.xyz - stageIn.worldPos);
         float attenuation = 1.0 / (distance * distance);
-        vec3 radiance = lightColors[i] * attenuation;
+        vec3 radiance = lights.lightDesc[i].color.xyz * attenuation;
 
         // Cook-Torrance BRDF
         float NDF = DistributionGGX(N, H, roughness);

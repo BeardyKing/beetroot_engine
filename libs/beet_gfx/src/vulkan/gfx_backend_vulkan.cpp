@@ -904,32 +904,46 @@ static void gfx_window_resize() {
 }
 
 static void gfx_update_uniform_buffers() {
-    //TODO: UPDATE UBO with camera info i.e. view & proj.
-    const CameraEntity &camEntity = *db_get_camera_entity(0);
-    const Camera &camera = *db_get_camera(camEntity.cameraIndex);
-    const Transform &camTransform = *db_get_transform(camEntity.transformIndex);
+    {
+        const CameraEntity &camEntity = *db_get_camera_entity(0);
+        const Camera &camera = *db_get_camera(camEntity.cameraIndex);
+        const Transform &camTransform = *db_get_transform(camEntity.transformIndex);
 
-    const vec3f camForward = glm::quat(camTransform.rotation) * WORLD_FORWARD;
-    const vec3f lookTarget = camTransform.position + camForward;
+        const vec3f camForward = glm::quat(camTransform.rotation) * WORLD_FORWARD;
+        const vec3f lookTarget = camTransform.position + camForward;
 
-    const mat4f view = lookAt(camTransform.position, lookTarget, WORLD_UP);
-    const vec2f screen = {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
-    mat4f proj = perspective(as_radians(camera.fov), (float) screen.x / (float) screen.y, camera.zNear, camera.zFar);
-    proj[1][1] *= -1; // flip view proj, need to switch to the vulkan glm define to fix this.
-    mat4f viewProj = proj * view;
+        const mat4f view = lookAt(camTransform.position, lookTarget, WORLD_UP);
+        const vec2f screen = {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
+        mat4f proj = perspective(as_radians(camera.fov), (float) screen.x / (float) screen.y, camera.zNear, camera.zFar);
+        proj[1][1] *= -1; // flip view proj, need to switch to the vulkan glm define to fix this.
+        mat4f viewProj = proj * view;
 
-    const SceneUBO uniformBuffData{
-            .projection = proj,
-            .view = view,
-            .position = camTransform.position,
-            .unused_0 = {},
-    };
-    memcpy(g_vulkanBackend.uniformBuffer.mappedData, &uniformBuffData, sizeof(SceneUBO));
+        const SceneUBO uniformBuffData{
+                .projection = proj,
+                .view = view,
+                .position = camTransform.position,
+                .unused_0 = {},
+        };
+        memcpy(g_vulkanBackend.sceneUniformBuffer.mappedData, &uniformBuffData, sizeof(SceneUBO));
+    }
+    {
+        static LightUBO lightUBO = {
+                .lightDesc = {
+                        {.position = {10.0f, 40.0f, 10.0f}, .color = {2100.0f, 1000.0f, 1000.0f}, .radius = 1.0f},
+                        {.position = {-30.0f, 10.0f, 10.0f}, .color = {0.0f, 1000.0f, 0.0f}, .radius = 1.0f},
+                        {.position = {0.0f, 10.0f, 10.0f}, .color = {0.0f, 0.0f, 1000.0f}, .radius = 1.0f},
+                        {.position = {30.0f, 10.0f, 10.0f}, .color = {0.0f, 0.0f, 1000.0f}, .radius = 1.0f},
+                },
+                .lightDescCount = 4
+        };
+        memcpy(g_vulkanBackend.lightUniformBuffer.mappedData, &lightUBO, sizeof(LightUBO));
+    }
 }
 
-void blit_depth_stencil_to_resolved_depth(VkCommandBuffer &cmdBuffer,
-                                             const GfxImageBuffer &srcBuffer,
-                                             GfxImageBuffer &dstBuffer) {
+void blit_depth_stencil_to_resolved_depth(
+        VkCommandBuffer &cmdBuffer,
+        const GfxImageBuffer &srcBuffer,
+        GfxImageBuffer &dstBuffer) {
     const uint32_t width = g_vulkanBackend.swapChain.width;
     const uint32_t height = g_vulkanBackend.swapChain.height;
 
@@ -1049,7 +1063,7 @@ void resolve_depth_stencil_to_resolved_depth(VkCommandBuffer &cmdBuffer,
     );
     VkImageResolve resolveRegion{
             .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, .layerCount = 1,},
-            .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT , .layerCount = 1,},
+            .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, .layerCount = 1,},
             .extent = {.width = width, .height = height, .depth = 1}
     };
 
@@ -1231,10 +1245,9 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
             .pStencilAttachment = &depthStencilAttachment,
     };
 
-    if(isMultisampling){
+    if (isMultisampling) {
         resolve_depth_stencil_to_resolved_depth(cmdBuffer, g_vulkanBackend.depthStencilBuffer, g_vulkanBackend.resolvedDepthBuffer);
-    }
-    else{
+    } else {
         blit_depth_stencil_to_resolved_depth(cmdBuffer, g_vulkanBackend.depthStencilBuffer, g_vulkanBackend.resolvedDepthBuffer);
     }
 
@@ -1294,22 +1307,55 @@ static void gfx_cleanup_semaphores() {
 }
 
 static void gfx_create_uniform_buffers() {
-    const VkResult uniformResult = gfx_buffer_create(
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            g_vulkanBackend.uniformBuffer,
-            sizeof(SceneUBO),
-            nullptr
-    );
-    ASSERT(uniformResult == VK_SUCCESS);
+    {
+        const VkResult uniformResult = gfx_buffer_create(
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                g_vulkanBackend.sceneUniformBuffer,
+                sizeof(SceneUBO),
+                nullptr
+        );
+        ASSERT(uniformResult == VK_SUCCESS);
 
-    const VkResult mapResult = vkMapMemory(g_vulkanBackend.device, g_vulkanBackend.uniformBuffer.memory, 0, VK_WHOLE_SIZE, 0, &g_vulkanBackend.uniformBuffer.mappedData);
-    ASSERT(mapResult == VK_SUCCESS);
+        const VkResult mapResult = vkMapMemory(
+                g_vulkanBackend.device,
+                g_vulkanBackend.sceneUniformBuffer.memory,
+                0,
+                VK_WHOLE_SIZE,
+                0,
+                &g_vulkanBackend.sceneUniformBuffer.mappedData
+        );
+
+        ASSERT(mapResult == VK_SUCCESS);
+    }
+    {
+        const VkResult uniformResult = gfx_buffer_create(
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                g_vulkanBackend.lightUniformBuffer,
+                sizeof(LightUBO),
+                nullptr
+        );
+        ASSERT(uniformResult == VK_SUCCESS);
+
+        const VkResult mapResult = vkMapMemory(
+                g_vulkanBackend.device,
+                g_vulkanBackend.lightUniformBuffer.memory,
+                0,
+                VK_WHOLE_SIZE,
+                0,
+                &g_vulkanBackend.lightUniformBuffer.mappedData
+        );
+        ASSERT(mapResult == VK_SUCCESS);
+    }
 }
 
 static void gfx_cleanup_uniform_buffers() {
-    vkDestroyBuffer(g_vulkanBackend.device, g_vulkanBackend.uniformBuffer.buffer, nullptr);
-    vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.uniformBuffer.memory, nullptr);
+    vkDestroyBuffer(g_vulkanBackend.device, g_vulkanBackend.sceneUniformBuffer.buffer, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.sceneUniformBuffer.memory, nullptr);
+
+    vkDestroyBuffer(g_vulkanBackend.device, g_vulkanBackend.lightUniformBuffer.buffer, nullptr);
+    vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.lightUniformBuffer.memory, nullptr);
 }
 //======================================================================================================================
 
@@ -1422,8 +1468,8 @@ vec2i gfx_screen_size() {
     return {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
 }
 
-uint32_t get_multisample_count(){
-    return (uint32_t)g_userArguments.msaa;
+uint32_t get_multisample_count() {
+    return (uint32_t) g_userArguments.msaa;
 }
 
 //======================================================================================================================

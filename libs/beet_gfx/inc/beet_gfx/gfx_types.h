@@ -18,10 +18,23 @@
 //===GPU_TYPES========================================================================================================
 //TODO: add infra to include this type in shader code.
 struct SceneUBO {
-    mat4f projection;
-    mat4f view;
-    vec3f position;
+    mat4 projection;
+    mat4 view;
+    vec3 position;
     float unused_0;
+};
+
+constexpr int BEET_MAX_LIGHT_COUNT = 256;
+struct LightDesc{
+    vec3 position;
+    float unused_0;
+    vec3 color;
+    float radius;
+};
+
+struct LightUBO {
+    LightDesc lightDesc[BEET_MAX_LIGHT_COUNT];
+    int lightDescCount;
 };
 
 struct LinePoint3D {
@@ -127,7 +140,8 @@ struct VulkanBackend {
     //==============================
 
     //===UNIFORM BUFFER=============
-    GfxBuffer uniformBuffer = {VK_NULL_HANDLE};
+    GfxBuffer sceneUniformBuffer = {VK_NULL_HANDLE};
+    GfxBuffer lightUniformBuffer = {VK_NULL_HANDLE};
     //==============================
     VkSampleCountFlagBits sampleCount = {VK_SAMPLE_COUNT_1_BIT};
     VkCommandBuffer immediateCommandBuffer = {VK_NULL_HANDLE};

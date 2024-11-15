@@ -229,7 +229,7 @@ void gfx_triangle_strip_update_material_descriptor(VkDescriptorSet &outDescripto
 
     constexpr uint32_t descriptorSetSize = 3;
     const VkWriteDescriptorSet writeDescriptorSets[descriptorSetSize] = {
-            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.uniformBuffer.descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.sceneUniformBuffer.descriptor, 1),
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &s_triangleStrip.triangleStripUniformBuffers[gfx_buffer_index()].descriptor, 1),
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &depthImageInfo, 1),
     };
