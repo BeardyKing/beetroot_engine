@@ -49,12 +49,12 @@ PoolInfo *db_pool_alloc(const PoolAllocInfo &info) {
     poolInfo->start = (char *) poolInfo + sizeof(PoolInfo);
     poolInfo->currentIndex = 0;
 
-    PoolAllocEntry &entry = s_allocationTable[s_allocationTableCount];
+    PoolAllocEntry *entry = &s_allocationTable[s_allocationTableCount];
     s_allocationTableCount++;
-    entry.allocInfo = info;
-    entry.poolInfo = poolInfo;
+    entry->allocInfo = info;
+    entry->poolInfo = poolInfo;
 
-    return poolInfo;
+    return entry->poolInfo;
 }
 
 //===CAMERA=============================================================================================================
@@ -231,30 +231,6 @@ SkyMaterial *db_get_sky_material(uint32_t index) {
 }
 //======================================================================================================================
 
-//===LIT_ENTITIES=======================================================================================================
-static struct LitEntityPool {
-    LitEntity *start;
-    uint32_t count;
-} s_dbLitEntities = *(LitEntityPool *) db_pool_alloc({sizeof(LitEntity), MAX_DB_LIT_ENTITIES, "Pool Lit Entity"});
-
-uint32_t db_get_lit_entity_count() {
-    return s_dbLitEntities.count;
-}
-
-uint32_t db_add_lit_entity(const LitEntity &litEntity) {
-    ASSERT(s_dbLitEntities.count < MAX_DB_LIT_ENTITIES);
-    uint32_t currentLitEntityIndex = s_dbLitEntities.count;
-    s_dbLitEntities.start[currentLitEntityIndex] = litEntity;
-    s_dbLitEntities.count++;
-    return currentLitEntityIndex;
-}
-
-LitEntity *db_get_lit_entity(uint32_t index) {
-    ASSERT(index < MAX_DB_LIT_ENTITIES);
-    return &s_dbLitEntities.start[index];
-}
-//======================================================================================================================
-
 //===SKY_ENTITIES=======================================================================================================
 static struct SkyEntityPool {
     SkyEntity *start;
@@ -279,4 +255,78 @@ SkyEntity *db_get_sky_entity(uint32_t index) {
 }
 //======================================================================================================================
 
+
+//===LIT_ENTITIES=======================================================================================================
+static struct LitEntityPool {
+    LitEntity *start;
+    uint32_t count;
+} &s_dbLitEntities = *(LitEntityPool *) db_pool_alloc({sizeof(LitEntity), MAX_DB_LIT_ENTITIES, "Pool Lit Entity"});
+
+uint32_t db_get_lit_entity_count() {
+    return s_dbLitEntities.count;
+}
+
+uint32_t db_add_lit_entity(const LitEntity &litEntity) {
+    ASSERT(s_dbLitEntities.count < MAX_DB_LIT_ENTITIES);
+    uint32_t currentLitEntityIndex = s_dbLitEntities.count;
+    s_dbLitEntities.start[currentLitEntityIndex] = litEntity;
+    s_dbLitEntities.count++;
+    return currentLitEntityIndex;
+}
+
+LitEntity *db_get_lit_entity(uint32_t index) {
+    ASSERT(index < MAX_DB_LIT_ENTITIES);
+    return &s_dbLitEntities.start[index];
+}
+//======================================================================================================================
+
+//===LIGHT_ENTITIES=====================================================================================================
+static struct LightEntityPool {
+    LightEntity *start;
+    uint32_t count;
+} &s_dbLightEntities = *(LightEntityPool *) db_pool_alloc({sizeof(LightEntity), MAX_DB_LIGHT_ENTITIES, "Pool light Entity"});
+
+
+uint32_t db_get_light_entity_count(){
+    return s_dbLightEntities.count;
+}
+
+uint32_t db_add_light_entity(const LightEntity &lightEntity){
+    ASSERT(s_dbLightEntities.count < MAX_DB_LIGHT_ENTITIES);
+    uint32_t currentLitEntityIndex = s_dbLightEntities.count;
+    s_dbLightEntities.start[currentLitEntityIndex] = lightEntity;
+    s_dbLightEntities.count++;
+    return currentLitEntityIndex;
+}
+
+LightEntity *db_get_light_entity(uint32_t index){
+    ASSERT(index < MAX_DB_LIGHT_ENTITIES);
+    return &s_dbLightEntities.start[index];
+}
+//======================================================================================================================
+
+//===LIGHT_ENTITIES=====================================================================================================
+static struct LightsPool {
+    GfxLight *start;
+    uint32_t count;
+} &s_dbLights = *(LightsPool *) db_pool_alloc({sizeof(GfxLight), MAX_DB_LIGHTS, "Pool lights"});
+
+
+uint32_t db_get_light_count(){
+    return s_dbLights.count;
+}
+
+uint32_t db_add_light(const GfxLight &light){
+    ASSERT(s_dbLights.count < MAX_DB_LIGHTS);
+    uint32_t currentLitEntityIndex = s_dbLights.count;
+    s_dbLights.start[currentLitEntityIndex] = light;
+    s_dbLights.count++;
+    return currentLitEntityIndex;
+}
+
+GfxLight *db_get_light(uint32_t index){
+    ASSERT(index < MAX_DB_LIGHTS);
+    return &s_dbLights.start[index];
+}
+//======================================================================================================================
 

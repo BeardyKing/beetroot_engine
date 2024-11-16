@@ -50,7 +50,7 @@ int main() {
 #endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
         gfx_update(time_delta_d());
     }
-
+    db_dump_pool_alloc_table();
     entities_cleanup();
     gfx_cleanup();
     input_cleanup();

@@ -124,6 +124,23 @@ static void widget_pool_selector_camera_entity() {
     }
 }
 
+static void widget_pool_selector_light_entity() {
+    const uint32_t lightEntityCount = db_get_light_entity_count();
+    char lightEntTitleBuf[128] = {};
+    char lightEntName[DEBUG_NAME_MAX] = {"unnamed light"};
+    sprintf(lightEntTitleBuf, "Pool: LightEntity [%u]", lightEntityCount);
+    if (ImGui::CollapsingHeader(lightEntTitleBuf)) {
+        for (int32_t poolIndex = 0; poolIndex < lightEntityCount; ++poolIndex) {
+            sprintf(lightEntName, "Name: \"%s\" - %u", "unnamed light", poolIndex);
+
+            if (ImGui::Selectable(lightEntName, s_selectedPoolItem == poolIndex)) {
+                s_selectedPoolItem = poolIndex;
+                s_selectedPool = SELECTED_POOL_LIGHT_ENT;
+            }
+        }
+    }
+}
+
 static void widget_pool_selector(bool &enabled) {
     ImGui::SetNextWindowSize(ImVec2(500, 440), ImGuiCond_FirstUseEver);
     ImGui::Begin("Pool Selector", &enabled);
@@ -132,6 +149,8 @@ static void widget_pool_selector(bool &enabled) {
         widget_pool_selector_lit_entity();
         ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
         widget_pool_selector_camera_entity();
+        ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
+        widget_pool_selector_light_entity();
     }
     ImGui::End();
 }
@@ -143,6 +162,28 @@ static bool widget_draw_transform(Transform &transform) {
         outEdited |= draw_vec3_control("Pos", transform.position, 0.0f, 35.0f);
         outEdited |= draw_vec3_control("Rot", transform.rotation, 0.0f, 35.0f);
         outEdited |= draw_vec3_control("Scl", transform.scale, 0.0f, 35.0f);
+    }
+    return outEdited;
+}
+
+static bool widget_draw_light(GfxLight &light) {
+    constexpr float WIDGET_MAX_RADIUS = 2000;
+    constexpr float WIDGET_RADIUS_DRAG_AMOUNT = 0.25f;
+
+    constexpr float WIDGET_MAX_LIGHT_RGB = 10000;
+    constexpr float WIDGET_RGB_DRAG_AMOUNT = 1.0f;
+    bool outEdited = false;
+    //TODO: Add Intensity var, replace float 3 with uint32_t
+    if (ImGui::CollapsingHeader("Light")) {
+        ImGui::Text("radius  ");
+        ImGui::SameLine();
+        outEdited |= ImGui::DragFloat("##radius", &light.radius, WIDGET_RADIUS_DRAG_AMOUNT, 0.0f, 0.0f, "%.3f");
+        light.radius = clamp(light.radius, 0.0f, WIDGET_MAX_RADIUS);
+
+        ImGui::Text("RGB     ");
+        ImGui::SameLine();
+        outEdited |= ImGui::DragFloat3("##rgb_drag", &light.color.r, WIDGET_RGB_DRAG_AMOUNT, 0.0f, 0.0f, "%.1f");
+        light.color = clamp(light.color, {}, {WIDGET_MAX_LIGHT_RGB, WIDGET_MAX_LIGHT_RGB, WIDGET_MAX_LIGHT_RGB});
     }
     return outEdited;
 }
@@ -194,7 +235,7 @@ static void widget_pool_inspector_lit_entity() {
     widget_draw_transform(*db_get_transform(litEntity.transformIndex));
 }
 
-static bool widget_draw_transform(Camera &camera) {
+static bool widget_draw_camera(Camera &camera) {
     constexpr float FOV_DRAG_AMOUNT = 0.5f;
     constexpr float Z_DRAG_AMOUNT = 1.0f;
     constexpr float Z_MIN = 0.1f;
@@ -227,7 +268,17 @@ static void widget_pool_inspector_camera_entity() {
     ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
     widget_draw_transform(*db_get_transform(camEntity.transformIndex));
     ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
-    widget_draw_transform(*db_get_camera(camEntity.cameraIndex));
+    widget_draw_camera(*db_get_camera(camEntity.cameraIndex));
+}
+
+static void widget_pool_inspector_light_entity() {
+    ASSERT(s_selectedPoolItem < db_get_light_entity_count());
+    const LightEntity &lightEntity = *db_get_light_entity(s_selectedPoolItem);
+
+    ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
+    widget_draw_transform(*db_get_transform(lightEntity.transformIndex));
+    ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
+    widget_draw_light(*db_get_light(lightEntity.lightIndex));
 }
 
 static void widget_pool_inspector(bool &enabled) {
@@ -240,6 +291,9 @@ static void widget_pool_inspector(bool &enabled) {
             break;
         case SELECTED_POOL_CAMERA_ENT:
             widget_pool_inspector_camera_entity();
+            break;
+        case SELECTED_POOL_LIGHT_ENT:
+            widget_pool_inspector_light_entity();
             break;
         case SELECTED_POOL_NONE:
         default:

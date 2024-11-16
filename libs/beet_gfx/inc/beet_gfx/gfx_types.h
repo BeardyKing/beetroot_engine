@@ -25,11 +25,15 @@ struct SceneUBO {
 };
 
 constexpr int BEET_MAX_LIGHT_COUNT = 256;
+struct GfxLight {
+    vec3 color;
+    float radius;
+};
+
 struct LightDesc{
     vec3 position;
     float unused_0;
-    vec3 color;
-    float radius;
+    GfxLight light;
 };
 
 struct LightUBO {

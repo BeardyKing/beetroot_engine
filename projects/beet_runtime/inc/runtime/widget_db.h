@@ -8,6 +8,7 @@ enum SelectedPool : int32_t {
     SELECTED_POOL_NONE = -1,
     SELECTED_POOL_LIT_ENT = 0,
     SELECTED_POOL_CAMERA_ENT = 1,
+    SELECTED_POOL_LIGHT_ENT = 2,
 };
 //======================================================================================================================
 

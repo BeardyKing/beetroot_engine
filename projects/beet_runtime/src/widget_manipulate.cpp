@@ -1549,17 +1549,22 @@ void widget_manipulate_update(bool &enabled) {
         Transform *currentTransform = nullptr;
         switch (poolType) {
             case SELECTED_POOL_LIT_ENT: {
-                const LitEntity &litEntity = *db_get_lit_entity(poolIndex);
-                currentTransform = db_get_transform(litEntity.transformIndex);
+                currentTransform = db_get_transform(db_get_lit_entity(poolIndex)->transformIndex);
                 break;
             }
             case SELECTED_POOL_CAMERA_ENT: {
-                const CameraEntity &camEntity = *db_get_camera_entity(poolIndex);
-                currentTransform = db_get_transform(camEntity.transformIndex);
+                currentTransform = db_get_transform(db_get_camera_entity(poolIndex)->transformIndex);
+                break;
+            }
+            case SELECTED_POOL_LIGHT_ENT: {
+                currentTransform = db_get_transform(db_get_light_entity(poolIndex)->transformIndex);
                 break;
             }
             case SELECTED_POOL_NONE: {
                 break;
+            }
+            default: {
+                SANITY_CHECK();
             }
         }
 

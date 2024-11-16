@@ -103,4 +103,21 @@ uint32_t db_add_sky_entity(const SkyEntity &skyEntity);
 SkyEntity *db_get_sky_entity(uint32_t index);
 //======================================================================================================================
 
+//===LIGHT_ENTITIES=====================================================================================================
+#define MAX_DB_LIGHT_ENTITIES 64
+
+uint32_t db_get_light_entity_count();
+uint32_t db_add_light_entity(const LightEntity &lightEntity);
+LightEntity *db_get_light_entity(uint32_t index);
+//======================================================================================================================
+
+//===LIGHT_ENTITIES=====================================================================================================
+#define MAX_DB_LIGHTS 64
+
+uint32_t db_get_light_count();
+uint32_t db_add_light(const GfxLight &light);
+GfxLight *db_get_light(uint32_t index);
+//======================================================================================================================
+
+
 #endif //BEETROOT_DB_ASSET_H

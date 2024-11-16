@@ -23,6 +23,12 @@ struct SkyEntity {
     uint32_t materialIndex;
 };
 
+struct LightEntity {
+    uint32_t transformIndex;
+    uint32_t lightIndex;
+};
+
+
 struct CameraEntity {
     uint32_t transformIndex;
     uint32_t cameraIndex;

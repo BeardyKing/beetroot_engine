@@ -4,57 +4,66 @@
 
 #include <beet_math/vec2.h>
 #include <beet_math/vec3.h>
+#include <beet_shared/beet_types.h>
+#include <beet_math/transform.h>
+#include <beet_gfx/db_asset.h>
 
 //===API================================================================================================================
 void script_create_lights() {
+    db_add_light_entity((LightEntity) {
+            .transformIndex = db_add_transform((Transform) {.position{3, 1, 4}}),
+            .lightIndex = db_add_light((GfxLight) {.color = {10, 10, 10}, .radius = 10.0f,}),
+    });
+    db_add_light_entity((LightEntity) {
+            .transformIndex = db_add_transform((Transform) {.position{3, 1, 1}}),
+            .lightIndex = db_add_light((GfxLight) {.color = {10, 0, 0}, .radius = 10.0f,}),
+    });
+    db_add_light_entity((LightEntity) {
+            .transformIndex = db_add_transform((Transform) {.position{0, 1, 2}}),
+            .lightIndex = db_add_light((GfxLight) {.color = {0, 10, 0}, .radius = 10.0f,}),
+    });
+    db_add_light_entity((LightEntity) {
+            .transformIndex = db_add_transform((Transform) {.position{1, 1, 6}}),
+            .lightIndex = db_add_light((GfxLight) {.color = {0, 0, 10}, .radius = 10.0f,}),
+    });
 }
 
-constexpr uint32_t SCRIPT_LIGHT_COUNT = 4;
-
-const vec3f lightPositions[SCRIPT_LIGHT_COUNT] = {
-        vec3f(10, 40, 10),
-        vec3f(-30, 10, 10),
-        vec3f(0, 10, 10),
-        vec3f(30, 10, 10),
-};
-
-const vec3f lightColors[SCRIPT_LIGHT_COUNT] = {
-        vec3f(1000, 1000, 1000),
-        vec3f(1000, 0, 0),
-        vec3f(0, 1000, 0),
-        vec3f(0, 0, 1000),
-};
-
 void script_update_lights(float deltaTime) {
-    for (uint32_t i = 0; i < SCRIPT_LIGHT_COUNT; ++i) {
+    const uint32_t lightCount = db_get_light_entity_count();
+    for (uint32_t i = 0; i < lightCount; ++i) {
+        LightEntity *lightEntity = db_get_light_entity(i);
+        GfxLight *light = db_get_light(lightEntity->lightIndex);
+        Transform *transform = db_get_transform(lightEntity->transformIndex);
+        const vec4f v4Colour = vec4f(glm::normalize(light->color), 1.0f);
+        const uint32_t lineColour = pack_vec4f_to_uint32_t(v4Colour);
         {
-            const LinePoint3D start = {lightPositions[i], 0xFFFFFF00};
-            const LinePoint3D end = {lightPositions[i] + WORLD_UP, 0xFFFFFF00};
+            const LinePoint3D start = {transform->position, lineColour};
+            const LinePoint3D end = {transform->position + WORLD_UP, lineColour};
             gfx_line_add_segment_immediate(start, end, 1);
         }
         {
-            const LinePoint3D start = {lightPositions[i], 0xFFFFFF00};
-            const LinePoint3D end = {lightPositions[i] - WORLD_UP, 0xFFFFFF00};
+            const LinePoint3D start = {transform->position, lineColour};
+            const LinePoint3D end = {transform->position - WORLD_UP, lineColour};
             gfx_line_add_segment_immediate(start, end, 1);
         }
         {
-            const LinePoint3D start = {lightPositions[i], 0xFFFFFF00};
-            const LinePoint3D end = {lightPositions[i] + WORLD_FORWARD, 0xFFFFFF00};
+            const LinePoint3D start = {transform->position, lineColour};
+            const LinePoint3D end = {transform->position + WORLD_FORWARD, lineColour};
             gfx_line_add_segment_immediate(start, end, 1);
         }
         {
-            const LinePoint3D start = {lightPositions[i], 0xFFFFFF00};
-            const LinePoint3D end = {lightPositions[i] - WORLD_FORWARD, 0xFFFFFF00};
+            const LinePoint3D start = {transform->position, lineColour};
+            const LinePoint3D end = {transform->position - WORLD_FORWARD, lineColour};
             gfx_line_add_segment_immediate(start, end, 1);
         }
         {
-            const LinePoint3D start = {lightPositions[i], 0xFFFFFF00};
-            const LinePoint3D end = {lightPositions[i] + WORLD_RIGHT, 0xFFFFFF00};
+            const LinePoint3D start = {transform->position, lineColour};
+            const LinePoint3D end = {transform->position + WORLD_RIGHT, lineColour};
             gfx_line_add_segment_immediate(start, end, 1);
         }
         {
-            const LinePoint3D start = {lightPositions[i], 0xFFFFFF00};
-            const LinePoint3D end = {lightPositions[i] - WORLD_RIGHT, 0xFFFFFF00};
+            const LinePoint3D start = {transform->position, lineColour};
+            const LinePoint3D end = {transform->position - WORLD_RIGHT, lineColour};
             gfx_line_add_segment_immediate(start, end, 1);
         }
     }

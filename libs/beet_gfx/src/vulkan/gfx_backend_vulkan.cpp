@@ -927,16 +927,15 @@ static void gfx_update_uniform_buffers() {
         memcpy(g_vulkanBackend.sceneUniformBuffer.mappedData, &uniformBuffData, sizeof(SceneUBO));
     }
     {
-        static LightUBO lightUBO = {
-                .lightDesc = {
-                        {.position = {10.0f, 40.0f, 10.0f}, .color = {2100.0f, 1000.0f, 1000.0f}, .radius = 1.0f},
-                        {.position = {-30.0f, 10.0f, 10.0f}, .color = {0.0f, 1000.0f, 0.0f}, .radius = 1.0f},
-                        {.position = {0.0f, 10.0f, 10.0f}, .color = {0.0f, 0.0f, 1000.0f}, .radius = 1.0f},
-                        {.position = {30.0f, 10.0f, 10.0f}, .color = {0.0f, 0.0f, 1000.0f}, .radius = 1.0f},
-                },
-                .lightDescCount = 4
-        };
-        memcpy(g_vulkanBackend.lightUniformBuffer.mappedData, &lightUBO, sizeof(LightUBO));
+        const int lightEntityCount = (int)db_get_light_entity_count();
+
+        LightUBO* lightUBO = (LightUBO*)g_vulkanBackend.lightUniformBuffer.mappedData;
+        lightUBO->lightDescCount = lightEntityCount;
+        for (int lightIndex = 0; lightIndex < lightEntityCount; ++lightIndex) {
+            const LightEntity* lightEntity = db_get_light_entity(lightIndex);
+            lightUBO->lightDesc[lightIndex].light = *db_get_light(lightEntity->lightIndex);
+            lightUBO->lightDesc[lightIndex].position = db_get_transform(lightEntity->transformIndex)->position;
+        }
     }
 }
 
