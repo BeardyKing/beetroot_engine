@@ -35,16 +35,13 @@ void script_create_lights() {
 static void script_update_lights(float deltaTime) {
     const uint32_t lightCount = db_get_light_entity_count();
     for (uint32_t i = 0; i < lightCount; ++i) {
-        LightEntity *lightEntity = db_get_light_entity(i);
-        GfxLight *light = db_get_light(lightEntity->lightIndex);
-        Transform *transform = db_get_transform(lightEntity->transformIndex);
+        const LightEntity *lightEntity = db_get_light_entity(i);
+        const GfxLight *light = db_get_light(lightEntity->lightIndex);
+        const Transform *transform = db_get_transform(lightEntity->transformIndex);
         const vec4f v4Colour = vec4f(glm::normalize(light->color), 0);
         const uint32_t lineColour = pack_vec4f_to_uint32_t(v4Colour);
-        vec3f lookDir = transform->position - db_get_transform(db_get_camera_entity(0)->transformIndex)->position;
-//        lookDir.y = 0;
-//        gfx_im_draw_line_rect({.center = transform->position, .halfExtents = {0.2f, 0.2f}, .normal = lookDir, .up = WORLD_UP}, lineColour);
-
-        gfx_im_draw_line_sun_icon({.center = transform->position, .radius = 0.05f, .normal = lookDir, .up = WORLD_UP}, lineColour);
+        const vec3f lookDir = transform->position - db_get_transform(db_get_camera_entity(0)->transformIndex)->position;
+        gfx_im_draw_line_sun({.center = transform->position, .radius = 0.05f, .normal = lookDir, .up = WORLD_UP}, lineColour);
     }
 }
 
