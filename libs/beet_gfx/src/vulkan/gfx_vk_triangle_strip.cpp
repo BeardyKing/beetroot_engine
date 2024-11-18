@@ -248,21 +248,32 @@ bool gfx_rebuild_triangle_strip_pipeline() {
 }
 
 void gfx_triangle_strip_add_segment_immediate(const std::vector<LinePoint3D> &points) {
-    // Ensure there is enough space in the entity pool
-    assert(s_triangleStripEntityCount < MAX_TRIANGLE_STRIP_ENTITY_SIZE);
+    ASSERT(s_triangleStripEntityCount < MAX_TRIANGLE_STRIP_ENTITY_SIZE);
+    ASSERT(s_pointCount + points.size() < MAX_POINT_SIZE);
 
-    // Ensure there is enough space for the points
-    assert(s_pointCount + points.size() < MAX_POINT_SIZE);
-
-    // Add the triangle strip segment to the entity pool
     s_triangleStripEntityPool[s_triangleStripEntityCount] = {
             .triangleStripRangeStart = s_pointCount,
-            .triangleStripRangeEnd = s_pointCount + static_cast<uint32_t>(points.size()),
+            .triangleStripRangeEnd = s_pointCount + uint32_t(points.size()),
     };
 
-    // Add each point to the buffer
     for (const auto &point: points) {
         add_point(point);
+    }
+
+    s_triangleStripEntityCount += 1;
+}
+
+void gfx_triangle_strip_add_segment_immediate(const LinePoint3D *points, const uint32_t pointCount ) {
+    ASSERT(s_triangleStripEntityCount < MAX_TRIANGLE_STRIP_ENTITY_SIZE);
+    ASSERT(s_pointCount + pointCount < MAX_POINT_SIZE);
+
+    s_triangleStripEntityPool[s_triangleStripEntityCount] = {
+            .triangleStripRangeStart = s_pointCount,
+            .triangleStripRangeEnd = s_pointCount +pointCount ,
+    };
+
+    for (uint32_t i = 0; i < pointCount; ++i) {
+        add_point(points[i]);
     }
 
     s_triangleStripEntityCount += 1;

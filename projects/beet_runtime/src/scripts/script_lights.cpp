@@ -5,8 +5,11 @@
 #include <beet_math/vec2.h>
 #include <beet_math/vec3.h>
 #include <beet_shared/beet_types.h>
+#include <beet_shared/assert.h>
 #include <beet_math/transform.h>
 #include <beet_gfx/db_asset.h>
+
+#include <beet_gfx/gfx_immediate_draw.h>
 
 //===API================================================================================================================
 void script_create_lights() {
@@ -28,44 +31,20 @@ void script_create_lights() {
     });
 }
 
-void script_update_lights(float deltaTime) {
+
+static void script_update_lights(float deltaTime) {
     const uint32_t lightCount = db_get_light_entity_count();
     for (uint32_t i = 0; i < lightCount; ++i) {
         LightEntity *lightEntity = db_get_light_entity(i);
         GfxLight *light = db_get_light(lightEntity->lightIndex);
         Transform *transform = db_get_transform(lightEntity->transformIndex);
-        const vec4f v4Colour = vec4f(glm::normalize(light->color), 1.0f);
+        const vec4f v4Colour = vec4f(glm::normalize(light->color), 0);
         const uint32_t lineColour = pack_vec4f_to_uint32_t(v4Colour);
-        {
-            const LinePoint3D start = {transform->position, lineColour};
-            const LinePoint3D end = {transform->position + WORLD_UP, lineColour};
-            gfx_line_add_segment_immediate(start, end, 1);
-        }
-        {
-            const LinePoint3D start = {transform->position, lineColour};
-            const LinePoint3D end = {transform->position - WORLD_UP, lineColour};
-            gfx_line_add_segment_immediate(start, end, 1);
-        }
-        {
-            const LinePoint3D start = {transform->position, lineColour};
-            const LinePoint3D end = {transform->position + WORLD_FORWARD, lineColour};
-            gfx_line_add_segment_immediate(start, end, 1);
-        }
-        {
-            const LinePoint3D start = {transform->position, lineColour};
-            const LinePoint3D end = {transform->position - WORLD_FORWARD, lineColour};
-            gfx_line_add_segment_immediate(start, end, 1);
-        }
-        {
-            const LinePoint3D start = {transform->position, lineColour};
-            const LinePoint3D end = {transform->position + WORLD_RIGHT, lineColour};
-            gfx_line_add_segment_immediate(start, end, 1);
-        }
-        {
-            const LinePoint3D start = {transform->position, lineColour};
-            const LinePoint3D end = {transform->position - WORLD_RIGHT, lineColour};
-            gfx_line_add_segment_immediate(start, end, 1);
-        }
+        vec3f lookDir = transform->position - db_get_transform(db_get_camera_entity(0)->transformIndex)->position;
+//        lookDir.y = 0;
+//        gfx_im_draw_line_rect({.center = transform->position, .halfExtents = {0.2f, 0.2f}, .normal = lookDir, .up = WORLD_UP}, lineColour);
+
+        gfx_im_draw_line_sun_icon({.center = transform->position, .radius = 0.05f, .normal = lookDir, .up = WORLD_UP}, lineColour);
     }
 }
 

@@ -6,9 +6,11 @@ add_library(beet_gfx
         inc/beet_gfx/gfx_generate_geometry.h
         inc/beet_gfx/gfx_converter.h
         inc/beet_gfx/db_asset.h
+        inc/beet_gfx/gfx_immediate_draw.h
         src/gfx_generate_geometry.cpp
         src/gfx_converter.cpp
         src/db_asset.cpp
+        src/gfx_immediate_draw.cpp
 
 #       GFX IMGUI X BACKEND
         inc/beet_gfx/imgui/imgui_impl_x11.h
@@ -52,6 +54,7 @@ add_library(beet_gfx
         src/vulkan/gfx_vk_sky.cpp
         src/vulkan/gfx_vk_line.cpp
         src/vulkan/gfx_vk_triangle_strip.cpp
+
 )
 
 target_include_directories(beet_gfx

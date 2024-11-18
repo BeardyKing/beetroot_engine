@@ -20,6 +20,7 @@
 #include <beet_gfx/IconsFontAwesome5.h>
 #include <beet_gfx/gfx_interface.h>
 #include <beet_gfx/db_asset.h>
+#include <beet_gfx/gfx_immediate_draw.h>
 
 #include <cstdint>
 
@@ -173,12 +174,6 @@ struct OOBB {
     glm::quat orientation;
 };
 
-struct BeetRect {
-    vec3f center;
-    vec2f halfExtents;
-    vec3f normal;
-    vec3f up;
-};
 
 void draw_grid(const vec3f &planePoint, const glm::vec3 &planeNormal, float gridSize, int numLines, float lineWidth, uint32_t color) {
     vec3f up = {};
@@ -244,7 +239,7 @@ static bool ray_plane_intersection(const Ray &ray, const vec3f &planePoint, cons
     return (outHit.collided = true);
 }
 
-void draw_line_rect(const BeetRect &rect, bool intersection) {
+void draw_line_rect(const GfxRect &rect, bool intersection) {
     ASSERT_MSG(rect.normal != rect.up, "Err: normal & rect can't match, if they do right will be NaN i.e. normalize(vec3f(0,0,0) == vec3f(NaN,NaN,NaN)");
     const vec3f right = glm::normalize(glm::cross(rect.normal, rect.up));
     const vec3f up = glm::normalize(glm::cross(right, rect.normal));
@@ -265,24 +260,9 @@ void draw_line_rect(const BeetRect &rect, bool intersection) {
     }
 }
 
-void draw_line_rect(const BeetRect &rect, uint32_t color) {
-    ASSERT_MSG(rect.normal != rect.up, "Err: normal & rect can't match, if they do right will be NaN i.e. normalize(vec3f(0,0,0) == vec3f(NaN,NaN,NaN)");
-    const vec3f right = glm::normalize(glm::cross(rect.normal, rect.up));
-    const vec3f up = glm::normalize(glm::cross(right, rect.normal));
 
-    const vec3f corners[4] = {
-            {rect.center + right * rect.halfExtents.x + up * rect.halfExtents.y},
-            {rect.center - right * rect.halfExtents.x + up * rect.halfExtents.y},
-            {rect.center - right * rect.halfExtents.x - up * rect.halfExtents.y},
-            {rect.center + right * rect.halfExtents.x - up * rect.halfExtents.y},
-    };
 
-    for (uint32_t i = 0; i < 4; ++i) {
-        gfx_line_add_segment_immediate({corners[i], color}, {corners[(i + 1) % 4], color}, 3.0f);
-    }
-}
-
-void draw_poly_rect(const BeetRect &rect, uint32_t color) {
+static void draw_poly_rect(const GfxRect &rect, uint32_t color) {
     ASSERT_MSG(rect.normal != rect.up, "Err: normal & rect can't match, if they do right will be NaN i.e. normalize(vec3f(0,0,0) == vec3f(NaN,NaN,NaN)");
     const vec3f right = glm::normalize(glm::cross(rect.normal, rect.up));
     const vec3f up = glm::normalize(glm::cross(right, rect.normal));
@@ -294,9 +274,7 @@ void draw_poly_rect(const BeetRect &rect, uint32_t color) {
             {{rect.center - right * rect.halfExtents.x - up * rect.halfExtents.y}, color},
     };
 
-    for (uint32_t i = 0; i < 4; ++i) {
-        gfx_triangle_strip_add_segment_immediate(corners);
-    }
+    gfx_triangle_strip_add_segment_immediate(corners);
 }
 
 struct BeetCircle {
@@ -375,7 +353,7 @@ void draw_arc_polyline(const vec3f &center,
     gfx_triangle_strip_add_segment_immediate(vertices);
 }
 
-static bool ray_rect_intersection(const Ray &ray, const BeetRect &rect, Hit &outHit, bool drawDebug = false) {
+static bool ray_rect_intersection(const Ray &ray, const GfxRect &rect, Hit &outHit, bool drawDebug = false) {
     if (ray_plane_intersection(ray, rect.center, rect.normal, outHit, false, 0.0f)) {
         ASSERT_MSG(rect.normal != rect.up, "Err: normal & rect can't match, if they do right will be NaN i.e. normalize(vec3f(0,0,0) == vec3f(NaN,NaN,NaN)");
         const vec3f right = glm::normalize(glm::cross(rect.normal, rect.up));
@@ -393,7 +371,7 @@ static bool ray_rect_intersection(const Ray &ray, const BeetRect &rect, Hit &out
     return outHit.collided;
 }
 
-static bool ray_circle_in_rect_intersection(const Ray &ray, const BeetRect &rect, const BeetCircle &circle, Hit &outHit) {
+static bool ray_circle_in_rect_intersection(const Ray &ray, const GfxRect &rect, const BeetCircle &circle, Hit &outHit) {
     if (ray_rect_intersection(ray, rect, outHit)) {
         vec3f intersectionPoint = outHit.intersectionPoint;
 
@@ -899,7 +877,7 @@ static void widget_manipulate_scale(Transform &transform) {
     Hit hitResultUp = {};
     Hit hitResultRight = {};
 
-    static BeetRect lastHitRect = {};
+    static GfxRect lastHitRect = {};
 
     const mat4 modelForward = translate(model, (((WORLD_FORWARD * (flipForward ? -1.0f : 1.0f)) * 0.5f)));
     const vec3 scaleForward = {0.1f, 0.1f, 0.4f};
@@ -1092,7 +1070,7 @@ static void widget_manipulate_rotate(Transform &transform) {
             flipUp ? -rotateGizmoOffset : rotateGizmoOffset,
             0.0f
     };
-    const BeetRect upRightRect{
+    const GfxRect upRightRect{
             .center = mat4f_extract_position(translate(model, upRightOffset)),
             .halfExtents = gizmoRectHalfSize * vec2f(glm::length(vec3(mdlUp[0])), glm::length(vec3(mdlUp[1]))),
             .normal = upRightRectNormal,
@@ -1126,7 +1104,7 @@ static void widget_manipulate_rotate(Transform &transform) {
             flipUp ? -rotateGizmoOffset : rotateGizmoOffset,
             flipForward ? rotateGizmoOffset : -rotateGizmoOffset
     };
-    const BeetRect forwardUpRect{
+    const GfxRect forwardUpRect{
             .center = mat4f_extract_position(translate(model, forwardUpOffset)),
             .halfExtents = gizmoRectHalfSize * vec2f(glm::length(vec3(mdlRight[0])), glm::length(vec3(mdlRight[1]))),
             .normal = forwardUpRectNormal,
@@ -1161,7 +1139,7 @@ static void widget_manipulate_rotate(Transform &transform) {
             0.0f,
             flipForward ? rotateGizmoOffset : -rotateGizmoOffset
     };
-    const BeetRect forwardRightRect{
+    const GfxRect forwardRightRect{
             .center = mat4f_extract_position(translate(model, forwardRightOffset)),
             .halfExtents = gizmoRectHalfSize * vec2f(glm::length(vec3(mdlForward[0])), glm::length(vec3(mdlForward[1]))),
             .normal = forwardRightRectNormal,
@@ -1339,7 +1317,7 @@ static void widget_manipulate_translate(Transform &transform) {
     Hit hitResultForwardUp = {};
     Hit hitResultForwardRight = {};
 
-    static BeetRect lastHitRect = {};
+    static GfxRect lastHitRect = {};
 
     const mat4 modelForward = translate(model, (((WORLD_FORWARD * (flipForward ? -1.0f : 1.0f)) * 0.5f)));
     const vec3 scaleForward = {0.1f, 0.1f, 0.5f};
@@ -1375,7 +1353,7 @@ static void widget_manipulate_translate(Transform &transform) {
             flipUp ? -0.35f : 0.35f,
             0.0f
     };
-    const BeetRect upRightRect{
+    const GfxRect upRightRect{
             .center = mat4f_extract_position(translate(model, upRightOffset)),
             .halfExtents = vec2f{0.07f, 0.07f} * vec2f(glm::length(vec3(mdlUp[0])), glm::length(vec3(mdlUp[1]))),
             .normal = upRightRectNormal,
@@ -1391,7 +1369,7 @@ static void widget_manipulate_translate(Transform &transform) {
             flipUp ? -0.35f : 0.35f,
             flipForward ? 0.35f : -0.35f
     };
-    const BeetRect forwardUpRect{
+    const GfxRect forwardUpRect{
             .center = mat4f_extract_position(translate(model, forwardUpOffset)),
             .halfExtents = vec2f{0.07f, 0.07f} * vec2f(glm::length(vec3(mdlRight[0])), glm::length(vec3(mdlRight[1]))),
             .normal = forwardUpRectNormal,
@@ -1407,7 +1385,7 @@ static void widget_manipulate_translate(Transform &transform) {
             0.0f,
             flipForward ? 0.35f : -0.35f
     };
-    const BeetRect forwardRightRect{
+    const GfxRect forwardRightRect{
             .center = mat4f_extract_position(translate(model, forwardRightOffset)),
             .halfExtents = vec2f{0.07f, 0.07f} * vec2f(glm::length(vec3(mdlForward[0])), glm::length(vec3(mdlForward[1]))),
             .normal = forwardRightRectNormal,
@@ -1508,11 +1486,11 @@ static void widget_manipulate_translate(Transform &transform) {
     draw_cylinder({0, 0.07, 0}, 0.02f, 0.73, RIGHT_GIZMO_COLOUR, mdlRight, 12);
     draw_cone({0, 0.80f, 0}, 0.07f, 0.2f, RIGHT_GIZMO_COLOUR, mdlRight, 12);
 
-    draw_line_rect(upRightRect, UP_RIGHT_GIZMO_COLOUR);
+    gfx_im_draw_line_rect(upRightRect, UP_RIGHT_GIZMO_COLOUR);
     draw_poly_rect(upRightRect, UP_RIGHT_GIZMO_COLOUR_ALPHA);
-    draw_line_rect(forwardRightRect, FORWARD_RIGHT_GIZMO_COLOUR);
+    gfx_im_draw_line_rect(forwardRightRect, FORWARD_RIGHT_GIZMO_COLOUR);
     draw_poly_rect(forwardRightRect, FORWARD_RIGHT_GIZMO_COLOUR_ALPHA);
-    draw_line_rect(forwardUpRect, FORWARD_UP_GIZMO_COLOUR);
+    gfx_im_draw_line_rect(forwardUpRect, FORWARD_UP_GIZMO_COLOUR);
     draw_poly_rect(forwardUpRect, FORWARD_UP_GIZMO_COLOUR_ALPHA);
 
 

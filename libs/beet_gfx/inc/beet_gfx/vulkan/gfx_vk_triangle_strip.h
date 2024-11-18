@@ -16,6 +16,7 @@
 
 //===API================================================================================================================
 void gfx_triangle_strip_add_segment_immediate(const std::vector<LinePoint3D> &points);
+void gfx_triangle_strip_add_segment_immediate(const LinePoint3D *points, uint32_t pointCount );
 
 bool gfx_rebuild_triangle_strip_pipeline();
 void gfx_triangle_strip_draw(VkCommandBuffer &cmdBuffer);
