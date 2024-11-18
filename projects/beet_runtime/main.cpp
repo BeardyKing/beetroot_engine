@@ -44,10 +44,10 @@ int main() {
         input_set_time(time_current());
         window_update();
         input_update();
-        script_update(time_delta_f());
 #if CHECK_FEATURE(FEATURE_GFX_IMGUI)
         imgui_update();
 #endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
+        script_update(time_delta_f());
         gfx_update(time_delta_d());
     }
     db_dump_pool_alloc_table();

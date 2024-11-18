@@ -105,6 +105,37 @@ void gfx_im_draw_line_sun(const GfxCircle &arc,
     gfx_im_draw_line_arc_dial_marker(arc, color, arcPercent, startOffsetPercent, lineWidth, sunRayLength, numRays, raySpacing);
 }
 
+void gfx_im_draw_view_frustum(const GfxViewFrustum &viewFrustum, uint32_t color, float lineWidth) {
+    constexpr uint32_t whiteColour = 0xFFFFFF00;
+    const vec3f zFarOrigin = vec3f{viewFrustum.origin + (viewFrustum.normal * viewFrustum.zFar)};
+
+    const Frustum frustum = view_frustum_to_frustum(viewFrustum);
+    gfx_line_add_segment_immediate({viewFrustum.origin, whiteColour}, {zFarOrigin, whiteColour}, lineWidth);
+
+    gfx_line_add_segment_immediate({viewFrustum.origin, whiteColour}, {frustum.nearBottomLeft, whiteColour}, lineWidth);
+    gfx_line_add_segment_immediate({viewFrustum.origin, whiteColour}, {frustum.nearBottomRight, whiteColour}, lineWidth);
+    gfx_line_add_segment_immediate({viewFrustum.origin, whiteColour}, {frustum.nearTopLeft, whiteColour}, lineWidth);
+    gfx_line_add_segment_immediate({viewFrustum.origin, whiteColour}, {frustum.nearTopRight, whiteColour}, lineWidth);
+
+    gfx_im_draw_line_arc({zFarOrigin, min(viewFrustum.farSize.x * 0.5f, viewFrustum.farSize.y * 0.5f), viewFrustum.normal, viewFrustum.up}, color, 1, 0, 32, lineWidth);
+    gfx_im_draw_frustum(frustum, color, lineWidth);
+}
 
 
+void gfx_im_draw_frustum(const Frustum &frustum, uint32_t color, float lineWidth) {
+    gfx_line_add_segment_immediate({frustum.nearTopLeft, color}, {frustum.nearTopRight, color}, lineWidth);
+    gfx_line_add_segment_immediate({frustum.nearTopRight, color}, {frustum.nearBottomRight, color}, lineWidth);
+    gfx_line_add_segment_immediate({frustum.nearBottomRight, color}, {frustum.nearBottomLeft, color}, lineWidth);
+    gfx_line_add_segment_immediate({frustum.nearBottomLeft, color}, {frustum.nearTopLeft, color}, lineWidth);
+
+    gfx_line_add_segment_immediate({frustum.farTopLeft, color}, {frustum.farTopRight, color}, lineWidth);
+    gfx_line_add_segment_immediate({frustum.farTopRight, color}, {frustum.farBottomRight, color}, lineWidth);
+    gfx_line_add_segment_immediate({frustum.farBottomRight, color}, {frustum.farBottomLeft, color}, lineWidth);
+    gfx_line_add_segment_immediate({frustum.farBottomLeft, color}, {frustum.farTopLeft, color}, lineWidth);
+
+    gfx_line_add_segment_immediate({frustum.nearTopLeft, color}, {frustum.farTopLeft, color}, lineWidth);
+    gfx_line_add_segment_immediate({frustum.nearTopRight, color}, {frustum.farTopRight, color}, lineWidth);
+    gfx_line_add_segment_immediate({frustum.nearBottomLeft, color}, {frustum.farBottomLeft, color}, lineWidth);
+    gfx_line_add_segment_immediate({frustum.nearBottomRight, color}, {frustum.farBottomRight, color}, lineWidth);
+}
 

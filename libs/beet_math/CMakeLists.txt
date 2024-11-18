@@ -15,6 +15,8 @@ add_library(beet_math
         src/mat4.cpp
         inc/beet_math/transform.h
         src/transform.cpp
+        inc/beet_math/frustum.h
+        src/frustum.cpp
 )
 
 #====LIB GLM==============
