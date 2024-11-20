@@ -68,14 +68,16 @@ static void script_update_lights(float deltaTime) {
                     .zFar = zFar
             };
             gfx_im_draw_line_view_frustum(viewFrustum, 0xFFFF0000, 2);
+            gfx_im_draw_poly_frustum(view_frustum_to_frustum(viewFrustum), 0xFFFFFF00);
+
             GfxBox box = {
                     .center = transform->position,
-                    .halfExtents = {1,1,1},
+                    .halfExtents = vec3f(.25f),
                     .normal = mat4f_extract_forward(transform_model_matrix_rotation(*transform)),
                     .up = WORLD_UP,
             };
-//            gfx_im_draw_poly_box(box, 0xFFFFFF00);
-//            gfx_im_draw_line_box(box, 0xFFFFFF00, 2);
+            gfx_im_draw_poly_box(box, 0xFFFFFF00);
+            gfx_im_draw_line_box(box, 0xFFFFFF00, 2);
         }
 
     }
