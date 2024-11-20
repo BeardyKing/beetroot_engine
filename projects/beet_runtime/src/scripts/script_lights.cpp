@@ -67,7 +67,15 @@ static void script_update_lights(float deltaTime) {
                     .zNear =zNear,
                     .zFar = zFar
             };
-            gfx_im_draw_view_frustum(viewFrustum, 0xFFFF0000, 1);
+            gfx_im_draw_line_view_frustum(viewFrustum, 0xFFFF0000, 2);
+            GfxBox box = {
+                    .center = transform->position,
+                    .halfExtents = {1,1,1},
+                    .normal = mat4f_extract_forward(transform_model_matrix_rotation(*transform)),
+                    .up = WORLD_UP,
+            };
+//            gfx_im_draw_poly_box(box, 0xFFFFFF00);
+//            gfx_im_draw_line_box(box, 0xFFFFFF00, 2);
         }
 
     }

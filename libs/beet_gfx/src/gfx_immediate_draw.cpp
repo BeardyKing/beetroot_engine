@@ -3,8 +3,9 @@
 #include <beet_gfx/vulkan/gfx_vk_triangle_strip.h>
 #include <beet_gfx/vulkan/gfx_vk_line.h>
 
+#include <beet_math/transform.h>
+
 #include <beet_shared/assert.h>
-#include "beet_math/transform.h"
 
 void gfx_im_draw_poly_rect(const GfxRect &rect, uint32_t color) {
     ASSERT_MSG(rect.normal != rect.up, "Err: normal & rect can't match, if they do right will be NaN i.e. normalize(vec3f(0,0,0) == vec3f(NaN,NaN,NaN)");
@@ -39,6 +40,73 @@ void gfx_im_draw_line_rect(const GfxRect &rect, uint32_t color, float lineThickn
         gfx_line_add_segment_immediate({corners[i], color}, {corners[(i + 1) % 4], color}, lineThickness);
     }
 }
+
+void gfx_im_draw_line_box(const GfxBox &box, uint32_t color, float lineThickness) {
+    const vec3f right = glm::normalize(glm::cross(box.normal, box.up));
+    const vec3f up = glm::normalize(glm::cross(right, box.normal));
+
+    constexpr uint32_t vertCount = 8;
+    constexpr uint32_t indexCount = 24;
+
+    const vec3f corners[vertCount] = {
+            // Bottom face
+            box.center - right * box.halfExtents.x - up * box.halfExtents.y - box.normal * box.halfExtents.z,
+            box.center + right * box.halfExtents.x - up * box.halfExtents.y - box.normal * box.halfExtents.z,
+            box.center + right * box.halfExtents.x + up * box.halfExtents.y - box.normal * box.halfExtents.z,
+            box.center - right * box.halfExtents.x + up * box.halfExtents.y - box.normal * box.halfExtents.z,
+
+            // Top face
+            box.center - right * box.halfExtents.x - up * box.halfExtents.y + box.normal * box.halfExtents.z,
+            box.center + right * box.halfExtents.x - up * box.halfExtents.y + box.normal * box.halfExtents.z,
+            box.center + right * box.halfExtents.x + up * box.halfExtents.y + box.normal * box.halfExtents.z,
+            box.center - right * box.halfExtents.x + up * box.halfExtents.y + box.normal * box.halfExtents.z
+    };
+
+    const uint32_t indices[indexCount] = {
+            0, 1, 1, 2, 2, 3, 3, 0,
+            4, 5, 5, 6, 6, 7, 7, 4,
+            0, 4, 1, 5, 2, 6, 3, 7
+    };
+
+    for (uint32_t i = 0; i < indexCount; i += 2) {
+        gfx_line_add_segment_immediate(
+                {corners[indices[i]], color},
+                {corners[indices[i + 1]], color},
+                lineThickness
+        );
+    }
+}
+
+void gfx_im_draw_poly_box(const GfxBox &box, uint32_t color) {
+    // Ensure the basis vectors are valid
+    ASSERT_MSG(box.normal != box.up, "Err: normal & up can't match; otherwise, right will be NaN.");
+
+    // Calculate basis vectors
+    const vec3f right = glm::normalize(glm::cross(box.normal, box.up));
+    const vec3f up = glm::normalize(glm::cross(right, box.normal));
+    const vec3f forward = glm::normalize(box.normal);
+
+    const vec3f h = box.halfExtents;
+    constexpr uint32_t vertCount = 14;
+    const LinePoint3D points[vertCount] = {
+            LinePoint3D{box.center + (-h.x * right + +h.y * up + +h.z * forward), color}, // Front-top-left
+            LinePoint3D{box.center + (+h.x * right + +h.y * up + +h.z * forward), color}, // Front-top-right
+            LinePoint3D{box.center + (-h.x * right + -h.y * up + +h.z * forward), color}, // Front-bottom-left
+            LinePoint3D{box.center + (+h.x * right + -h.y * up + +h.z * forward), color}, // Front-bottom-right
+            LinePoint3D{box.center + (+h.x * right + -h.y * up + -h.z * forward), color}, // Back-bottom-right
+            LinePoint3D{box.center + (+h.x * right + +h.y * up + +h.z * forward), color}, // Front-top-right
+            LinePoint3D{box.center + (+h.x * right + +h.y * up + -h.z * forward), color}, // Back-top-right
+            LinePoint3D{box.center + (-h.x * right + +h.y * up + +h.z * forward), color}, // Front-top-left
+            LinePoint3D{box.center + (-h.x * right + +h.y * up + -h.z * forward), color}, // Back-top-left
+            LinePoint3D{box.center + (-h.x * right + -h.y * up + +h.z * forward), color}, // Front-bottom-left
+            LinePoint3D{box.center + (-h.x * right + -h.y * up + -h.z * forward), color}, // Back-bottom-left
+            LinePoint3D{box.center + (+h.x * right + -h.y * up + -h.z * forward), color}, // Back-bottom-right
+            LinePoint3D{box.center + (-h.x * right + +h.y * up + -h.z * forward), color}, // Back-top-left
+            LinePoint3D{box.center + (+h.x * right + +h.y * up + -h.z * forward), color}  // Back-top-right
+    };
+    gfx_triangle_strip_add_segment_immediate(points, vertCount);
+}
+
 
 void gfx_im_draw_line_arc(const GfxCircle &arc,
                           uint32_t color,
@@ -105,7 +173,7 @@ void gfx_im_draw_line_sun(const GfxCircle &arc,
     gfx_im_draw_line_arc_dial_marker(arc, color, arcPercent, startOffsetPercent, lineWidth, sunRayLength, numRays, raySpacing);
 }
 
-void gfx_im_draw_view_frustum(const GfxViewFrustum &viewFrustum, uint32_t color, float lineWidth) {
+void gfx_im_draw_line_view_frustum(const GfxViewFrustum &viewFrustum, uint32_t color, float lineWidth) {
     constexpr uint32_t whiteColour = 0xFFFFFF00;
     const vec3f zFarOrigin = vec3f{viewFrustum.origin + (viewFrustum.normal * viewFrustum.zFar)};
 
@@ -118,11 +186,11 @@ void gfx_im_draw_view_frustum(const GfxViewFrustum &viewFrustum, uint32_t color,
     gfx_line_add_segment_immediate({viewFrustum.origin, whiteColour}, {frustum.nearTopRight, whiteColour}, lineWidth);
 
     gfx_im_draw_line_arc({zFarOrigin, min(viewFrustum.farSize.x * 0.5f, viewFrustum.farSize.y * 0.5f), viewFrustum.normal, viewFrustum.up}, color, 1, 0, 32, lineWidth);
-    gfx_im_draw_frustum(frustum, color, lineWidth);
+    gfx_im_draw_line_frustum(frustum, color, lineWidth);
+    gfx_im_draw_poly_frustum(frustum, 0xFFFFFF00);
 }
 
-
-void gfx_im_draw_frustum(const Frustum &frustum, uint32_t color, float lineWidth) {
+void gfx_im_draw_line_frustum(const Frustum &frustum, uint32_t color, float lineWidth) {
     gfx_line_add_segment_immediate({frustum.nearTopLeft, color}, {frustum.nearTopRight, color}, lineWidth);
     gfx_line_add_segment_immediate({frustum.nearTopRight, color}, {frustum.nearBottomRight, color}, lineWidth);
     gfx_line_add_segment_immediate({frustum.nearBottomRight, color}, {frustum.nearBottomLeft, color}, lineWidth);
@@ -139,3 +207,24 @@ void gfx_im_draw_frustum(const Frustum &frustum, uint32_t color, float lineWidth
     gfx_line_add_segment_immediate({frustum.nearBottomRight, color}, {frustum.farBottomRight, color}, lineWidth);
 }
 
+void gfx_im_draw_poly_frustum(const Frustum &frustum, uint32_t color) {
+    //Cube tri strip ordering https://stackoverflow.com/questions/28375338/cube-using-single-gl-triangle-strip
+    constexpr uint32_t vertCount = 14;
+    const LinePoint3D points[vertCount] = {
+            LinePoint3D{frustum.nearTopLeft, color},
+            LinePoint3D{frustum.nearTopRight, color},
+            LinePoint3D{frustum.nearBottomLeft, color},
+            LinePoint3D{frustum.nearBottomRight, color},
+            LinePoint3D{frustum.farBottomRight, color},
+            LinePoint3D{frustum.nearTopRight, color},
+            LinePoint3D{frustum.farTopRight, color},
+            LinePoint3D{frustum.nearTopLeft, color},
+            LinePoint3D{frustum.farTopLeft, color},
+            LinePoint3D{frustum.nearBottomLeft, color},
+            LinePoint3D{frustum.farBottomLeft, color},
+            LinePoint3D{frustum.farBottomRight, color},
+            LinePoint3D{frustum.farTopLeft, color},
+            LinePoint3D{frustum.farTopRight, color}
+    };
+    gfx_triangle_strip_add_segment_immediate(points, vertCount);
+}

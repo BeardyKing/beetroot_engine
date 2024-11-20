@@ -153,7 +153,7 @@ static bool gfx_create_triangle_strip_pipelines(VkPipeline &outLinePipeline) {
 
     const VkPipelineColorBlendStateCreateInfo colorBlendState = gfx_pipeline_color_blend_state_create(1, &blendAttachmentState);
     // TODO: this means we don't sort the gizmo based on depth (i.e. order of rendering matters) will consider rendering this to a different buffer in the future
-    const VkPipelineDepthStencilStateCreateInfo depthStencilState = gfx_pipeline_depth_stencil_state_create(VK_TRUE, VK_TRUE, VK_COMPARE_OP_ALWAYS);
+    const VkPipelineDepthStencilStateCreateInfo depthStencilState = gfx_pipeline_depth_stencil_state_create(VK_TRUE, VK_FALSE, VK_COMPARE_OP_ALWAYS);
     const VkPipelineViewportStateCreateInfo viewportState = gfx_pipeline_viewport_state_create(1, 1, 0);
     const VkPipelineMultisampleStateCreateInfo multisampleState = gfx_pipeline_multisample_state_create(g_vulkanBackend.sampleCount, 0);
 
@@ -195,8 +195,8 @@ static bool gfx_create_triangle_strip_pipelines(VkPipeline &outLinePipeline) {
     };
     pipelineCreateInfo.pVertexInputState = &inputState;
 
-    shaderStages[0] = gfx_load_shader("assets/shaders/line/line.vert", VK_SHADER_STAGE_VERTEX_BIT);
-    shaderStages[1] = gfx_load_shader("assets/shaders/line/line.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
+    shaderStages[0] = gfx_load_shader("assets/shaders/triangle_strip/triangle_strip.vert", VK_SHADER_STAGE_VERTEX_BIT);
+    shaderStages[1] = gfx_load_shader("assets/shaders/triangle_strip/triangle_strip.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
     const VkResult pipelineRes = (vkCreateGraphicsPipelines(g_vulkanBackend.device, g_vulkanBackend.pipelineCache, 1, &pipelineCreateInfo, nullptr, &outLinePipeline));
     ASSERT_MSG(pipelineRes == VK_SUCCESS, "Err: failed to create graphics pipeline");
     vkDestroyShaderModule(g_vulkanBackend.device, shaderStages[0].module, nullptr);
@@ -269,7 +269,7 @@ void gfx_triangle_strip_add_segment_immediate(const LinePoint3D *points, const u
 
     s_triangleStripEntityPool[s_triangleStripEntityCount] = {
             .triangleStripRangeStart = s_pointCount,
-            .triangleStripRangeEnd = s_pointCount +pointCount ,
+            .triangleStripRangeEnd = s_pointCount + pointCount ,
     };
 
     for (uint32_t i = 0; i < pointCount; ++i) {

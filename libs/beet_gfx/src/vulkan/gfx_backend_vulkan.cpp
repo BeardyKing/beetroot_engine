@@ -1261,8 +1261,8 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 
             gfx_sky_draw(cmdBuffer);
             gfx_lit_draw(cmdBuffer);
-            gfx_triangle_strip_draw(cmdBuffer);
             gfx_line_draw(cmdBuffer);
+            gfx_triangle_strip_draw(cmdBuffer);
 #if CHECK_FEATURE(FEATURE_GFX_IMGUI)
             gfx_imgui_draw(cmdBuffer);
 #endif // CHECK_FEATURE(FEATURE_GFX_IMGUI)

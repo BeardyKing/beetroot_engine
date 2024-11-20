@@ -21,9 +21,6 @@
 #if CHECK_FEATURE(FEATURE_GFX_IMGUI)
 void imgui_update() {
     gfx_imgui_begin();
-    {
-        widget_manager_update();
-    }
 }
 #endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
 
@@ -48,6 +45,7 @@ int main() {
         imgui_update();
 #endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
         script_update(time_delta_f());
+        widget_manager_update();
         gfx_update(time_delta_d());
     }
     db_dump_pool_alloc_table();
