@@ -27,7 +27,11 @@ struct SceneUBO {
 constexpr int BEET_MAX_LIGHT_COUNT = 256;
 struct GfxLight {
     vec3 color;
-    float radius;
+    float radiusInner;
+    float radiusOuter;
+    float unused_0;
+    float unused_1;
+    float unused_2;
 };
 
 struct LightDesc{
@@ -36,9 +40,18 @@ struct LightDesc{
     GfxLight light;
 };
 
+struct GfxDirectionalLight {
+    vec3 direction;
+    uint color;
+};
+
 struct LightUBO {
     LightDesc lightDesc[BEET_MAX_LIGHT_COUNT];
     int lightDescCount;
+    uint32_t unused_0;
+    uint32_t unused_1;
+    uint32_t unused_2;
+    GfxDirectionalLight directionalLight;
 };
 
 struct LinePoint3D {

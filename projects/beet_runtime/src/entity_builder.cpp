@@ -229,7 +229,7 @@ void entities_create() {
     built_in_materials_create();
     built_in_entities_create();
 
-    ASSERT(load_package("assets/scenes/glTF-Sample-Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf"));
+//    ASSERT(load_package("assets/scenes/glTF-Sample-Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf"));
 //    ASSERT(load_package("assets/scenes/glTF-Sample-Assets/Models/FlightHelmet/glTF/FlightHelmet.gltf"));
 //    ASSERT(load_package("assets/scenes/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf"));
 }

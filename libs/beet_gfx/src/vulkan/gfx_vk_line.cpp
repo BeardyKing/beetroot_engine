@@ -21,7 +21,7 @@ static struct VulkanLine {
     GfxBuffer lineUniformBuffers[BEET_BUFFER_COUNT] = {VK_NULL_HANDLE};
 } s_gfxLine;
 
-#define MAX_LINE_ENTITY_SIZE (1024 * 1)
+#define MAX_LINE_ENTITY_SIZE (512 * 3)
 struct LineEntity {
     uint32_t lineRangeStart = {0};
     uint32_t lineRangeEnd = {0};

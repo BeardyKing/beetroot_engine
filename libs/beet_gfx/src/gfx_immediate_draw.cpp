@@ -101,6 +101,23 @@ void gfx_im_draw_poly_box(const GfxBox &box, uint32_t color) {
 }
 
 
+
+void gfx_im_draw_line_sphere(const GfxCircle &circle,
+                          uint32_t color,
+                          const uint32_t segments,
+                          const float lineWidth)
+{
+    GfxCircle localCircle = circle;
+
+    localCircle.normal = WORLD_RIGHT;
+    gfx_im_draw_line_arc(localCircle, color, 1.0f, 0.0f, segments, lineWidth);
+    localCircle.normal = WORLD_FORWARD;
+    gfx_im_draw_line_arc(localCircle, color, 1.0f, 0.0f, segments, lineWidth);
+    localCircle.normal = WORLD_UP;
+    localCircle.up = WORLD_RIGHT;
+    gfx_im_draw_line_arc(localCircle, color, 1.0f, 0.0f, segments, lineWidth);
+}
+
 void gfx_im_draw_line_arc(const GfxCircle &arc,
                           uint32_t color,
                           const float arcPercent,

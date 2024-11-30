@@ -1,6 +1,5 @@
 #include <runtime/scripts/script_lights.h>
-
-#include <beet_gfx/vulkan/gfx_vk_line.h>
+#include <runtime/widget_db.h>
 
 #include <beet_math/vec2.h>
 #include <beet_math/vec3.h>
@@ -9,6 +8,7 @@
 #include <beet_math/transform.h>
 #include <beet_gfx/db_asset.h>
 
+#include <beet_gfx/gfx_types.h>
 #include <beet_gfx/gfx_immediate_draw.h>
 #include "imgui.h"
 
@@ -16,23 +16,29 @@
 void script_create_lights() {
     db_add_light_entity((LightEntity) {
             .transformIndex = db_add_transform((Transform) {.position{3, 1, 4}}),
-            .lightIndex = db_add_light((GfxLight) {.color = {10, 10, 10}, .radius = 10.0f,}),
+            .lightIndex = db_add_light((GfxLight) {.color = {10, 10, 10},.radiusInner = 1.0f, .radiusOuter = 2.0f,}),
     });
     db_add_light_entity((LightEntity) {
             .transformIndex = db_add_transform((Transform) {.position{3, 1, 1}}),
-            .lightIndex = db_add_light((GfxLight) {.color = {10, 0, 0}, .radius = 10.0f,}),
+            .lightIndex = db_add_light((GfxLight) {.color = {10, 0, 0},.radiusInner = 1.0f, .radiusOuter = 1.2f,}),
     });
     db_add_light_entity((LightEntity) {
             .transformIndex = db_add_transform((Transform) {.position{0, 1, 2}}),
-            .lightIndex = db_add_light((GfxLight) {.color = {0, 10, 0}, .radius = 10.0f,}),
+            .lightIndex = db_add_light((GfxLight) {.color = {0, 10, 0},.radiusInner = 1.0f, .radiusOuter = 1.2f,}),
     });
     db_add_light_entity((LightEntity) {
             .transformIndex = db_add_transform((Transform) {.position{1, 1, 6}}),
-            .lightIndex = db_add_light((GfxLight) {.color = {0, 0, 10}, .radius = 10.0f,}),
+            .lightIndex = db_add_light((GfxLight) {.color = {0, 0, 10},.radiusInner = 0.3f, .radiusOuter = 0.5f,}),
     });
 }
 
 static void script_update_lights(float deltaTime) {
+
+    const SelectedPool &poolType = *get_selected_pool_type();
+    const int32 &poolIndex = *get_selected_pool_index();
+
+
+
     const uint32_t lightCount = db_get_light_entity_count();
     for (uint32_t i = 0; i < lightCount; ++i) {
         const LightEntity *lightEntity = db_get_light_entity(i);
@@ -48,8 +54,14 @@ static void script_update_lights(float deltaTime) {
         static float zNear = 0.1f;
         static float zFar = 1.0;
 
+        if(poolType == SELECTED_POOL_LIGHT_ENT && i == poolIndex)
+        {
+            gfx_im_draw_line_sphere((GfxCircle){.center = transform->position, .radius = light->radiusInner, .normal = lookDir, .up = WORLD_UP}, lineColour);
+            gfx_im_draw_line_sphere((GfxCircle){.center = transform->position, .radius = light->radiusOuter, .normal = lookDir, .up = WORLD_UP}, lineColour);
+        }
 
-        if (i == 1) {
+        static bool debugFrustumDraw = false;
+        if (i == 1 && debugFrustumDraw ) {
             ImGui::Begin("frustum debug");
             {
                 ImGui::DragFloat2("nearSize", &nearSize[0], 0.01f);
@@ -79,7 +91,6 @@ static void script_update_lights(float deltaTime) {
             gfx_im_draw_poly_box(box, 0xFFFFFF00);
             gfx_im_draw_line_box(box, 0xFFFFFF00, 2);
         }
-
     }
 }
 

@@ -32,11 +32,15 @@ struct GfxCircle {
     vec3f up;
 };
 
-void gfx_im_draw_line_arc(const GfxCircle &arc, uint32_t color,
-                          float arcPercent = 1.0f,
-                          float startOffsetPercent = 0.0f,
+void gfx_im_draw_line_sphere(const GfxCircle &circle, uint32_t color,
                           uint32_t segments = 32,
-                          float lineWidth = 2.0f);
+                          float lineWidth = 1.0f);
+
+void gfx_im_draw_line_arc(const GfxCircle &arc, uint32_t color,
+                             float arcPercent = 1.0f,
+                             float startOffsetPercent = 0.0f,
+                             uint32_t segments = 32,
+                             float lineWidth = 2.0f);
 
 
 void gfx_im_draw_line_arc_dial_marker(const GfxCircle &arc, uint32_t color,

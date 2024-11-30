@@ -32,6 +32,8 @@ target_include_directories(beet_math
         PRIVATE inc/beet_math
 )
 
+set_target_properties(beet_math PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+
 #====DEBUG================
 if (CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(beet_math PUBLIC BEET_DEBUG=1)

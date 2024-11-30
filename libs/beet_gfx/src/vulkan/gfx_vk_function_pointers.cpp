@@ -63,7 +63,6 @@ PFN_vkCmdSetLineRasterizationModeEXT g_vkCmdSetLineRasterizationModeEXT_Func = {
 
 static void gfx_create_function_pointers_line_rasterization_mode(){
     g_vkCmdSetLineRasterizationModeEXT_Func = (PFN_vkCmdSetLineRasterizationModeEXT) vkGetInstanceProcAddr(g_vulkanBackend.instance, BEET_VK_CREATE_LINE_RASTERIZATION_MODE_EXT);
-    ASSERT(g_vkCmdSetLineRasterizationModeEXT_Func != VK_NULL_HANDLE);
 }
 #endif //BEET_VK_COMPILE_VERSION_1_3
 //======================================================================================================================

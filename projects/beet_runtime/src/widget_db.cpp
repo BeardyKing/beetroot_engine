@@ -145,7 +145,7 @@ static void widget_pool_selector(bool &enabled) {
     ImGui::SetNextWindowSize(ImVec2(500, 440), ImGuiCond_FirstUseEver);
     ImGui::Begin("Pool Selector", &enabled);
     {
-        ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
+        ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
         widget_pool_selector_lit_entity();
         ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
         widget_pool_selector_camera_entity();
@@ -168,17 +168,22 @@ static bool widget_draw_transform(Transform &transform) {
 
 static bool widget_draw_light(GfxLight &light) {
     constexpr float WIDGET_MAX_RADIUS = 2000;
-    constexpr float WIDGET_RADIUS_DRAG_AMOUNT = 0.25f;
+    constexpr float WIDGET_RADIUS_DRAG_AMOUNT = 0.0625f;
 
     constexpr float WIDGET_MAX_LIGHT_RGB = 10000;
     constexpr float WIDGET_RGB_DRAG_AMOUNT = 1.0f;
     bool outEdited = false;
     //TODO: Add Intensity var, replace float 3 with uint32_t
     if (ImGui::CollapsingHeader("Light")) {
-        ImGui::Text("radius  ");
+        ImGui::Text("radiusOuter  ");
         ImGui::SameLine();
-        outEdited |= ImGui::DragFloat("##radius", &light.radius, WIDGET_RADIUS_DRAG_AMOUNT, 0.0f, 0.0f, "%.3f");
-        light.radius = clamp(light.radius, 0.0f, WIDGET_MAX_RADIUS);
+        outEdited |= ImGui::DragFloat("##radiusOuter", &light.radiusOuter, WIDGET_RADIUS_DRAG_AMOUNT, 0.0f, 0.0f, "%.3f");
+        light.radiusOuter = clamp(light.radiusOuter, 0.0f, WIDGET_MAX_RADIUS);
+
+        ImGui::Text("radiusInner  ");
+        ImGui::SameLine();
+        outEdited |= ImGui::DragFloat("##radiusInner", &light.radiusInner, WIDGET_RADIUS_DRAG_AMOUNT, 0.0f, 0.0f, "%.3f");
+        light.radiusInner = clamp(light.radiusInner, 0.0f, light.radiusOuter - 0.001f);
 
         ImGui::Text("RGB     ");
         ImGui::SameLine();

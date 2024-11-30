@@ -45,7 +45,10 @@ int main() {
         imgui_update();
 #endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
         script_update(time_delta_f());
+#if CHECK_FEATURE(FEATURE_GFX_IMGUI)
         widget_manager_update();
+#endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
+
         gfx_update(time_delta_d());
     }
     db_dump_pool_alloc_table();

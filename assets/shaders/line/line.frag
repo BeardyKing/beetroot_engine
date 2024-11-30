@@ -17,11 +17,11 @@ void main(){
     const float fragDepth = gl_FragCoord.z;
 
     if (stageLayout.color.a == 0.0f){
-        if (fragDepth > currentDepth) {
-            outFragColor = vec4(stageLayout.color.rgb, 0.3);
-        } else {
+//        if (fragDepth > currentDepth) {
+            outFragColor = vec4(stageLayout.color.rgb, 0.6);
+//        } else {
             outFragColor = vec4(stageLayout.color.rgb, 1.0);
-        }
+//        }
     }
     else {
         outFragColor = stageLayout.color;

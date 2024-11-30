@@ -32,9 +32,10 @@ void main() {
             col.b -= 1.0f;
             outFragColor = vec4(col, 0.1);
         }
-        else{
-            outFragColor = vec4(stageLayout.color.rgb, 0.3);
-        }
+//        else
+//        {
+//            outFragColor = vec4(stageLayout.color.rgb, 0.3);
+//        }
     }
     else{
         outFragColor = stageLayout.color;

@@ -51,7 +51,7 @@ static VkBool32 VKAPI_PTR validation_message_callback(
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: {
             if (HACK_ignoreResolveImageError) {
                 log_error(MSG_GFX, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
-                ASSERT_MSG(false, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
+//                ASSERT_MSG(false, "\ncode: \t\t%s \nmessage: \t%s\n", callbackData->pMessageIdName, callbackData->pMessage);
             }
             break;
         }
