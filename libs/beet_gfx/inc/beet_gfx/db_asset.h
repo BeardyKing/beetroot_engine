@@ -10,8 +10,9 @@ constexpr uint8_t MAX_ALLOCATION_TABLE_SIZE = UINT8_MAX;
 constexpr uint8_t MAX_ALLOCATION_NAME = 64;
 
 struct PoolInfo {
-    void *start;
-    uint32_t currentIndex;
+    void *data;
+    uint32_t count;
+    uint32_t maxCount;
 };
 
 struct PoolAllocInfo {
@@ -27,52 +28,41 @@ struct PoolAllocEntry {
 
 PoolAllocEntry *db_get_allocation_table(uint32_t &outTableCount);
 
-void db_cleanup_pools();
+void db_pools_create();
+void db_pools_cleanup();
 void db_dump_pool_alloc_table();
 
 //===CAMERA=============================================================================================================
-#define MAX_DB_CAMERAS 1
-
 uint32_t db_add_camera(const Camera &camera);
 Camera *db_get_camera(uint32_t index);
 //======================================================================================================================
 
 //===CAMERA_ENTITIES====================================================================================================
-#define MAX_DB_CAMERA_ENTITIES 1
-
 uint32_t db_get_camera_entity_count();
 uint32_t db_add_camera_entity(const CameraEntity &camera);
 CameraEntity *db_get_camera_entity(uint32_t index);
 //======================================================================================================================
 
 //===TRANSFORM==========================================================================================================
-#define MAX_DB_TRANSFORMS 256
-
 uint32_t db_add_transform(const Transform &transform);
 Transform *db_get_transform(uint32_t index);
 //======================================================================================================================
 
 //===DESCRIPTOR=========================================================================================================
-#define MAX_DB_VK_DESCRIPTOR_SETS 1024
-
 uint32_t db_add_descriptor_set(const VkDescriptorSet &descriptorSet);
 VkDescriptorSet *db_get_descriptor_set(uint32_t index);
 //======================================================================================================================
 
 //===TEXTURE============================================================================================================
-#define MAX_DB_GFX_TEXTURES 1024
-
-uint32_t db_get_texture_count();
 uint32_t db_add_texture(const GfxTexture &gfxTexture);
 GfxTexture *db_get_texture(uint32_t index);
+uint32_t db_get_texture_count();
 //======================================================================================================================
 
 //===MESH===============================================================================================================
-#define MAX_DB_GFX_MESHES 256
-
-uint32_t db_get_mesh_count();
 uint32_t db_add_mesh(const GfxMesh &gfxMesh);
 GfxMesh *db_get_mesh(uint32_t index);
+uint32_t db_get_mesh_count();
 //======================================================================================================================
 
 //===LIT_MATERIAL=======================================================================================================
@@ -82,41 +72,32 @@ LitMaterial *db_get_lit_material(uint32_t index);
 //======================================================================================================================
 
 //===LIT_SKY============================================================================================================
-#define MAX_DB_SKY_MATERIALS 1
 uint32_t db_add_sky_material(const SkyMaterial &skyMaterial);
 SkyMaterial *db_get_sky_material(uint32_t index);
 //======================================================================================================================
 
 //===LIT_ENTITIES=======================================================================================================
-#define MAX_DB_LIT_ENTITIES 256
-
-uint32_t db_get_lit_entity_count();
 uint32_t db_add_lit_entity(const LitEntity &litEntity);
 LitEntity *db_get_lit_entity(uint32_t index);
+uint32_t db_get_lit_entity_count();
 //======================================================================================================================
 
 //===LIT_ENTITIES=======================================================================================================
-#define MAX_DB_SKY_ENTITIES 64
-
-uint32_t db_get_sky_entity_count();
 uint32_t db_add_sky_entity(const SkyEntity &skyEntity);
 SkyEntity *db_get_sky_entity(uint32_t index);
+uint32_t db_get_sky_entity_count();
 //======================================================================================================================
 
 //===LIGHT_ENTITIES=====================================================================================================
-#define MAX_DB_LIGHT_ENTITIES 64
-
-uint32_t db_get_light_entity_count();
 uint32_t db_add_light_entity(const LightEntity &lightEntity);
 LightEntity *db_get_light_entity(uint32_t index);
+uint32_t db_get_light_entity_count();
 //======================================================================================================================
 
 //===LIGHT_ENTITIES=====================================================================================================
-#define MAX_DB_LIGHTS 64
-
-uint32_t db_get_light_count();
 uint32_t db_add_light(const GfxLight &light);
 GfxLight *db_get_light(uint32_t index);
+uint32_t db_get_light_count();
 //======================================================================================================================
 
 

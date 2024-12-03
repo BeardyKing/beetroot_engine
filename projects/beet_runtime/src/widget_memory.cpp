@@ -39,14 +39,14 @@ void pool_memory_view(bool &enabled) {
                     ImGui::Text("%zu", entry.allocInfo.itemSize);
 
                     ImGui::TableSetColumnIndex(2);
-                    ImGui::Text("%u / %zu", entry.poolInfo->currentIndex, entry.allocInfo.itemCount);
+                    ImGui::Text("%u / %zu", entry.poolInfo->count, entry.allocInfo.itemCount);
 
                     ImGui::TableSetColumnIndex(3);
-                    float percentageFilled = (float) (entry.poolInfo->currentIndex) / entry.allocInfo.itemCount * 100.0f;
+                    float percentageFilled = (float) (entry.poolInfo->count) / entry.allocInfo.itemCount * 100.0f;
                     ImGui::Text("%.2f%%", percentageFilled);
 
                     ImGui::TableSetColumnIndex(4);
-                    size_t currentMemoryUsage = entry.poolInfo->currentIndex * entry.allocInfo.itemSize;
+                    size_t currentMemoryUsage = entry.poolInfo->count * entry.allocInfo.itemSize;
                     ImGui::Text("%zu", currentMemoryUsage);
 
                     ImGui::TableSetColumnIndex(5);

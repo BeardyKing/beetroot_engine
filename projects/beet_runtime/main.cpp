@@ -32,6 +32,7 @@ int main() {
 #endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
     time_create();
     input_create();
+    db_pools_create();
     gfx_create(window_get_handle());
     entities_create();
     script_create();
@@ -57,7 +58,7 @@ int main() {
     input_cleanup();
     time_cleanup();
     window_cleanup();
-    db_cleanup_pools();
+    db_pools_cleanup();
 #if CHECK_FEATURE(FEATURE_MEMORY_TRACKING)
     mem_dump_memory_info();
     mem_validate_empty();
