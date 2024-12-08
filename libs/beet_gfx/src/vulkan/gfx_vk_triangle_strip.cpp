@@ -18,10 +18,10 @@ static struct TriangleStrip {
 
     VkDescriptorPool descriptorPools[BEET_BUFFER_COUNT] = {VK_NULL_HANDLE};
     VkDescriptorSet descriptorSets[BEET_BUFFER_COUNT] = {VK_NULL_HANDLE};
-    GfxBuffer triangleStripUniformBuffers[BEET_BUFFER_COUNT] = {VK_NULL_HANDLE};
+    GfxBuffer triangleStripStorageBuffers[BEET_BUFFER_COUNT] = {VK_NULL_HANDLE};
 } s_triangleStrip;
 
-#define MAX_TRIANGLE_STRIP_ENTITY_SIZE (1024 * 1)
+#define MAX_TRIANGLE_STRIP_ENTITY_SIZE (1024 * 16)
 struct TriangleStripEntity {
     uint32_t triangleStripRangeStart = {0};
     uint32_t triangleStripRangeEnd = {0};
@@ -29,7 +29,7 @@ struct TriangleStripEntity {
 static TriangleStripEntity s_triangleStripEntityPool[MAX_TRIANGLE_STRIP_ENTITY_SIZE] = {};
 static uint32_t s_triangleStripEntityCount = 0;
 
-#define MAX_POINT_SIZE (1024 * 4)
+#define MAX_POINT_SIZE (1024 * 128)
 static uint32_t s_pointCount = 0;
 
 extern VulkanBackend g_vulkanBackend;
@@ -39,7 +39,7 @@ extern TargetVulkanFormats g_vulkanTargetFormats;
 //===INTERNAL_FUNCTIONS=================================================================================================
 static uint32_t add_point(const LinePoint3D &point) {
     //write directly to the mappedData i.e. avoid memcpy from pool to mappedData
-    ((LinePoint3D *) s_triangleStrip.triangleStripUniformBuffers[gfx_buffer_index()].mappedData)[s_pointCount] = point;
+    ((LinePoint3D *) s_triangleStrip.triangleStripStorageBuffers[gfx_buffer_index()].mappedData)[s_pointCount] = point;
     s_pointCount++;
     ASSERT(s_pointCount < MAX_POINT_SIZE);
     return s_pointCount;
@@ -53,26 +53,26 @@ static void gfx_create_triangle_strip_material_descriptor() {
     }
 }
 
-static void gfx_create_triangle_strip_uniform_buffers() {
+static void gfx_create_triangle_strip_storage_buffers() {
     for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
         const VkResult uniformResult = gfx_buffer_create(
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                s_triangleStrip.triangleStripUniformBuffers[i],
+                s_triangleStrip.triangleStripStorageBuffers[i],
                 (sizeof(LinePoint3D) * MAX_POINT_SIZE),
                 nullptr);
         ASSERT(uniformResult == VK_SUCCESS);
 
-        const VkResult mapResult = vkMapMemory(g_vulkanBackend.device, s_triangleStrip.triangleStripUniformBuffers[i].memory, 0, VK_WHOLE_SIZE, 0,
-                                               &s_triangleStrip.triangleStripUniformBuffers[i].mappedData);
+        const VkResult mapResult = vkMapMemory(g_vulkanBackend.device, s_triangleStrip.triangleStripStorageBuffers[i].memory, 0, VK_WHOLE_SIZE, 0,
+                                               &s_triangleStrip.triangleStripStorageBuffers[i].mappedData);
         ASSERT(mapResult == VK_SUCCESS);
     }
 }
 
-static void gfx_cleanup_triangle_strip_uniform_buffers() {
+static void gfx_cleanup_triangle_strip_storage_buffers() {
     for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
-        vkDestroyBuffer(g_vulkanBackend.device, s_triangleStrip.triangleStripUniformBuffers[i].buffer, nullptr);
-        vkFreeMemory(g_vulkanBackend.device, s_triangleStrip.triangleStripUniformBuffers[i].memory, nullptr);
+        vkDestroyBuffer(g_vulkanBackend.device, s_triangleStrip.triangleStripStorageBuffers[i].buffer, nullptr);
+        vkFreeMemory(g_vulkanBackend.device, s_triangleStrip.triangleStripStorageBuffers[i].memory, nullptr);
     }
 }
 
@@ -80,7 +80,7 @@ static void gfx_create_triangle_strip_descriptor_set_layout() {
     constexpr uint32_t poolSizeCount = 3;
     VkDescriptorPoolSize poolSizes[poolSizeCount] = {
             VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1},
-            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1},
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 1},
             VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1},
     };
 
@@ -105,7 +105,7 @@ static void gfx_create_triangle_strip_descriptor_set_layout() {
             }},
             {VkDescriptorSetLayoutBinding{
                     .binding = 1,
-                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                     .descriptorCount = 1,
                     .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
             }},
@@ -230,7 +230,7 @@ void gfx_triangle_strip_update_material_descriptor(VkDescriptorSet &outDescripto
     constexpr uint32_t descriptorSetSize = 3;
     const VkWriteDescriptorSet writeDescriptorSets[descriptorSetSize] = {
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &g_vulkanBackend.sceneUniformBuffer.descriptor, 1),
-            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &s_triangleStrip.triangleStripUniformBuffers[gfx_buffer_index()].descriptor, 1),
+            gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, &s_triangleStrip.triangleStripStorageBuffers[gfx_buffer_index()].descriptor, 1),
             gfx_descriptor_set_write(outDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &depthImageInfo, 1),
     };
     vkUpdateDescriptorSets(g_vulkanBackend.device, descriptorSetSize, &writeDescriptorSets[0], 0, nullptr);
@@ -282,7 +282,7 @@ void gfx_triangle_strip_add_segment_immediate(const LinePoint3D *points, const u
 
 //===INIT_&_SHUTDOWN====================================================================================================
 void gfx_create_triangle_strip() {
-    gfx_create_triangle_strip_uniform_buffers();
+    gfx_create_triangle_strip_storage_buffers();
     gfx_create_triangle_strip_descriptor_set_layout();
     gfx_create_triangle_strip_pipeline_layout();
     const bool pipelineResult = gfx_create_triangle_strip_pipelines(s_triangleStrip.pipeline);
@@ -294,7 +294,7 @@ void gfx_create_triangle_strip() {
 }
 
 void gfx_cleanup_triangle_strip() {
-    gfx_cleanup_triangle_strip_uniform_buffers();
+    gfx_cleanup_triangle_strip_storage_buffers();
     vkDestroyDescriptorSetLayout(g_vulkanBackend.device, s_triangleStrip.descriptorSetLayout, nullptr);
     for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
         vkDestroyDescriptorPool(g_vulkanBackend.device, s_triangleStrip.descriptorPools[i], nullptr);

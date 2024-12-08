@@ -26,11 +26,6 @@ void script_dungeon_tile_create() {
     }
 }
 
-void script_dungeon_tile_update(float deltaTime) {
-
-}
-
-void script_dungeon_tile_cleanup() {
-
-}
+void script_dungeon_tile_update(float deltaTime) {}
+void script_dungeon_tile_cleanup() {}
 //======================================================================================================================

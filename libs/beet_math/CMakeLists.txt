@@ -17,6 +17,10 @@ add_library(beet_math
         src/transform.cpp
         inc/beet_math/frustum.h
         src/frustum.cpp
+        inc/beet_math/collision.h
+        src/collision.cpp
+        inc/beet_math/shapes.h
+        src/vec3.cpp
 )
 
 #====LIB GLM==============

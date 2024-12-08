@@ -9,14 +9,14 @@ layout (set = 0, binding = 0) uniform SceneUBO {
 } scene;
 //==========================================================
 //===MUST_MIRROR_gfx_types.h================================
-#define MAX_POINT_SIZE (1024 * 4)
+#define MAX_POINT_SIZE (1024 * 128)
 struct LinePoint3D {
     vec3 position;
     uint color;
 };
 //==========================================================
 
-layout (set = 0, binding = 1) uniform LinesUBO {
+layout (set = 0, binding = 1) readonly buffer LinesUBO {
     LinePoint3D point[MAX_POINT_SIZE];
 } lines;
 

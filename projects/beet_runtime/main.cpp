@@ -53,6 +53,7 @@ int main() {
         gfx_update(time_delta_d());
     }
     db_dump_pool_alloc_table();
+    script_shutdown();
     entities_cleanup();
     gfx_cleanup();
     input_cleanup();

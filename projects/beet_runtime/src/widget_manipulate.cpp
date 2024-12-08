@@ -509,7 +509,7 @@ screen_to_ray(const int32_t mouseX, const int32_t mouseY, const int32_t screenWi
     const vec3f lookTarget = cameraTransform.position + camForward;
 
     const mat4 view = lookAt(cameraTransform.position, lookTarget, WORLD_UP);
-    const mat4 projection = perspective(as_radians(camera.fov), (float) screenWidth / (float) screenHeight, camera.zNear, camera.zFar);
+    const mat4 projection = perspective(as_radians_f(camera.fov), (float) screenWidth / (float) screenHeight, camera.zNear, camera.zFar);
 
     float x = (2.0f * float(mouseX)) / float(screenWidth) - 1.0f;
     float y = 1.0f - (2.0f * float(mouseY)) / float(screenHeight);

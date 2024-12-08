@@ -1,5 +1,7 @@
 #include <beet_math/frustum.h>
+#include <glm/geometric.hpp>
 
+//===API================================================================================================================
 Frustum view_frustum_to_frustum(const GfxViewFrustum &viewFrustum) {
     const vec3f forward = glm::normalize(viewFrustum.normal);
     vec3f up = glm::normalize(viewFrustum.up);
@@ -24,7 +26,7 @@ Frustum view_frustum_to_frustum(const GfxViewFrustum &viewFrustum) {
     const vec3f farBottomLeft = farCenter - farUpOffset - farRightOffset;
     const vec3f farBottomRight = farCenter - farUpOffset + farRightOffset;
 
-    return {
+    return (Frustum) {
             .nearTopLeft = nearTopLeft,
             .nearTopRight = nearTopRight,
             .nearBottomLeft = nearBottomLeft,
@@ -35,3 +37,4 @@ Frustum view_frustum_to_frustum(const GfxViewFrustum &viewFrustum) {
             .farBottomRight = farBottomRight
     };
 }
+//======================================================================================================================

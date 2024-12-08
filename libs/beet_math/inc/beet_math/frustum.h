@@ -1,19 +1,7 @@
 #ifndef BEETROOT_FRUSTUM_H
 #define BEETROOT_FRUSTUM_H
 
-#include <beet_math/vec3.h>
-#include <beet_math/vec2.h>
-#include <glm/geometric.hpp>
-
-struct GfxViewFrustum {
-    vec3f origin;
-    vec3f normal;
-    vec3f up;
-    vec2f nearSize;
-    vec2f farSize;
-    float zNear;
-    float zFar;
-};
+#include <beet_math/shapes.h>
 
 struct Frustum {
     vec3f nearTopLeft;
@@ -26,6 +14,8 @@ struct Frustum {
     vec3f farBottomRight;
 };
 
+//===API================================================================================================================
 Frustum view_frustum_to_frustum(const GfxViewFrustum &viewFrustum);
+//======================================================================================================================
 
 #endif //BEETROOT_FRUSTUM_H

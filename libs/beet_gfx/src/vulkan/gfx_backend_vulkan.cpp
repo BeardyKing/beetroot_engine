@@ -83,11 +83,10 @@ static void gfx_cleanup_instance() {
 static void gfx_create_instance() {
     vkEnumerateInstanceExtensionProperties(nullptr, &g_vulkanBackend.extensionsCount, nullptr);
     ASSERT(g_vulkanBackend.supportedExtensions == nullptr);
-    g_vulkanBackend.supportedExtensions = (VkExtensionProperties *) mem_zalloc(
-            sizeof(VkExtensionProperties) * g_vulkanBackend.extensionsCount);
+    //TODO: Replace zalloc with arena alloc
+    g_vulkanBackend.supportedExtensions = (VkExtensionProperties *) mem_zalloc(sizeof(VkExtensionProperties) * g_vulkanBackend.extensionsCount);
     if (g_vulkanBackend.extensionsCount > 0) {
-        vkEnumerateInstanceExtensionProperties(nullptr, &g_vulkanBackend.extensionsCount,
-                                               g_vulkanBackend.supportedExtensions);
+        vkEnumerateInstanceExtensionProperties(nullptr, &g_vulkanBackend.extensionsCount, g_vulkanBackend.supportedExtensions);
     }
 
     for (uint32_t i = 0; i < g_vulkanBackend.extensionsCount; ++i) {
@@ -101,16 +100,14 @@ static void gfx_create_instance() {
 
     vkEnumerateInstanceLayerProperties(&g_vulkanBackend.validationLayersCount, nullptr);
     ASSERT(g_vulkanBackend.supportedValidationLayers == nullptr);
-    g_vulkanBackend.supportedValidationLayers = (VkLayerProperties *) mem_zalloc(
-            sizeof(VkLayerProperties) * g_vulkanBackend.validationLayersCount);
+    //TODO: Replace zalloc with arena alloc
+    g_vulkanBackend.supportedValidationLayers = (VkLayerProperties *) mem_zalloc(sizeof(VkLayerProperties) * g_vulkanBackend.validationLayersCount);
     if (g_vulkanBackend.validationLayersCount > 0) {
-        vkEnumerateInstanceLayerProperties(&g_vulkanBackend.validationLayersCount,
-                                           g_vulkanBackend.supportedValidationLayers);
+        vkEnumerateInstanceLayerProperties(&g_vulkanBackend.validationLayersCount, g_vulkanBackend.supportedValidationLayers);
     }
 
     for (uint32_t i = 0; i < g_vulkanBackend.validationLayersCount; ++i) {
-        log_verbose(MSG_GFX, "Layer: %s - Desc: %s \n", g_vulkanBackend.supportedValidationLayers[i].layerName,
-                    g_vulkanBackend.supportedValidationLayers[i].description);
+        log_verbose(MSG_GFX, "Layer: %s - Desc: %s \n", g_vulkanBackend.supportedValidationLayers[i].layerName, g_vulkanBackend.supportedValidationLayers[i].description);
     }
 
     for (uint8_t i = 0; i < BEET_VK_VALIDATION_COUNT; i++) {
@@ -148,8 +145,7 @@ static void gfx_cleanup_physical_device() {
 
 static VkSampleCountFlagBits
 set_target_sample_count(const VkPhysicalDeviceProperties deviceProperties, VkSampleCountFlagBits target) {
-    VkSampleCountFlags supportedSampleCount = min(deviceProperties.limits.framebufferColorSampleCounts,
-                                                  deviceProperties.limits.framebufferDepthSampleCounts);
+    VkSampleCountFlags supportedSampleCount = min(deviceProperties.limits.framebufferColorSampleCounts, deviceProperties.limits.framebufferDepthSampleCounts);
     return (supportedSampleCount & target) ? target : VK_SAMPLE_COUNT_1_BIT;
 }
 
@@ -167,8 +163,7 @@ static void gfx_create_physical_device() {
 #if BEET_DEBUG
     if (BEET_DEBUG_VK_FORCE_GPU_SELECTION > -1) {
         selectedDevice = BEET_DEBUG_VK_FORCE_GPU_SELECTION;
-        log_warning(MSG_GFX, "Using debug ONLY feature `BEET_VK_FORCE_GPU_SELECTION` selecting device [%i]\n",
-                    selectedDevice)
+        log_warning(MSG_GFX, "Using debug ONLY feature `BEET_VK_FORCE_GPU_SELECTION` selecting device [%i]\n", selectedDevice)
     }
 #endif
 
@@ -226,8 +221,8 @@ static void gfx_cleanup_queues() {
 static void gfx_create_queues() {
     uint32_t devicePropertyCount = 0;
     vkEnumerateDeviceExtensionProperties(g_vulkanBackend.physicalDevice, nullptr, &devicePropertyCount, nullptr);
-    VkExtensionProperties *selectedPhysicalDeviceExtensions = (VkExtensionProperties *) mem_zalloc(
-            sizeof(VkExtensionProperties) * devicePropertyCount);
+    //TODO: Replace zalloc with arena alloc
+    VkExtensionProperties *selectedPhysicalDeviceExtensions = (VkExtensionProperties *) mem_zalloc(sizeof(VkExtensionProperties) * devicePropertyCount);
 
     if (devicePropertyCount > 0) {
         vkEnumerateDeviceExtensionProperties(g_vulkanBackend.physicalDevice, nullptr, &devicePropertyCount,
@@ -242,8 +237,8 @@ static void gfx_create_queues() {
     vkGetPhysicalDeviceQueueFamilyProperties(g_vulkanBackend.physicalDevice, &queueFamilyCount, nullptr);
     ASSERT(queueFamilyCount != 0);
 
-    VkQueueFamilyProperties *queueFamilies = (VkQueueFamilyProperties *) mem_zalloc(
-            sizeof(VkQueueFamilyProperties) * queueFamilyCount);
+    //TODO: Replace zalloc with arena alloc
+    VkQueueFamilyProperties *queueFamilies = (VkQueueFamilyProperties *) mem_zalloc(sizeof(VkQueueFamilyProperties) * queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(g_vulkanBackend.physicalDevice, &queueFamilyCount, queueFamilies);
 
     struct QueueInfo {
@@ -483,8 +478,7 @@ static void gfx_create_swap_chain() {
     g_vulkanTargetFormats.surfaceFormat = gfx_utils_select_surface_format();
     const VkCompositeAlphaFlagBitsKHR compositeAlphaFormat = select_composite_alpha_format(surfaceCapabilities);
 
-    uint32_t targetSwapChainImageCount =
-            surfaceCapabilities.minImageCount + 1; // TODO: consider user option for target.
+    uint32_t targetSwapChainImageCount = surfaceCapabilities.minImageCount + 1; // TODO: consider user option for target.
     targetSwapChainImageCount = min(targetSwapChainImageCount, BEET_SWAP_CHAIN_IMAGE_MAX);
     if ((surfaceCapabilities.maxImageCount > 0) && (targetSwapChainImageCount > surfaceCapabilities.maxImageCount)) {
         targetSwapChainImageCount = surfaceCapabilities.maxImageCount;
@@ -526,8 +520,7 @@ static void gfx_create_swap_chain() {
         swapChainInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     }
 
-    const VkResult swapChainRes = vkCreateSwapchainKHR(g_vulkanBackend.device, &swapChainInfo, nullptr,
-                                                       &g_vulkanBackend.swapChain.swapChain);
+    const VkResult swapChainRes = vkCreateSwapchainKHR(g_vulkanBackend.device, &swapChainInfo, nullptr, &g_vulkanBackend.swapChain.swapChain);
     ASSERT_MSG(swapChainRes == VK_SUCCESS, "Err: failed to create swap chain");
 
     //cleanup vulkan resources
@@ -537,8 +530,7 @@ static void gfx_create_swap_chain() {
         }
         vkDestroySwapchainKHR(g_vulkanBackend.device, oldSwapChain, nullptr);
     }
-    vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain,
-                            &g_vulkanBackend.swapChain.imageCount, nullptr);
+    vkGetSwapchainImagesKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, &g_vulkanBackend.swapChain.imageCount, nullptr);
 
     VkResult swapChainImageResult = vkGetSwapchainImagesKHR(
             g_vulkanBackend.device,
@@ -568,8 +560,7 @@ static void gfx_create_swap_chain() {
         g_vulkanBackend.swapChain.buffers[i].image = g_vulkanBackend.swapChain.images[i];
         swapChainImageViewInfo.image = g_vulkanBackend.swapChain.buffers[i].image;
 
-        const VkResult imageViewResult = vkCreateImageView(g_vulkanBackend.device, &swapChainImageViewInfo, nullptr,
-                                                           &g_vulkanBackend.swapChain.buffers[i].view);
+        const VkResult imageViewResult = vkCreateImageView(g_vulkanBackend.device, &swapChainImageViewInfo, nullptr, &g_vulkanBackend.swapChain.buffers[i].view);
         ASSERT_MSG(imageViewResult == VK_SUCCESS, "Failed to create image view %u", i);
     }
 }
@@ -579,8 +570,7 @@ static void gfx_cleanup_swap_chain() {
         vkDestroyImageView(g_vulkanBackend.device, g_vulkanBackend.swapChain.buffers[i].view, nullptr);
     }
 
-    ASSERT_MSG(g_vulkanBackend.swapChain.surface != VK_NULL_HANDLE,
-               "Err: swapchain surface has already been destroyed");
+    ASSERT_MSG(g_vulkanBackend.swapChain.surface != VK_NULL_HANDLE, "Err: swapchain surface has already been destroyed");
     vkDestroySwapchainKHR(g_vulkanBackend.device, g_vulkanBackend.swapChain.swapChain, nullptr);
     g_vulkanBackend.swapChain.swapChain = VK_NULL_HANDLE;
 }
@@ -593,8 +583,7 @@ static void gfx_create_command_buffers() {
             .commandBufferCount = BEET_BUFFER_COUNT,
     };
 
-    VkResult cmdBuffResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &gfxCommandBufferInfo,
-                                                      g_vulkanBackend.graphicsCommandBuffers);
+    VkResult cmdBuffResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &gfxCommandBufferInfo, g_vulkanBackend.graphicsCommandBuffers);
     ASSERT_MSG(cmdBuffResult == VK_SUCCESS, "Err: failed to create graphics command buffer");
 
     // === IMMEDIATE ===
@@ -605,22 +594,19 @@ static void gfx_create_command_buffers() {
             .commandBufferCount = 1,
     };
     ASSERT(g_vulkanBackend.immediateCommandBuffer == VK_NULL_HANDLE);
-    VkResult cmdImmediateBufferResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &immediateCommandBufferInfo,
-                                                                 &g_vulkanBackend.immediateCommandBuffer);
+    VkResult cmdImmediateBufferResult = vkAllocateCommandBuffers(g_vulkanBackend.device, &immediateCommandBufferInfo, &g_vulkanBackend.immediateCommandBuffer);
     ASSERT_MSG(cmdImmediateBufferResult == VK_SUCCESS, "Err: failed to create immediate command buffer");
 }
 
 static void gfx_cleanup_command_buffers() {
     // === GRAPHICS ===
-    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, BEET_BUFFER_COUNT,
-                         g_vulkanBackend.graphicsCommandBuffers);
+    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, BEET_BUFFER_COUNT, g_vulkanBackend.graphicsCommandBuffers);
     for (uint32_t i = 0; i < BEET_BUFFER_COUNT; ++i) {
         g_vulkanBackend.graphicsCommandBuffers[i] = VK_NULL_HANDLE;
     }
 
     // === IMMEDIATE ===
-    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, 1,
-                         &g_vulkanBackend.immediateCommandBuffer);
+    vkFreeCommandBuffers(g_vulkanBackend.device, g_vulkanBackend.graphicsCommandPool, 1, &g_vulkanBackend.immediateCommandBuffer);
     g_vulkanBackend.immediateCommandBuffer = VK_NULL_HANDLE;
 }
 
@@ -632,8 +618,7 @@ static void gfx_create_fences() {
     };
 
     for (uint32_t i = 0; i < g_vulkanBackend.swapChain.imageCount; ++i) {
-        const VkResult fenceRes = vkCreateFence(g_vulkanBackend.device, &fenceCreateInfo, nullptr,
-                                                &g_vulkanBackend.graphicsFenceWait[i]);
+        const VkResult fenceRes = vkCreateFence(g_vulkanBackend.device, &fenceCreateInfo, nullptr, &g_vulkanBackend.graphicsFenceWait[i]);
         ASSERT_MSG(fenceRes == VK_SUCCESS, "Err: failed to create graphics fence [%u]", i);
     }
 }
@@ -661,8 +646,7 @@ static void gfx_create_color_buffer() {
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
-    const VkResult createImgRes = vkCreateImage(g_vulkanBackend.device, &colorImageInfo, nullptr,
-                                                &g_vulkanBackend.colorBuffer.image);
+    const VkResult createImgRes = vkCreateImage(g_vulkanBackend.device, &colorImageInfo, nullptr, &g_vulkanBackend.colorBuffer.image);
     ASSERT(createImgRes == VK_SUCCESS);
 
     VkMemoryRequirements memoryRequirements{};
@@ -671,16 +655,13 @@ static void gfx_create_color_buffer() {
     VkMemoryAllocateInfo allocInfo{
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             .allocationSize = memoryRequirements.size,
-            .memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits,
-                                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+            .memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
     };
 
-    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr,
-                                               &g_vulkanBackend.colorBuffer.deviceMemory);
+    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr, &g_vulkanBackend.colorBuffer.deviceMemory);
     ASSERT_MSG(allocRes == VK_SUCCESS, "Err: failed to allocate memory for color buffer")
 
-    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.colorBuffer.image,
-                                               g_vulkanBackend.colorBuffer.deviceMemory, 0);
+    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.colorBuffer.image, g_vulkanBackend.colorBuffer.deviceMemory, 0);
     ASSERT_MSG(bindRes == VK_SUCCESS, "Err: failed to bind color buffer");
 
     VkImageViewCreateInfo colorImageViewInfo{
@@ -708,7 +689,6 @@ static void gfx_cleanup_color_buffer() {
     vkFreeMemory(g_vulkanBackend.device, g_vulkanBackend.colorBuffer.deviceMemory, nullptr);
 }
 
-
 static void gfx_create_depth_stencil_buffer() {
     g_vulkanTargetFormats.depthFormat = gfx_utils_find_depth_format(VK_IMAGE_TILING_OPTIMAL);
     const VkImageCreateInfo depthImageInfo = {
@@ -727,8 +707,7 @@ static void gfx_create_depth_stencil_buffer() {
             .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
     };
 
-    const VkResult imgRes = vkCreateImage(g_vulkanBackend.device, &depthImageInfo, nullptr,
-                                          &g_vulkanBackend.depthStencilBuffer.image);
+    const VkResult imgRes = vkCreateImage(g_vulkanBackend.device, &depthImageInfo, nullptr, &g_vulkanBackend.depthStencilBuffer.image);
     ASSERT_MSG(imgRes == VK_SUCCESS, "Err: failed to create depth stencil image");
 
     VkMemoryRequirements memoryRequirements{};
@@ -737,16 +716,13 @@ static void gfx_create_depth_stencil_buffer() {
     const VkMemoryAllocateInfo allocInfo{
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             .allocationSize = memoryRequirements.size,
-            .memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits,
-                                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+            .memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
     };
 
-    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr,
-                                               &g_vulkanBackend.depthStencilBuffer.deviceMemory);
+    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr, &g_vulkanBackend.depthStencilBuffer.deviceMemory);
     ASSERT_MSG(allocRes == VK_SUCCESS, "Err: failed to allocate memory for depth stencil")
 
-    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencilBuffer.image,
-                                               g_vulkanBackend.depthStencilBuffer.deviceMemory, 0);
+    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.depthStencilBuffer.image, g_vulkanBackend.depthStencilBuffer.deviceMemory, 0);
     ASSERT_MSG(bindRes == VK_SUCCESS, "Err: failed to bind depth stencil");
 
     VkImageViewCreateInfo depthImageViewInfo{
@@ -767,8 +743,7 @@ static void gfx_create_depth_stencil_buffer() {
         depthImageViewInfo.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
     }
 
-    const VkResult createRes = vkCreateImageView(g_vulkanBackend.device, &depthImageViewInfo, nullptr,
-                                                 &g_vulkanBackend.depthStencilBuffer.view);
+    const VkResult createRes = vkCreateImageView(g_vulkanBackend.device, &depthImageViewInfo, nullptr, &g_vulkanBackend.depthStencilBuffer.view);
     ASSERT_MSG(createRes == VK_SUCCESS, "Err: failed to create depth image view");
 }
 
@@ -794,31 +769,25 @@ static void gfx_create_resolve_depth_buffer() {
             .arrayLayers = 1,
             .samples = VK_SAMPLE_COUNT_1_BIT,
             .tiling = VK_IMAGE_TILING_OPTIMAL,
-            .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
-                     VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
     };
 
-    const VkResult imgRes = vkCreateImage(g_vulkanBackend.device, &depthImageInfo, nullptr,
-                                          &g_vulkanBackend.resolvedDepthBuffer.image);
+    const VkResult imgRes = vkCreateImage(g_vulkanBackend.device, &depthImageInfo, nullptr, &g_vulkanBackend.resolvedDepthBuffer.image);
     ASSERT_MSG(imgRes == VK_SUCCESS, "Err: failed to create depth stencil image");
 
     VkMemoryRequirements memoryRequirements{};
-    vkGetImageMemoryRequirements(g_vulkanBackend.device, g_vulkanBackend.resolvedDepthBuffer.image,
-                                 &memoryRequirements);
+    vkGetImageMemoryRequirements(g_vulkanBackend.device, g_vulkanBackend.resolvedDepthBuffer.image, &memoryRequirements);
 
     const VkMemoryAllocateInfo allocInfo{
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             .allocationSize = memoryRequirements.size,
-            .memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits,
-                                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+            .memoryTypeIndex = gfx_utils_get_memory_type(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
     };
 
-    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr,
-                                               &g_vulkanBackend.resolvedDepthBuffer.deviceMemory);
+    const VkResult allocRes = vkAllocateMemory(g_vulkanBackend.device, &allocInfo, nullptr, &g_vulkanBackend.resolvedDepthBuffer.deviceMemory);
     ASSERT_MSG(allocRes == VK_SUCCESS, "Err: failed to allocate memory for depth stencil")
 
-    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.resolvedDepthBuffer.image,
-                                               g_vulkanBackend.resolvedDepthBuffer.deviceMemory, 0);
+    const VkResult bindRes = vkBindImageMemory(g_vulkanBackend.device, g_vulkanBackend.resolvedDepthBuffer.image, g_vulkanBackend.resolvedDepthBuffer.deviceMemory, 0);
     ASSERT_MSG(bindRes == VK_SUCCESS, "Err: failed to bind depth stencil");
 
     VkImageViewCreateInfo depthImageViewInfo{
@@ -835,8 +804,7 @@ static void gfx_create_resolve_depth_buffer() {
             }
     };
 
-    const VkResult createRes = vkCreateImageView(g_vulkanBackend.device, &depthImageViewInfo, nullptr,
-                                                 &g_vulkanBackend.resolvedDepthBuffer.view);
+    const VkResult createRes = vkCreateImageView(g_vulkanBackend.device, &depthImageViewInfo, nullptr, &g_vulkanBackend.resolvedDepthBuffer.view);
     ASSERT_MSG(createRes == VK_SUCCESS, "Err: failed to create depth image view");
 }
 
@@ -849,8 +817,7 @@ static void gfx_cleanup_resolve_depth_stencil_buffer() {
 static void gfx_create_pipeline_cache() {
     VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
     pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    const VkResult cacheRes = vkCreatePipelineCache(g_vulkanBackend.device, &pipelineCacheCreateInfo, nullptr,
-                                                    &g_vulkanBackend.pipelineCache);
+    const VkResult cacheRes = vkCreatePipelineCache(g_vulkanBackend.device, &pipelineCacheCreateInfo, nullptr, &g_vulkanBackend.pipelineCache);
     ASSERT_MSG(cacheRes == VK_SUCCESS, "Err: failed to create pipeline cache")
 }
 
@@ -879,8 +846,7 @@ static void gfx_render_frame(const VkCommandBuffer &cmdBuffer) {
             .pSignalSemaphores = &g_vulkanBackend.semaphores[gfx_swap_chain_index()].renderDone,
     };
 
-    const VkResult submitRes = vkQueueSubmit(g_vulkanBackend.queue, 1, &submitInfo,
-                                             g_vulkanBackend.graphicsFenceWait[gfx_swap_chain_index()]);
+    const VkResult submitRes = vkQueueSubmit(g_vulkanBackend.queue, 1, &submitInfo, g_vulkanBackend.graphicsFenceWait[gfx_swap_chain_index()]);
     ASSERT(submitRes == VK_SUCCESS);
 }
 
@@ -930,8 +896,7 @@ static void end_command_recording(const VkCommandBuffer &cmdBuffer) {
 
 static bool query_has_valid_extent_size() {
     VkSurfaceCapabilitiesKHR surfaceCapabilities{};
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface,
-                                              &surfaceCapabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_vulkanBackend.physicalDevice, g_vulkanBackend.swapChain.surface, &surfaceCapabilities);
     return surfaceCapabilities.currentExtent.width != 0 || surfaceCapabilities.currentExtent.height != 0;
 }
 
@@ -952,59 +917,6 @@ static void gfx_window_resize() {
     gfx_create_resolve_depth_buffer();
 }
 
-uint32_t kelvin_to_vec3f(uint32_t kelvin) {
-    const float KtoRGB_Temperature = kelvin / 100;
-    vec3f outColour;
-//RED
-    if (KtoRGB_Temperature <= 66) {
-        outColour.r = 255;
-    } else {
-        outColour.r = 329.698727446 * pow(KtoRGB_Temperature - 60, -0.1332047592);
-    }
-
-    if (outColour.r < 0) {
-        outColour.r = 0;
-    }
-
-    if (outColour.r > 255) {
-        outColour.r = 255;
-    }
-
-//GREEN
-    if (KtoRGB_Temperature <= 66) {
-        outColour.g = 99.4708025861 * log(KtoRGB_Temperature) - 161.1195681661;
-    } else {
-        outColour.g = 288.1221695283 * pow(KtoRGB_Temperature - 60, -0.0755148492);
-    }
-
-    if (outColour.g < 0) {
-        outColour.g = 0;
-    }
-    if (outColour.g > 255) {
-        outColour.g = 255;
-    }
-
-//BLUE
-    if (KtoRGB_Temperature >= 66) {
-        outColour.b = 255;
-    } else {
-        if (KtoRGB_Temperature <= 19) {
-            outColour.b = 0;
-        } else {
-            outColour.b = 138.5177312231 * log(KtoRGB_Temperature - 10) - 305.0447927307;
-        }
-
-    }
-
-    if (outColour.b < 0) {
-        outColour.b = 0;
-    }
-    if (outColour.b > 255) {
-        outColour.b = 255;
-    }
-
-    return pack_vec4f_to_uint32_t(vec4f(outColour.r / 255.0f, outColour.g / 255.0f, outColour.b / 255.0f, 1.0f));
-}
 
 static void gfx_update_uniform_buffers() {
     {
@@ -1017,8 +929,7 @@ static void gfx_update_uniform_buffers() {
 
         const mat4f view = lookAt(camTransform.position, lookTarget, WORLD_UP);
         const vec2f screen = {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
-        mat4f proj = perspective(as_radians(camera.fov), (float) screen.x / (float) screen.y, camera.zNear,
-                                 camera.zFar);
+        mat4f proj = perspective(as_radians_f(camera.fov), (float) screen.x / (float) screen.y, camera.zNear, camera.zFar);
         proj[1][1] *= -1; // flip view proj, need to switch to the vulkan glm define to fix this.
         mat4f viewProj = proj * view;
 
@@ -1041,22 +952,17 @@ static void gfx_update_uniform_buffers() {
             lightUBO->lightDesc[lightIndex].position = db_get_transform(lightEntity->transformIndex)->position;
         }
         static int32_t kelvin = 6500;//6500k == white
-        ImGui::DragInt("colour temp", &kelvin, 50, 1000, 30000);
+        ImGui::DragInt("Sky light (kelvin)", &kelvin, 50, 1000, 30000);
 
-        uint32_t col = kelvin_to_vec3f(kelvin);//vec4(207.0 / 255.0, 221.0 / 255.0, 255.0 / 255.0, 255.0 / 255.0);
-//        ImGui::ColorPicker3("dir light col", &col[0], (ImGuiColorEditFlags) 0);
+        uint32_t col = kelvin_to_rgba(kelvin);
         lightUBO->directionalLight = {
                 .direction = vec3(0.25, 1, 0.25),
-//                .color = pack_vec4f_to_uint32_t(col),
                 .color = col,
         };
     }
 }
 
-void blit_depth_stencil_to_resolved_depth(
-        VkCommandBuffer &cmdBuffer,
-        const GfxImageBuffer &srcBuffer,
-        GfxImageBuffer &dstBuffer) {
+void blit_depth_stencil_to_resolved_depth(VkCommandBuffer &cmdBuffer, const GfxImageBuffer &srcBuffer, GfxImageBuffer &dstBuffer) {
     const uint32_t width = g_vulkanBackend.swapChain.width;
     const uint32_t height = g_vulkanBackend.swapChain.height;
 
@@ -1145,9 +1051,7 @@ void blit_depth_stencil_to_resolved_depth(
     );
 }
 
-void resolve_depth_stencil_to_resolved_depth(VkCommandBuffer &cmdBuffer,
-                                             const GfxImageBuffer &srcBuffer,
-                                             GfxImageBuffer &dstBuffer) {
+void resolve_depth_stencil_to_resolved_depth(VkCommandBuffer &cmdBuffer, const GfxImageBuffer &srcBuffer, GfxImageBuffer &dstBuffer) {
     const uint32_t width = g_vulkanBackend.swapChain.width;
     const uint32_t height = g_vulkanBackend.swapChain.height;
 
@@ -1284,14 +1188,12 @@ void resolve_color_buffer_to_swapchain(VkCommandBuffer &cmdBuffer) {
             .srcSubresource {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .layerCount = 1},
             .srcOffsets = {
                     {.x = 0, .y = 0, .z = 0},
-                    {.x = int32_t(g_vulkanBackend.swapChain.width), .y = int32_t(
-                            g_vulkanBackend.swapChain.height), .z = 1}
+                    {.x = int32_t(g_vulkanBackend.swapChain.width), .y = int32_t(g_vulkanBackend.swapChain.height), .z = 1}
             },
             .dstSubresource {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .layerCount = 1},
             .dstOffsets = {
                     {.x = 0, .y = 0, .z = 0},
-                    {.x = int32_t(g_vulkanBackend.swapChain.width), .y = int32_t(
-                            g_vulkanBackend.swapChain.height), .z = 1}
+                    {.x = int32_t(g_vulkanBackend.swapChain.width), .y = int32_t(g_vulkanBackend.swapChain.height), .z = 1}
             },
     };
 
@@ -1311,8 +1213,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 
     gfx_command_insert_memory_barrier(
             cmdBuffer,
-            isMultisampling ? g_vulkanBackend.colorBuffer.image
-                            : g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].image,
+            isMultisampling ? g_vulkanBackend.colorBuffer.image : g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].image,
             0,
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1335,8 +1236,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 
     const VkRenderingAttachmentInfoKHR colorAttachment = {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-            .imageView = isMultisampling ? g_vulkanBackend.colorBuffer.view
-                                         : g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].view,
+            .imageView = isMultisampling ? g_vulkanBackend.colorBuffer.view : g_vulkanBackend.swapChain.buffers[gfx_swap_chain_index()].view,
             .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -1354,8 +1254,7 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 
     const VkRenderingInfoKHR renderingInfo = {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
-            .renderArea = {.offset = {0, 0}, .extent = {g_vulkanBackend.swapChain.width,
-                                                        g_vulkanBackend.swapChain.height}},
+            .renderArea = {.offset = {0, 0}, .extent = {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height}},
             .layerCount = 1,
             .colorAttachmentCount = 1,
             .pColorAttachments = &colorAttachment,
@@ -1364,18 +1263,15 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
     };
 
     if (isMultisampling) {
-        resolve_depth_stencil_to_resolved_depth(cmdBuffer, g_vulkanBackend.depthStencilBuffer,
-                                                g_vulkanBackend.resolvedDepthBuffer);
+        resolve_depth_stencil_to_resolved_depth(cmdBuffer, g_vulkanBackend.depthStencilBuffer, g_vulkanBackend.resolvedDepthBuffer);
     } else {
-        blit_depth_stencil_to_resolved_depth(cmdBuffer, g_vulkanBackend.depthStencilBuffer,
-                                             g_vulkanBackend.resolvedDepthBuffer);
+        blit_depth_stencil_to_resolved_depth(cmdBuffer, g_vulkanBackend.depthStencilBuffer, g_vulkanBackend.resolvedDepthBuffer);
     }
 
     {
         gfx_command_begin_rendering(cmdBuffer, renderingInfo);
         {
-            const VkViewport viewport = {0, 0, float(g_vulkanBackend.swapChain.width),
-                                         float(g_vulkanBackend.swapChain.height), 0.0f, 1.0f};
+            const VkViewport viewport = {0, 0, float(g_vulkanBackend.swapChain.width), float(g_vulkanBackend.swapChain.height), 0.0f, 1.0f};
             vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
 
             const VkRect2D scissor = {0, 0, g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
@@ -1410,20 +1306,18 @@ static void gfx_dynamic_render(VkCommandBuffer &cmdBuffer) {
 }
 
 static void gfx_create_semaphores() {
-    for (int i = 0; i < BEET_SWAP_CHAIN_IMAGE_MAX; ++i) {
+    for (uint32_t i = 0; i < BEET_SWAP_CHAIN_IMAGE_MAX; ++i) {
         VkSemaphoreCreateInfo semaphoreInfo = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-        const VkResult presentRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr,
-                                                      &g_vulkanBackend.semaphores[i].presentDone);
+        const VkResult presentRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr, &g_vulkanBackend.semaphores[i].presentDone);
         ASSERT_MSG(presentRes == VK_SUCCESS, "Err: failed to create present semaphore");
 
-        const VkResult renderRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr,
-                                                     &g_vulkanBackend.semaphores[i].renderDone);
+        const VkResult renderRes = vkCreateSemaphore(g_vulkanBackend.device, &semaphoreInfo, nullptr, &g_vulkanBackend.semaphores[i].renderDone);
         ASSERT_MSG(renderRes == VK_SUCCESS, "Err: failed to create render semaphore");
     }
 }
 
 static void gfx_cleanup_semaphores() {
-    for (int i = 0; i < BEET_SWAP_CHAIN_IMAGE_MAX; ++i) {
+    for (uint32_t i = 0; i < BEET_SWAP_CHAIN_IMAGE_MAX; ++i) {
         vkDestroySemaphore(g_vulkanBackend.device, g_vulkanBackend.semaphores[i].presentDone, nullptr);
         vkDestroySemaphore(g_vulkanBackend.device, g_vulkanBackend.semaphores[i].renderDone, nullptr);
     }
@@ -1555,8 +1449,7 @@ void gfx_update(const double &deltaTime) {
     } else if (nextRes < 0) {
         ASSERT(nextRes == VK_SUCCESS)
     }
-    vkWaitForFences(g_vulkanBackend.device, 1, &g_vulkanBackend.graphicsFenceWait[gfx_swap_chain_index()], true,
-                    UINT64_MAX);
+    vkWaitForFences(g_vulkanBackend.device, 1, &g_vulkanBackend.graphicsFenceWait[gfx_swap_chain_index()], true, UINT64_MAX);
     vkResetFences(g_vulkanBackend.device, 1, &g_vulkanBackend.graphicsFenceWait[gfx_swap_chain_index()]);
 
     gfx_update_uniform_buffers();
@@ -1592,8 +1485,7 @@ vec2i gfx_screen_size() {
     return {g_vulkanBackend.swapChain.width, g_vulkanBackend.swapChain.height};
 }
 
-uint32_t get_multisample_count() {
+uint32_t gfx_multisample_count() {
     return (uint32_t) g_userArguments.msaa;
 }
-
 //======================================================================================================================
