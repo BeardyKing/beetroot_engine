@@ -304,11 +304,11 @@ void window_create(const char windowTitle[MAX_WINDOW_TITLE_SIZE], const vec2i &w
     }
 
     wchar_t wc_windowTitle[MAX_WINDOW_TITLE_SIZE];
-    MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, windowTitle, -1, wc_windowTitle, sizeof(wchar_t) * MAX_WINDOW_TITLE_SIZE);
+    MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, windowTitle, -1, wc_windowTitle, sizeof(wchar_t) * MAX_WINDOW_TITLE_SIZE );
 
     HINSTANCE hInstance = GetModuleHandle(nullptr);
     {
-//        s_windowInfo = {};
+        s_windowInfo = {};
         s_windowInfo.width = windowSize.x;
         s_windowInfo.height = windowSize.y;
         s_windowInfo.posX = screenX;
@@ -319,6 +319,7 @@ void window_create(const char windowTitle[MAX_WINDOW_TITLE_SIZE], const vec2i &w
         s_windowInfo.windowClass.hInstance = hInstance;
         s_windowInfo.windowClass.lpszClassName = s_windowInfo.applicationName;
         s_windowInfo.windowClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
+        s_windowInfo.windowClass.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
     }
 
     RegisterClass(&s_windowInfo.windowClass);

@@ -31,9 +31,9 @@ void script_create_lights() {
     });
 }
 
-constexpr uint16_t GRID_X = 64;
+constexpr uint16_t GRID_X = 16;
 constexpr uint16_t GRID_Y = 8;
-constexpr uint16_t GRID_Z = 64;
+constexpr uint16_t GRID_Z = 16;
 constexpr uint16_t GRID_COUNT = GRID_X * GRID_Y * GRID_Z;
 
 constexpr uint32_t LIGHTS_PER_CELL = 8;

@@ -25,6 +25,8 @@ add_executable(beet_runtime
         src/scripts/script_dungeon_tiles.cpp
         inc/runtime/scripts/script_lights.h
         src/scripts/script_lights.cpp
+        inc/runtime/widget_performance_graph.h
+        src/widget_performance_graph.cpp
 )
 
 target_include_directories(beet_runtime

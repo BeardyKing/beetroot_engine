@@ -952,8 +952,9 @@ static void gfx_update_uniform_buffers() {
             lightUBO->lightDesc[lightIndex].position = db_get_transform(lightEntity->transformIndex)->position;
         }
         static int32_t kelvin = 6500;//6500k == white
+#if CHECK_FEATURE(FEATURE_GFX_IMGUI)
         ImGui::DragInt("Sky light (kelvin)", &kelvin, 50, 1000, 30000);
-
+#endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
         uint32_t col = kelvin_to_rgba(kelvin);
         lightUBO->directionalLight = {
                 .direction = vec3(0.25, 1, 0.25),
