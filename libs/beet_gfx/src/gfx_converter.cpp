@@ -1,11 +1,15 @@
 #include <beet_gfx/gfx_converter.h>
 #include <beet_converter/converter_interface.h>
+#include <beet_converter/converter_types.h>
 
 #include <beet_shared/assert.h>
 #include <beet_shared/log.h>
 #include <beet_shared/c_string.h>
+#include <beet_shared/filesystem.h>
 
 #include <cstring>
+
+extern ConverterLocations g_converterLocations;
 
 constexpr uint32_t SUPPORTED_CONVERTER_FORMATS_COUNT = 4;
 static constexpr const char *SUPPORTED_CONVERTER_FORMATS[SUPPORTED_CONVERTER_FORMATS_COUNT]{
@@ -17,8 +21,8 @@ static constexpr const char *SUPPORTED_CONVERTER_FORMATS[SUPPORTED_CONVERTER_FOR
 
 #if CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
 //===API================================================================================================================
-void gfx_converter_init(const char *rawAssetDir, const char *targetAssetDir) {
 
+void gfx_converter_init(const char *rawAssetDir, const char *targetAssetDir) {
     const bool initResult = converter_init(rawAssetDir, targetAssetDir);
     ASSERT(initResult)
 
@@ -39,11 +43,6 @@ bool gfx_convert_shader_spv(const char *localAssetPath) {
     return compileResult;
 }
 
-#include <beet_shared/filesystem.h>
-#include <beet_converter/converter_types.h>
-
-extern ConverterLocations g_converterLocations;
-
 bool gfx_convert_texture_dds(const char *localAssetPath) {
     const char *delim = (c_str_search_reverse(localAssetPath, "."));
     if (!c_str_search_reverse(localAssetPath, ".")) {
@@ -57,7 +56,7 @@ bool gfx_convert_texture_dds(const char *localAssetPath) {
     uint32_t foundIndex = {};
     bool foundFile = false;
     for (uint32_t i = 0; i < SUPPORTED_CONVERTER_FORMATS_COUNT; ++i) {
-        memset(searchFileName, 0, sizeof(char) * 128);
+        memset(searchFileName, 0, sizeof(char) * 256);
         sprintf(searchFileName, "%s%s%s", g_converterLocations.rawAssetDir.c_str(), fileNameNoExt, SUPPORTED_CONVERTER_FORMATS[i]);
         foundFile = fs_file_exists(searchFileName);
         if (foundFile) {

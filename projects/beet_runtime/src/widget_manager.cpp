@@ -93,6 +93,7 @@ static void widget_imgui_demo_update(bool &active) {
 
 //===API================================================================================================================
 void widget_manager_update() {
+#if CHECK_FEATURE(FEATURE_GFX_IMGUI)
     widget_toolbar_update();
     widget_state_update();
 
@@ -103,5 +104,6 @@ void widget_manager_update() {
     widget_imgui_demo_update(s_widgets[uint32_t(WidgetType::IMGUI_DEMO_MENU)].isActive);
 
     widget_performance_graph_update(s_widgets[uint32_t(WidgetType::FRAME_GRAPH_MENU)].isActive);
+#endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
 }
 //======================================================================================================================

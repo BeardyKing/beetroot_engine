@@ -16,9 +16,9 @@ const char *c_str_n_search_reverse(const char *src, int32_t srcLen, const char *
 char *c_str_n_search_reverse(char *src, int32_t srcLen, const char *subStr, int32_t subStrLen);
 
 bool c_str_replace_after_delim_reverse(char *existingPath, const char *replaceTarget, const char *subStr);
-bool c_string_replace_extension(char *existingPath, const char *newExtension);
-bool c_string_remove_file_from_path(const char *inPath, char *outPath);
-bool c_string_extract_file_name(const char *inPath, char *outFilename);
+bool c_str_replace_extension(char *existingPath, const char *newExtension);
+bool c_str_remove_file_from_path(const char *inPath, char *outPath);
+bool c_str_extract_file_name(const char *inPath, char *outFilename);
 //======================================================================================================================
 
 #endif //BEETROOT_C_STRING_H

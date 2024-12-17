@@ -59,7 +59,7 @@ bool c_str_replace_after_delim_reverse(char *existingPath, const char *replaceTa
     return false;
 }
 
-bool c_string_replace_extension(char *existingPath, const char *newExtension) {
+bool c_str_replace_extension(char *existingPath, const char *newExtension) {
     const char *extension = (*newExtension == '.') ? newExtension + 1 : newExtension;
     if (char *dot = c_str_search_reverse(existingPath, ".")) {
         memset(dot + 1, '\0', strlen(dot + 1));
@@ -69,7 +69,7 @@ bool c_string_replace_extension(char *existingPath, const char *newExtension) {
     return false;
 }
 
-bool c_string_remove_file_from_path(const char *inPath, char *outPath) {
+bool c_str_remove_file_from_path(const char *inPath, char *outPath) {
     if (c_str_empty(inPath) || outPath == nullptr) {
         return false;
     }
@@ -90,7 +90,7 @@ bool c_string_remove_file_from_path(const char *inPath, char *outPath) {
     return true;
 }
 
-bool c_string_extract_file_name(const char *inPath, char *outFilename) {
+bool c_str_extract_file_name(const char *inPath, char *outFilename) {
     if (c_str_empty(inPath) || outFilename == nullptr) {
         return false;
     }

@@ -38,7 +38,7 @@ target_link_libraries(beet_shared
         beet_math
 )
 
-set_target_properties(beet_shared PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+set_target_properties(beet_shared PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 
 #====DEBUG================
 if (CMAKE_BUILD_TYPE MATCHES Debug)

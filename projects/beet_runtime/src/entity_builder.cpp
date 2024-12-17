@@ -189,7 +189,7 @@ static bool load_package(const char *packagePath) {
         });
 #if BEET_DEBUG
         char debugName[DEBUG_NAME_MAX] = {};
-        if (c_string_extract_file_name(packagePath, debugName)) {
+        if (c_str_extract_file_name(packagePath, debugName)) {
             sprintf(db_get_lit_entity(litEntity)->debug_name, "%s", debugName);
         }
 #endif //BEET_DEBUG

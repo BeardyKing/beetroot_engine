@@ -20,23 +20,23 @@
 #endif
 
 //===TARGETS============================================================================================================
-constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
-constexpr uint32_t BEET_SWAP_CHAIN_IMAGE_MAX = 8;
-constexpr uint32_t BEET_BUFFER_COUNT = 2;
+inline constexpr VkSurfaceFormatKHR BEET_TARGET_SWAPCHAIN_FORMAT = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+inline constexpr uint32_t BEET_SWAP_CHAIN_IMAGE_MAX = 8;
+inline constexpr uint32_t BEET_BUFFER_COUNT = 2;
 //======================================================================================================================
 
 //===EXTENSIONS=========================================================================================================
-static constexpr int32_t BEET_VK_INSTANCE_EXTENSION_COUNT = 4;
-static constexpr const char *BEET_VK_INSTANCE_EXTENSIONS[BEET_VK_INSTANCE_EXTENSION_COUNT]{
+inline constexpr int32_t BEET_VK_INSTANCE_EXTENSION_COUNT = 4;
+inline constexpr const char *BEET_VK_INSTANCE_EXTENSIONS[BEET_VK_INSTANCE_EXTENSION_COUNT]{
         VK_KHR_SURFACE_EXTENSION_NAME,
         BEET_VK_SURFACE_EXTENSION,
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
         VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
 };
 
-static constexpr int32_t BEET_VK_MAX_DEVICE_EXTENSION_COUNT = 64;
-static constexpr int32_t BEET_VK_REQUIRED_DEVICE_EXTENSION_COUNT = 7;
-static constexpr const char *BEET_VK_REQUIRED_DEVICE_EXTENSIONS[BEET_VK_REQUIRED_DEVICE_EXTENSION_COUNT]{
+inline constexpr int32_t BEET_VK_MAX_DEVICE_EXTENSION_COUNT = 64;
+inline constexpr int32_t BEET_VK_REQUIRED_DEVICE_EXTENSION_COUNT = 7;
+inline constexpr const char *BEET_VK_REQUIRED_DEVICE_EXTENSIONS[BEET_VK_REQUIRED_DEVICE_EXTENSION_COUNT]{
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
         VK_KHR_MAINTENANCE2_EXTENSION_NAME,
@@ -50,25 +50,25 @@ static constexpr const char *BEET_VK_REQUIRED_DEVICE_EXTENSIONS[BEET_VK_REQUIRED
 //===DEBUG==============================================================================================================
 #if BEET_DEBUG
 // TODO: Move to command line argument
-static constexpr int32_t BEET_DEBUG_VK_FORCE_GPU_SELECTION = -1; // ignore [-1] force select [0..UINT32_MAX]
+inline constexpr int32_t BEET_DEBUG_VK_FORCE_GPU_SELECTION = -1; // ignore [-1] force select [0..UINT32_MAX]
 #endif
 //======================================================================================================================
 
 //===VALIDATION=========================================================================================================
-static constexpr char BEET_VK_LAYER_VALIDATION[] = "VK_LAYER_KHRONOS_validation";
+inline constexpr char BEET_VK_LAYER_VALIDATION[] = "VK_LAYER_KHRONOS_validation";
 
-static constexpr int32_t BEET_VK_VALIDATION_COUNT = 1;
-static constexpr const char *beetVulkanValidations[BEET_VK_VALIDATION_COUNT]{
+inline constexpr int32_t BEET_VK_VALIDATION_COUNT = 1;
+inline constexpr const char *beetVulkanValidations[BEET_VK_VALIDATION_COUNT]{
         BEET_VK_LAYER_VALIDATION,
 };
 //======================================================================================================================
 
 //===API_VERSION========================================================================================================
 // to be used for runtime version checking.
-static constexpr uint32_t BEET_VK_API_VERSION_1_3 VK_MAKE_API_VERSION(0, 1, 3, 0);
-static constexpr uint32_t BEET_VK_API_VERSION_1_2 VK_MAKE_API_VERSION(0, 1, 2, 0);
-static constexpr uint32_t BEET_VK_API_VERSION_1_1 VK_MAKE_API_VERSION(0, 1, 1, 0);
-static constexpr uint32_t BEET_VK_API_VERSION_1_0 VK_MAKE_API_VERSION(0, 1, 0, 0);
+inline constexpr uint32_t BEET_VK_API_VERSION_1_3 VK_MAKE_API_VERSION(0, 1, 3, 0);
+inline constexpr uint32_t BEET_VK_API_VERSION_1_2 VK_MAKE_API_VERSION(0, 1, 2, 0);
+inline constexpr uint32_t BEET_VK_API_VERSION_1_1 VK_MAKE_API_VERSION(0, 1, 1, 0);
+inline constexpr uint32_t BEET_VK_API_VERSION_1_0 VK_MAKE_API_VERSION(0, 1, 0, 0);
 
 #if defined(VK_VERSION_1_3)
 #define BEET_VK_COMPILE_VERSION_1_3 1

@@ -18,11 +18,6 @@
 
 #endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
 
-#if CHECK_FEATURE(FEATURE_GFX_IMGUI)
-void imgui_update() {
-    gfx_imgui_begin();
-}
-#endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
 
 int main() {
     const vec2i windowSize = {1024, 768};
@@ -38,19 +33,19 @@ int main() {
     script_create();
     log_info(MSG_RUNTIME, "hello beetroot engine\n");
     while (window_is_open()) {
+#if CHECK_FEATURE(FEATURE_GFX_IMGUI)
+        gfx_imgui_begin();
+#endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
         time_tick();
         input_set_time(time_current());
         window_update();
         input_update();
-#if CHECK_FEATURE(FEATURE_GFX_IMGUI)
-        imgui_update();
-#endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
         script_update(time_delta_f());
-#if CHECK_FEATURE(FEATURE_GFX_IMGUI)
         widget_manager_update();
-#endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
-
         gfx_update(time_delta_d());
+#if CHECK_FEATURE(FEATURE_GFX_IMGUI)
+        gfx_imgui_end();
+#endif //CHECK_FEATURE(FEATURE_GFX_IMGUI)
     }
     db_dump_pool_alloc_table();
     script_shutdown();

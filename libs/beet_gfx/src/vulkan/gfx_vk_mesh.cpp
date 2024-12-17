@@ -167,7 +167,7 @@ void set_material_image_path(char *outPath, char *inURI, const char *targetWrite
         strcpy(outPath, targetWriteDirectory);
         char *lastDir = c_str_search_reverse(outPath, "/") + 1;
         strcpy(lastDir, inURI);
-        c_string_replace_extension(outPath, ".dds");
+        c_str_replace_extension(outPath, ".dds");
     } else {
         sprintf(outPath, "%s", "white.dds");
         log_verbose(MSG_CONVERTER, "using fallback texture for asset %s", targetWriteDirectory);
@@ -323,7 +323,7 @@ void load_gltf_file(const char *filePath, const char *targetWriteDirectory, Asse
 AssetPackage asset_package_load_gltf(const char *inPath) {
     char path[128] = {};
     char writePath[128] = {};
-    c_string_remove_file_from_path(inPath, writePath);
+    c_str_remove_file_from_path(inPath, writePath);
 #if CHECK_FEATURE(FEATURE_CONVERT_ON_DEMAND)
     sprintf(path, "%s%s", g_converterLocations.rawAssetDir.c_str(), inPath);
     ASSERT(fs_file_exists(path));
