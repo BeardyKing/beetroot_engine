@@ -7,11 +7,9 @@ add_library(beet_core
         inc/beet_core/input_types.h
         inc/beet_core/time.h
         inc/beet_core/window.h
-        inc/beet_core/engine.h
         src/input.cpp
         src/time_win.cpp
         src/window_win.cpp
-        src/engine.cpp
         src/time_linux.cpp
         src/window_linux.cpp
 )
